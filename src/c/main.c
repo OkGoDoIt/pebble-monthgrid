@@ -107,8 +107,8 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
   bool dots_data_seen = false;
 
   for (Tuple *t = dict_read_first(iter); t; t = dict_read_next(iter)) {
-    if (t->key == MESSAGE_KEY_THEME_INVERT) {
-      g_settings.invert = prv_tuple_int(t) ? 1 : 0; settings_changed = true;
+    if (t->key == MESSAGE_KEY_THEME) {
+      g_settings.theme = prv_tuple_int(t); settings_changed = true;
     } else if (t->key == MESSAGE_KEY_TIME_FORMAT) {
       g_settings.time_format = prv_tuple_int(t); settings_changed = true;
     } else if (t->key == MESSAGE_KEY_TIME_SIZE) {

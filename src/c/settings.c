@@ -1,9 +1,27 @@
 #include "common.h"
 
+// bg, fg, accent, on_accent, dim — chosen for legibility with the
+// backlight off: light foregrounds on dark grounds (or the inverse), with
+// one saturated accent for the banner and today's box.
+const ThemeSpec g_themes[THEME_COUNT] = {
+  { GColorBlackARGB8, GColorWhiteARGB8, GColorWhiteARGB8, GColorBlackARGB8,
+    GColorDarkGrayARGB8 },                                        // Classic
+  { GColorWhiteARGB8, GColorBlackARGB8, GColorBlackARGB8, GColorWhiteARGB8,
+    GColorLightGrayARGB8 },                                       // Paper
+  { GColorBlackARGB8, GColorChromeYellowARGB8, GColorChromeYellowARGB8,
+    GColorBlackARGB8, GColorWindsorTanARGB8 },                    // Amber
+  { GColorBlackARGB8, GColorWhiteARGB8, GColorVividCeruleanARGB8,
+    GColorBlackARGB8, GColorDarkGrayARGB8 },                      // Ice
+  { GColorBlackARGB8, GColorWhiteARGB8, GColorRedARGB8, GColorWhiteARGB8,
+    GColorDarkGrayARGB8 },                                        // Crimson
+  { GColorOxfordBlueARGB8, GColorWhiteARGB8, GColorChromeYellowARGB8,
+    GColorBlackARGB8, GColorLibertyARGB8 },                       // Midnight
+};
+
 void settings_set_defaults(Settings *s) {
   *s = (Settings) {
     .version = SETTINGS_VERSION,
-    .invert = 0,
+    .theme = THEME_CLASSIC,
     .time_format = TIME_FMT_SYSTEM,
     .time_size = TIME_SIZE_LARGE,
     .time_font = TIME_FONT_ROBOTO,
@@ -22,6 +40,7 @@ void settings_set_defaults(Settings *s) {
 }
 
 void settings_sanitize(Settings *s) {
+  if (s->theme >= THEME_COUNT) { s->theme = THEME_CLASSIC; }
   if (s->time_format > TIME_FMT_24H) { s->time_format = TIME_FMT_SYSTEM; }
   if (s->time_size > TIME_SIZE_SMALL) { s->time_size = TIME_SIZE_LARGE; }
   if (s->time_font >= TIME_FONT_COUNT) { s->time_font = TIME_FONT_ROBOTO; }
