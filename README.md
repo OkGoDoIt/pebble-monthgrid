@@ -10,9 +10,9 @@ official Pebble SDK.
 ## Features
 
 - **Full month calendar** with today inverted; optional dimmed previous/next-month days
-  to complete the first and last weeks.
-- **Big time display** with four selectable font styles — Digital (LECO), Pixel
-  (Silkscreen), Classic bold / Classic light (Bitham) — in three sizes.
+  filling the whole grid.
+- **Big time display** with five selectable font styles — Roboto (default), Digital
+  (LECO), Pixel (Silkscreen), Bitham bold / light — in three sizes.
   12-hour mode **never shows a leading zero**. Optional seconds (off by default; the
   face ticks once a minute unless enabled).
 - **Prioritized status line** — pick up to four items, shown in priority order, as many
@@ -24,9 +24,10 @@ official Pebble SDK.
 - **Weather** via [Open-Meteo](https://open-meteo.com/) (the pattern recommended by the
   official Pebble docs — no API key, no account). Cached on the watch, refreshed every
   30 minutes, shown only while fresh (<3 h).
-- **Calendar event dots** — up to three iCal/ICS subscriptions (e.g. Google Calendar's
-  *Secret address in iCal format*) mark days with events: solid dot = timed event,
-  short line = all-day event, color-coded per calendar on color watches. The URLs stay
+- **Calendar event markers** — up to three iCal/ICS subscriptions (e.g. Google
+  Calendar's *Secret address in iCal format*) mark days with events. Two styles: a
+  1px underline that splits into per-calendar color sections, or small squares —
+  color-coded per calendar on color watches, sized per display density. The URLs stay
   on your phone; the watch only ever receives a per-day bitmask.
 - **Timeline Quick View aware** — when the system overlay appears, the face compresses
   (smaller time, then status, banner, header yield) instead of cropping the grid.
