@@ -201,7 +201,6 @@ module.exports = [
         label: 'Calendar 1 color',
         defaultValue: '0xFF0000',
         sunlight: true,
-        capabilities: ['COLOR'],
       },
       {
         type: 'input',
@@ -216,7 +215,6 @@ module.exports = [
         label: 'Calendar 2 color',
         defaultValue: '0x0055FF',
         sunlight: true,
-        capabilities: ['COLOR'],
       },
       {
         type: 'input',
@@ -231,7 +229,6 @@ module.exports = [
         label: 'Calendar 3 color',
         defaultValue: '0x00AA00',
         sunlight: true,
-        capabilities: ['COLOR'],
       },
     ],
   },
