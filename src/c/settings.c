@@ -10,7 +10,7 @@ void settings_set_defaults(Settings *s) {
     .start_day = START_SUNDAY,
     .show_seconds = 0,
     .show_adjacent = 0,
-    .dots_enabled = 0,
+    .dots_enabled = 1,
     .dots_style = DOTS_STYLE_BAR,
     .banner_content = BANNER_MONTH,
     .vibe_disconnect = 0,

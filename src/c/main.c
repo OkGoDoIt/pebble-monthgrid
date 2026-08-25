@@ -155,6 +155,10 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
       g_weather.cond = prv_tuple_int(t); weather_changed = true;
     } else if (t->key == MESSAGE_KEY_DOTS_MONTH) {
       dots_month = prv_tuple_int(t);
+    } else if (t->key == MESSAGE_KEY_DOTS_STATUS) {
+      g_dots.status = (uint8_t) prv_tuple_int(t);
+      persist_write_data(PERSIST_KEY_DOTS, &g_dots, sizeof(g_dots));
+      layer_mark_dirty(s_calendar_layer);
     } else if (t->key == MESSAGE_KEY_DOTS_DATA) {
       if (t->type == TUPLE_BYTE_ARRAY && t->length <= sizeof(dots_days)) {
         memset(dots_days, 0, sizeof(dots_days));
@@ -183,6 +187,7 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
   }
   if (dots_data_seen && dots_month > 0) {
     g_dots.version = DOTS_VERSION;
+    g_dots.status = 0;
     g_dots.monthkey = (uint16_t) dots_month;
     memcpy(g_dots.days, dots_days, sizeof(g_dots.days));
     persist_write_data(PERSIST_KEY_DOTS, &g_dots, sizeof(g_dots));

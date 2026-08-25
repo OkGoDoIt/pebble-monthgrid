@@ -61,7 +61,8 @@
       "WEATHER_COND",
       "DOTS_REQUEST",
       "DOTS_MONTH",
-      "DOTS_DATA"
+      "DOTS_DATA",
+      "DOTS_STATUS"
     ],
     "resources": {
       "media": [

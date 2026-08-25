@@ -122,6 +122,9 @@ typedef struct __attribute__((__packed__)) {
 typedef struct __attribute__((__packed__)) {
   uint8_t version;
   uint16_t monthkey;
+  // Last refresh outcome from the phone: 0 = ok, nonzero = the most recent
+  // calendar fetch/parse failed (cached days below stay valid).
+  uint8_t status;
   // Per day-of-month bitmask: bits 0..2 = timed event in calendar 1..3,
   // bits 3..5 = all-day event in calendar 1..3.
   uint8_t days[31];

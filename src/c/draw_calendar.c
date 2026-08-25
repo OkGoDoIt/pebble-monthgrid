@@ -243,6 +243,27 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
   }
 
+  // A small "!" when event markers are on but the phone's last calendar
+  // refresh failed (cached markers stay up; this says they may be stale).
+  if (g_settings.dots_enabled && g_dots.status != 0) {
+    if (g_layout.side_columns) {
+      GRect col = g_layout.banner_zone;
+      graphics_context_set_text_color(ctx, fg);
+      graphics_draw_text(ctx, "!", g_font_small_bold,
+                         GRect(col.origin.x, col.origin.y + col.size.h - SMALL_DIGIT_H
+                                   - SMALL_TOP_PAD - 1,
+                               col.size.w, SMALL_DIGIT_H + SMALL_TOP_PAD + TEXT_BOX_SLACK),
+                         GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+    } else if (g_layout.banner_visible) {
+      GRect bz = g_layout.banner_zone;
+      graphics_context_set_text_color(ctx, bg);
+      graphics_draw_text(ctx, "!", g_font_banner,
+                         GRect(bz.origin.x, bz.origin.y - (PBL_DISPLAY_WIDTH >= 200 ? 3 : 2),
+                               bz.size.w - 5, bz.size.h + 6),
+                         GTextOverflowModeFill, GTextAlignmentRight, NULL);
+    }
+  }
+
   // ---- Weekday header -------------------------------------------------
   int start_wday = start_wday_setting();
   if (g_layout.header_visible) {

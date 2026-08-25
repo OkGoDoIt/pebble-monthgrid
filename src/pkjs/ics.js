@@ -109,22 +109,24 @@ function durationExtraDays(value) {
   return Math.floor(secs / 86400);
 }
 
-// Parse the raw ICS text into simple event records.
+// Parse the raw ICS text into simple event records. Iterates the text with
+// indexOf instead of splitting into a giant line array: real calendars run
+// to megabytes and the phone-side JS sandbox is memory-constrained, so peak
+// memory stays close to the input string itself.
 function parseEvents(text) {
-  var lines = text.replace(/\r\n/g, '\n').replace(/\n[ \t]/g, '').split('\n');
   var events = [];
   var cur = null;
-  for (var i = 0; i < lines.length; i++) {
-    var line = lines[i];
-    if (line === 'BEGIN:VEVENT') { cur = { exdates: {} }; continue; }
+
+  function handleLine(line) {
+    if (line === 'BEGIN:VEVENT') { cur = { exdates: {} }; return; }
     if (line === 'END:VEVENT') {
       if (cur && cur.start) { events.push(cur); }
       cur = null;
-      continue;
+      return;
     }
-    if (!cur) { continue; }
+    if (!cur) { return; }
     var split = splitProperty(line);
-    if (!split) { continue; }
+    if (!split) { return; }
     var left = split[0];
     var value = split[1];
     var name = left.split(';')[0];
@@ -151,6 +153,27 @@ function parseEvents(text) {
       cur.cancelled = true;
     }
   }
+
+  var i = 0;
+  var n = text.length;
+  var logical = null;   // current logical line (folded continuations joined)
+  while (i < n) {
+    var nl = text.indexOf('\n', i);
+    if (nl === -1) { nl = n; }
+    var end = nl;
+    if (end > i && text.charCodeAt(end - 1) === 13) { end--; }  // strip \r
+    var ch = text.charCodeAt(i);
+    if (ch === 32 || ch === 9) {
+      // Folded continuation of the previous logical line.
+      if (logical !== null) { logical += text.slice(i + 1, end); }
+    } else {
+      if (logical !== null) { handleLine(logical); }
+      logical = (i === end) ? '' : text.slice(i, end);
+    }
+    i = nl + 1;
+  }
+  if (logical !== null) { handleLine(logical); }
+
   // RECURRENCE-ID overrides: a rescheduled instance appears as its own
   // VEVENT (marked normally above); suppress the master rule's original
   // occurrence so it doesn't leave a phantom mark.
