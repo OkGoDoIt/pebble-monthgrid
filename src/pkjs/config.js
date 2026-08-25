@@ -2,7 +2,7 @@
 // Select values are numbers so they arrive on the watch as int32 tuples.
 
 var METRIC_OPTIONS = [
-  { label: '— Remove —', value: 0 },
+  { label: 'None', value: 0 },
   { label: 'Battery', value: 1 },
   { label: 'Weather', value: 2 },
   { label: 'Steps', value: 3 },
