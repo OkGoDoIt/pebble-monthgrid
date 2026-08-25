@@ -1,0 +1,8 @@
+build/
+dist/
+dist.zip
+.lock-waf*
+__pycache__/
+*.pyc
+node_modules/
+.DS_Store
