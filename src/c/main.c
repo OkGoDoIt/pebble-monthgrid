@@ -236,6 +236,9 @@ static void prv_health_handler(HealthEventType event, void *context) {
 }
 #endif
 
+// On aplite the subscribe call is an SDK no-op macro (Quick View never
+// appears there), so the handlers would be unused.
+#if !defined(PBL_PLATFORM_APLITE)
 static void prv_unobstructed_change(AnimationProgress progress, void *context) {
   (void) progress;
   (void) context;
@@ -246,6 +249,7 @@ static void prv_unobstructed_did_change(void *context) {
   (void) context;
   prv_relayout();
 }
+#endif
 
 // ---------------------------------------------------------------------------
 // Window
@@ -344,10 +348,12 @@ static void prv_init(void) {
 #if defined(PBL_HEALTH)
   health_service_events_subscribe(prv_health_handler, NULL);
 #endif
+#if !defined(PBL_PLATFORM_APLITE)
   unobstructed_area_service_subscribe((UnobstructedAreaHandlers) {
     .change = prv_unobstructed_change,
     .did_change = prv_unobstructed_did_change,
   }, NULL);
+#endif
 }
 
 static void prv_deinit(void) {

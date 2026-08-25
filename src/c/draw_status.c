@@ -32,6 +32,7 @@ static bool prv_health_ok(HealthMetric metric) {
 }
 #endif
 
+#if defined(PBL_HEALTH)
 static void prv_format_count(char *buf, size_t len, int32_t v) {
   if (v < 1000) {
     snprintf(buf, len, "%d", (int) v);
@@ -41,6 +42,7 @@ static void prv_format_count(char *buf, size_t len, int32_t v) {
     snprintf(buf, len, "%dk", (int) (v / 1000));
   }
 }
+#endif
 
 // Returns false if this metric has no meaningful data right now (hidden).
 static bool prv_metric_text(uint8_t metric, char *buf, size_t len) {
@@ -122,9 +124,10 @@ static bool prv_metric_text(uint8_t metric, char *buf, size_t len) {
     case METRIC_WEEK_NUM:
       snprintf(buf, len, "W%d", iso_week_number(&g_now));
       return true;
-#if PBL_API_EXISTS(alarm_service_peek_next)
+    // On pre-2025 platforms alarm_service_peek_next is an SDK stub that
+    // always returns false, so the metric simply stays hidden there.
     case METRIC_NEXT_ALARM: {
-      time_t when;
+      time_t when = 0;
       if (!alarm_service_peek_next(&when)) { return false; }
       struct tm *lt = localtime(&when);
       if (!lt) { return false; }
@@ -139,7 +142,6 @@ static bool prv_metric_text(uint8_t metric, char *buf, size_t len) {
       }
       return true;
     }
-#endif
     case METRIC_CONNECTION:
       // Shows only as a warning: icon when disconnected, hidden when fine.
       return !g_connected;

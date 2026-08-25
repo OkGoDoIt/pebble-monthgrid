@@ -2,9 +2,13 @@
   "name": "monthgrid",
   "author": "Roger",
   "version": "1.0.0",
-  "keywords": ["pebble-app"],
+  "keywords": [
+    "pebble-app"
+  ],
   "private": true,
-  "dependencies": {},
+  "dependencies": {
+    "@rebble/clay": "^1.1.0"
+  },
   "pebble": {
     "displayName": "MonthGrid",
     "uuid": "45829fc0-2bd8-4b99-a273-1cd63d8f5ef5",
@@ -22,7 +26,11 @@
     "watchapp": {
       "watchface": true
     },
-    "capabilities": ["location", "configurable", "health"],
+    "capabilities": [
+      "location",
+      "configurable",
+      "health"
+    ],
     "messageKeys": [
       "THEME_INVERT",
       "TIME_FORMAT",
@@ -41,6 +49,9 @@
       "CAL1_COLOR",
       "CAL2_COLOR",
       "CAL3_COLOR",
+      "CAL1_URL",
+      "CAL2_URL",
+      "CAL3_URL",
       "WEATHER_REQUEST",
       "WEATHER_TEMP_C",
       "WEATHER_COND",
@@ -67,14 +78,20 @@
           "name": "FONT_SILKSCREEN_16",
           "file": "fonts/Silkscreen-Regular.ttf",
           "characterRegex": "[!-~°]",
-          "targetPlatforms": ["emery", "gabbro"]
+          "targetPlatforms": [
+            "emery",
+            "gabbro"
+          ]
         },
         {
           "type": "font",
           "name": "FONT_SILKSCREEN_BOLD_16",
           "file": "fonts/Silkscreen-Bold.ttf",
           "characterRegex": "[!-~°]",
-          "targetPlatforms": ["emery", "gabbro"]
+          "targetPlatforms": [
+            "emery",
+            "gabbro"
+          ]
         }
       ]
     }
