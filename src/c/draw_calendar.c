@@ -211,7 +211,9 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
           : cell.origin.y + (cell.size.h - 1 - SMALL_DIGIT_H) / 2;
       GRect box = GRect(cell.origin.x + 1, digit_top - 2,
                         cell.size.w - 2, SMALL_DIGIT_H + 4);
-      if (box.origin.y < cell.origin.y) { box.origin.y = cell.origin.y; }
+      // The box may borrow one empty pixel row from the cell above so its
+      // top border survives even at the tightest pitches.
+      if (box.origin.y < cell.origin.y - 1) { box.origin.y = cell.origin.y - 1; }
       int16_t max_bottom = cell.origin.y + cell.size.h;
       if (box.origin.y + box.size.h > max_bottom) {
         box.size.h = max_bottom - box.origin.y;

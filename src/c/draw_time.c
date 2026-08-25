@@ -77,7 +77,7 @@ void draw_time_update_proc(Layer *layer, GContext *ctx) {
   // makes the digits hug the top of the zone.
   int16_t digits_y = zone.origin.y - g_layout.time_trim;
   graphics_draw_text(ctx, time_buf, g_layout.time_font,
-                     GRect(x0, digits_y, time_size.w + 2, zone.size.h + 8),
+                     GRect(x0, digits_y, time_size.w + 2, zone.size.h + g_layout.time_trim + 16),
                      GTextOverflowModeFill, GTextAlignmentLeft, NULL);
 
   // Side-label placement works in *visual* tops (the font's top bearing is
@@ -105,6 +105,11 @@ void draw_time_update_proc(Layer *layer, GContext *ctx) {
   // of the AM/PM label even if they dip below the zone.
   if (ampm_buf[0] && sec_buf[0] && sec_top < ampm_top + SMALL_DIGIT_H + 2) {
     sec_top = ampm_top + SMALL_DIGIT_H + 2;
+  }
+  // If the seconds still can't fit (very short zones, Quick View
+  // compression), hide them rather than colliding with the content below.
+  if (sec_buf[0] && sec_top + SMALL_DIGIT_H > zone.origin.y + zone.size.h + 6) {
+    sec_buf[0] = '\0';
   }
 #endif
   if (ampm_buf[0]) {
