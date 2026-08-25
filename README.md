@@ -11,6 +11,10 @@ official Pebble SDK.
 
 - **Full month calendar** with today inverted; optional dimmed previous/next-month days
   filling the whole grid.
+- **Banner options** — the inverted bar shows the month name (default) or full dates:
+  month+day, weekday+month+day, with or without the year. Ordering follows your region
+  (US: `AUGUST 25`; elsewhere: `25 AUGUST`), names are localized, and long combinations
+  automatically shorten (`WEDNESDAY, SEPTEMBER 30` → `WED, SEP 30`) so nothing clips.
 - **Big time display** with five selectable font styles — Roboto (default), Digital
   (LECO), Pixel (Silkscreen), Bitham bold / light — in three sizes.
   12-hour mode **never shows a leading zero**. Optional seconds (off by default; the
