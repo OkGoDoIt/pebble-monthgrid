@@ -121,21 +121,19 @@ static const TimeFontSpec TIME_FONTS[TIME_FONT_COUNT][3] = {
     { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8 } },
 #else                                                    // 144x168 rect
   { { FONT_KEY_ROBOTO_BOLD_SUBSET_49, 0, 40, 13 },
-    { FONT_KEY_GOTHIC_28_BOLD, 0, 24, 10 },
-    { FONT_KEY_GOTHIC_24_BOLD, 0, 21, 8 } },
+    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9 },
+    { FONT_KEY_GOTHIC_28_BOLD, 0, 24, 10 } },
   { { FONT_KEY_LECO_38_BOLD_NUMBERS, 0, 32, 10 },
     { FONT_KEY_LECO_32_BOLD_NUMBERS, 0, 27, 8 },
     { FONT_KEY_LECO_28_LIGHT_NUMBERS, 0, 24, 7 } },
   { { NULL, RESOURCE_ID_FONT_SILKTIME_32, 24, 11 },
     { NULL, RESOURCE_ID_FONT_SILKTIME_24, 19, 8 },
     { NULL, RESOURCE_ID_FONT_SILKTIME_16, 14, 5 } },
-  // Bitham-42 crowds the 144px screens (especially with the seconds
-  // column); both Bitham families run one rung smaller here.
-  { { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9 },
-    { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8 },
+  { { FONT_KEY_BITHAM_42_BOLD, 0, 35, 18 },
+    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9 },
     { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8 } },
-  { { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9 },
-    { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8 },
+  { { FONT_KEY_BITHAM_42_LIGHT, 0, 35, 18 },
+    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9 },
     { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8 } },
 #endif
 };
@@ -265,6 +263,17 @@ void layout_compute(Layer *root_layer) {
       break;
     }
   }
+
+#if PBL_DISPLAY_WIDTH < 200
+  // Bitham has no face between 42 and 34: the 42px faces are kept for
+  // Large, stepping down one rung only while the seconds column crowds
+  // the 144px screens.
+  if ((g_settings.time_font == TIME_FONT_CLASSIC_BOLD
+       || g_settings.time_font == TIME_FONT_CLASSIC_LIGHT)
+      && g_settings.show_seconds && time_idx < 2) {
+    time_idx++;
+  }
+#endif
 
   const TimeFontSpec *spec = &(*family)[time_idx];
   l->time_font = prv_resolve_font(spec);
