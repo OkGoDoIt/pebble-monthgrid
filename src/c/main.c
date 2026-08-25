@@ -201,6 +201,7 @@ static void prv_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   bool month_rolled = (g_now.tm_mon != tick_time->tm_mon)
       || (g_now.tm_year != tick_time->tm_year);
   g_now = *tick_time;
+  g_now.tm_year = 126; g_now.tm_mon = 8; g_now.tm_mday = 30; g_now.tm_wday = 3;
   layer_mark_dirty(s_time_layer);
   if (units_changed & MINUTE_UNIT) {
     layer_mark_dirty(s_status_layer);
@@ -330,6 +331,7 @@ static void prv_init(void) {
 
   time_t now = time(NULL);
   g_now = *localtime(&now);
+  g_now.tm_year = 126; g_now.tm_mon = 8; g_now.tm_mday = 30; g_now.tm_wday = 3;
   g_connected = connection_service_peek_pebble_app_connection();
 
   prv_load_fonts();

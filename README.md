@@ -5,7 +5,7 @@ prioritized status line, and a full month grid with today highlighted — a from
 re-implementation (and extension) of the abandoned *CalendaWatch*, built on the current
 official Pebble SDK.
 
-![basalt](screenshots/basalt.png)
+![basalt](screenshots/matrix/basalt_default12h.png)
 
 ## Features
 
