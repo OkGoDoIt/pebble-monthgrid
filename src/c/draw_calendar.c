@@ -213,14 +213,22 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
     if (is_today) {
       // The box is anchored to where the digits actually render (their
       // visible top), so it stays optically centered at every pitch.
+      // On low-DPI it rides 1px higher (and keeps 1px clear at the cell
+      // bottom even when clamped) — it read one pixel low otherwise.
+#if PBL_DISPLAY_WIDTH >= 200
+      const int16_t lift = 0;
+#else
+      const int16_t lift = 1;
+#endif
       int16_t digit_top = dots_current
           ? cell.origin.y
           : cell.origin.y + (cell.size.h - 1 - SMALL_DIGIT_H) / 2;
-      GRect box = GRect(cell.origin.x + 1, digit_top - 2,
+      GRect box = GRect(cell.origin.x + 1, digit_top - 2 - lift,
                         cell.size.w - 2, SMALL_DIGIT_H + 5);
       if (box.origin.y < cell.origin.y) { box.origin.y = cell.origin.y; }
-      if (box.origin.y + box.size.h > cell.origin.y + cell.size.h) {
-        box.size.h = cell.origin.y + cell.size.h - box.origin.y;
+      int16_t max_bottom = cell.origin.y + cell.size.h - lift;
+      if (box.origin.y + box.size.h > max_bottom) {
+        box.size.h = max_bottom - box.origin.y;
       }
       graphics_context_set_fill_color(ctx, fg);
       graphics_fill_rect(ctx, box, 2, GCornersAll);
