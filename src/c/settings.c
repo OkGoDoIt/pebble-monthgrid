@@ -12,6 +12,7 @@ void settings_set_defaults(Settings *s) {
     .show_adjacent = 0,
     .dots_enabled = 0,
     .dots_style = DOTS_STYLE_BAR,
+    .banner_content = BANNER_MONTH,
     .vibe_disconnect = 0,
     .temp_fahrenheit = 1,
     .dist_miles = 1,
@@ -26,6 +27,7 @@ void settings_sanitize(Settings *s) {
   if (s->time_font >= TIME_FONT_COUNT) { s->time_font = TIME_FONT_ROBOTO; }
   if (s->start_day > START_SATURDAY) { s->start_day = START_SUNDAY; }
   if (s->dots_style > DOTS_STYLE_SQUARES) { s->dots_style = DOTS_STYLE_BAR; }
+  if (s->banner_content >= BANNER_CONTENT_COUNT) { s->banner_content = BANNER_MONTH; }
   for (int i = 0; i < NUM_METRIC_SLOTS; i++) {
     if (s->metrics[i] >= METRIC_TYPE_COUNT) { s->metrics[i] = METRIC_NONE; }
   }

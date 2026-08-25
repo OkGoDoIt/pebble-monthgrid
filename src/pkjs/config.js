@@ -89,6 +89,22 @@ module.exports = [
         ],
       },
       {
+        type: 'select',
+        messageKey: 'BANNER_CONTENT',
+        label: 'Banner shows',
+        description: 'What the inverted bar above the calendar displays. Weekday and ' +
+            'month automatically shorten when the full text would not fit. Round ' +
+            'watches always show the compact month column.',
+        defaultValue: 0,
+        options: [
+          { label: 'Month name', value: 0 },
+          { label: 'Month + day', value: 1 },
+          { label: 'Weekday, month + day', value: 2 },
+          { label: 'Month + day, year', value: 3 },
+          { label: 'Weekday, month + day, year', value: 4 },
+        ],
+      },
+      {
         type: 'toggle',
         messageKey: 'SHOW_ADJACENT',
         label: 'Show adjacent months',

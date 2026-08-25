@@ -99,6 +99,96 @@ static void prv_draw_dots(GContext *ctx, int day, GRect cell, bool on_today_box)
   }
 }
 
+static void prv_uppercase_ascii(char *p) {
+  for (; *p; p++) {
+    if (*p >= 'a' && *p <= 'z') { *p -= 32; }
+  }
+}
+
+static bool prv_text_fits(const char *s, GFont font, int16_t max_w) {
+  GSize size = graphics_text_layout_get_content_size(
+      s, font, GRect(0, 0, 32767, 64), GTextOverflowModeFill, GTextAlignmentLeft);
+  return size.w <= max_w;
+}
+
+// Compose the rectangular banner text per the user's BANNER_CONTENT setting.
+// Candidates are tried longest-first and the first one that fits wins, so
+// nothing ever clips: e.g. WEDNESDAY, SEPTEMBER 30 -> WED, SEP 30 -> SEP 30.
+// Month/weekday order follows the watch region (en_US: month first;
+// elsewhere: day first), names are localized by the system locale.
+static void prv_banner_text(char *buf, size_t len, GFont font, int16_t max_w) {
+  char wd_full[16], wd_ab[8], mon_full[16], mon_ab[8];
+  strftime(wd_full, sizeof(wd_full), "%A", &g_now);
+  strftime(wd_ab, sizeof(wd_ab), "%a", &g_now);
+  strftime(mon_full, sizeof(mon_full), "%B", &g_now);
+  strftime(mon_ab, sizeof(mon_ab), "%b", &g_now);
+  int day = g_now.tm_mday;
+  int year = g_now.tm_year + 1900;
+  const char *locale = i18n_get_system_locale();
+  bool day_first = !(locale && strncmp(locale, "en_US", 5) == 0);
+
+  char cand[4][40];
+  int n = 0;
+  switch (g_settings.banner_content) {
+    case BANNER_MONTH_DAY:
+      if (day_first) {
+        snprintf(cand[n++], sizeof(cand[0]), "%d %s", day, mon_full);
+        snprintf(cand[n++], sizeof(cand[0]), "%d %s", day, mon_ab);
+      } else {
+        snprintf(cand[n++], sizeof(cand[0]), "%s %d", mon_full, day);
+        snprintf(cand[n++], sizeof(cand[0]), "%s %d", mon_ab, day);
+      }
+      break;
+    case BANNER_WD_MONTH_DAY:
+      if (day_first) {
+        snprintf(cand[n++], sizeof(cand[0]), "%s, %d %s", wd_full, day, mon_full);
+        snprintf(cand[n++], sizeof(cand[0]), "%s, %d %s", wd_ab, day, mon_ab);
+        snprintf(cand[n++], sizeof(cand[0]), "%d %s", day, mon_ab);
+      } else {
+        snprintf(cand[n++], sizeof(cand[0]), "%s, %s %d", wd_full, mon_full, day);
+        snprintf(cand[n++], sizeof(cand[0]), "%s, %s %d", wd_ab, mon_ab, day);
+        snprintf(cand[n++], sizeof(cand[0]), "%s %d", mon_ab, day);
+      }
+      break;
+    case BANNER_MONTH_DAY_YEAR:
+      if (day_first) {
+        snprintf(cand[n++], sizeof(cand[0]), "%d %s %d", day, mon_full, year);
+        snprintf(cand[n++], sizeof(cand[0]), "%d %s %d", day, mon_ab, year);
+        snprintf(cand[n++], sizeof(cand[0]), "%d %s", day, mon_ab);
+      } else {
+        snprintf(cand[n++], sizeof(cand[0]), "%s %d, %d", mon_full, day, year);
+        snprintf(cand[n++], sizeof(cand[0]), "%s %d, %d", mon_ab, day, year);
+        snprintf(cand[n++], sizeof(cand[0]), "%s %d", mon_ab, day);
+      }
+      break;
+    case BANNER_WD_MD_YEAR:
+      if (day_first) {
+        snprintf(cand[n++], sizeof(cand[0]), "%s, %d %s %d", wd_ab, day, mon_ab, year);
+        snprintf(cand[n++], sizeof(cand[0]), "%d %s %d", day, mon_ab, year);
+        snprintf(cand[n++], sizeof(cand[0]), "%d %s", day, mon_ab);
+      } else {
+        snprintf(cand[n++], sizeof(cand[0]), "%s, %s %d, %d", wd_ab, mon_ab, day, year);
+        snprintf(cand[n++], sizeof(cand[0]), "%s %d, %d", mon_ab, day, year);
+        snprintf(cand[n++], sizeof(cand[0]), "%s %d", mon_ab, day);
+      }
+      break;
+    default:
+      snprintf(cand[n++], sizeof(cand[0]), "%s", mon_full);
+      snprintf(cand[n++], sizeof(cand[0]), "%s", mon_ab);
+      break;
+  }
+
+  for (int i = 0; i < n; i++) {
+    prv_uppercase_ascii(cand[i]);
+    if (i == n - 1 || prv_text_fits(cand[i], font, max_w)) {
+      strncpy(buf, cand[i], len - 1);
+      buf[len - 1] = 0;
+      return;
+    }
+  }
+  buf[0] = 0;
+}
+
 void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
   (void) layer;
   const GColor fg = theme_fg();
@@ -131,19 +221,16 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
                          GTextOverflowModeFill, GTextAlignmentCenter, NULL);
     }
   } else if (g_layout.banner_visible) {
-    char month_buf[24];
-    strftime(month_buf, sizeof(month_buf), "%B", &g_now);
-    // Uppercase ASCII only; leave multi-byte (localized) glyphs untouched.
-    for (char *p = month_buf; *p; p++) {
-      if (*p >= 'a' && *p <= 'z') { *p -= 32; }
-    }
+    char banner_buf[40];
+    prv_banner_text(banner_buf, sizeof(banner_buf), g_font_banner,
+                    g_layout.banner_zone.size.w - 6);
     graphics_context_set_fill_color(ctx, fg);
     graphics_fill_rect(ctx, g_layout.banner_zone, 0, GCornerNone);
     graphics_context_set_text_color(ctx, bg);
     GRect text_box = g_layout.banner_zone;
     text_box.origin.y -= (PBL_DISPLAY_WIDTH >= 200 ? 3 : 2);
     text_box.size.h += 6;
-    graphics_draw_text(ctx, month_buf, g_font_banner, text_box,
+    graphics_draw_text(ctx, banner_buf, g_font_banner, text_box,
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
   }
 

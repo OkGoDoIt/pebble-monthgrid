@@ -79,11 +79,11 @@ static const TimeFontSpec TIME_FONTS[TIME_FONT_COUNT][3] = {
   { { NULL, RESOURCE_ID_FONT_SILKTIME_48, 34, 17 },
     { NULL, RESOURCE_ID_FONT_SILKTIME_32, 24, 11 },
     { NULL, RESOURCE_ID_FONT_SILKTIME_24, 19, 8 } },
-  { { FONT_KEY_BITHAM_42_BOLD, 0, 35, 18 },
-    { FONT_KEY_BITHAM_42_BOLD, 0, 35, 18 },
+  { { FONT_KEY_BITHAM_42_BOLD, 0, 35, 12 },
+    { FONT_KEY_BITHAM_42_BOLD, 0, 35, 12 },
     { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9 } },
-  { { FONT_KEY_BITHAM_42_LIGHT, 0, 35, 18 },
-    { FONT_KEY_BITHAM_42_LIGHT, 0, 35, 18 },
+  { { FONT_KEY_BITHAM_42_LIGHT, 0, 35, 12 },
+    { FONT_KEY_BITHAM_42_LIGHT, 0, 35, 12 },
     { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9 } },
 #elif PBL_DISPLAY_WIDTH >= 200 && defined(PBL_ROUND)     // gabbro
   { { FONT_KEY_ROBOTO_BOLD_SUBSET_49, 0, 40, 13 },
@@ -95,10 +95,10 @@ static const TimeFontSpec TIME_FONTS[TIME_FONT_COUNT][3] = {
   { { NULL, RESOURCE_ID_FONT_SILKTIME_32, 24, 11 },
     { NULL, RESOURCE_ID_FONT_SILKTIME_24, 19, 8 },
     { NULL, RESOURCE_ID_FONT_SILKTIME_24, 19, 8 } },
-  { { FONT_KEY_BITHAM_42_BOLD, 0, 35, 18 },
+  { { FONT_KEY_BITHAM_42_BOLD, 0, 35, 12 },
     { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9 },
     { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8 } },
-  { { FONT_KEY_BITHAM_42_LIGHT, 0, 35, 18 },
+  { { FONT_KEY_BITHAM_42_LIGHT, 0, 35, 12 },
     { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9 },
     { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8 } },
 #elif defined(PBL_ROUND)                                 // chalk
@@ -129,10 +129,10 @@ static const TimeFontSpec TIME_FONTS[TIME_FONT_COUNT][3] = {
   { { NULL, RESOURCE_ID_FONT_SILKTIME_32, 24, 11 },
     { NULL, RESOURCE_ID_FONT_SILKTIME_24, 19, 8 },
     { NULL, RESOURCE_ID_FONT_SILKTIME_16, 14, 5 } },
-  { { FONT_KEY_BITHAM_42_BOLD, 0, 35, 18 },
+  { { FONT_KEY_BITHAM_42_BOLD, 0, 35, 12 },
     { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9 },
     { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8 } },
-  { { FONT_KEY_BITHAM_42_LIGHT, 0, 35, 18 },
+  { { FONT_KEY_BITHAM_42_LIGHT, 0, 35, 12 },
     { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9 },
     { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8 } },
 #endif
@@ -241,25 +241,26 @@ void layout_compute(Layer *root_layer) {
   int rows = g_settings.show_adjacent ? 6
       : month_rows_for(&g_now, start_wday_setting());
 
-  // Compression cascade: 0 = full; 1 = smaller time; 2 = smallest time +
-  // drop status; 3 = drop month banner; 4 = drop weekday header. The 6-row
-  // grid always survives — it is compressed, never cropped.
   const TimeFontSpec (*family)[3] = &TIME_FONTS[g_settings.time_font];
   int stage;
   int time_idx = g_settings.time_size;
-  for (stage = 0; stage <= 4; stage++) {
-    time_idx = g_settings.time_size + (stage >= 1 ? 1 : 0) + (stage >= 2 ? 1 : 0);
+  for (stage = 0; stage <= 5; stage++) {
+    // Compression priority: the weekday header goes first (its columns are
+    // learnable), then the banner, then one time rung, then the status
+    // line, and only then the smallest time. The grid itself never shrinks
+    // below PITCH_MIN or loses rows.
+    l->header_visible = stage < 1;
+    l->banner_visible = stage < 2;
+    time_idx = g_settings.time_size + (stage >= 3 ? 1 : 0) + (stage >= 5 ? 1 : 0);
     if (time_idx > 2) { time_idx = 2; }
-    l->status_visible = want_status && stage < 2;
-    l->banner_visible = stage < 3;
-    l->header_visible = stage < 4;
+    l->status_visible = want_status && stage < 4;
 
     int16_t needed = (*family)[time_idx].height + SECTION_GAP;
     if (l->status_visible) { needed += STATUS_H + SECTION_GAP; }
     if (l->banner_visible) { needed += BANNER_H + SECTION_GAP; }
     if (l->header_visible) { needed += HEADER_H; }
     needed += PITCH_MIN * rows;
-    if (needed <= avail || stage == 4) {
+    if (needed <= avail || stage == 5) {
       break;
     }
   }

@@ -50,6 +50,15 @@ typedef enum {
 } MetricType;
 
 typedef enum {
+  BANNER_MONTH = 0,          // just the month name (default, like the original)
+  BANNER_MONTH_DAY = 1,      // AUGUST 25 / 25 AUGUST
+  BANNER_WD_MONTH_DAY = 2,   // TUESDAY, AUGUST 25 (degrades to TUE, AUG 25)
+  BANNER_MONTH_DAY_YEAR = 3, // AUGUST 25, 2026
+  BANNER_WD_MD_YEAR = 4,     // TUE, AUG 25, 2026
+  BANNER_CONTENT_COUNT = 5,
+} BannerContentOpt;
+
+typedef enum {
   DOTS_STYLE_BAR = 0,    // 1px underline split into per-calendar sections
   DOTS_STYLE_SQUARES = 1,
 } DotsStyleOpt;
@@ -93,6 +102,7 @@ typedef struct __attribute__((__packed__)) {
   uint8_t show_adjacent;    // dimmed prev/next-month days
   uint8_t dots_enabled;     // calendar event dots
   uint8_t dots_style;       // DotsStyleOpt
+  uint8_t banner_content;   // BannerContentOpt (rect banner only)
   uint8_t vibe_disconnect;
   uint8_t temp_fahrenheit;  // 1 = °F (default), 0 = °C
   uint8_t dist_miles;       // 1 = miles (default), 0 = km
