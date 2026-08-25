@@ -233,6 +233,74 @@ function dotsStatusText() {
   return 'Diagnostics (last refresh ' + mins + ' min ago) — ' + parts.join(' · ');
 }
 
+// Runs INSIDE the config page (Clay stringifies it, so it must be
+// self-contained: no closures over module scope, no require).
+// Two jobs: grow/shrink the status-item list as rows are filled or set to
+// Remove, and keep the Save button reachable without scrolling.
+function clayCustomFn() {
+  var clayConfig = this;
+  var MAX_SLOTS = 8;
+  var updating = false;
+
+  function slotItems() {
+    var out = [];
+    for (var i = 1; i <= MAX_SLOTS; i++) {
+      var item = clayConfig.getItemByMessageKey('METRIC' + i);
+      if (item) { out.push(item); }
+    }
+    return out;
+  }
+
+  function refresh() {
+    if (updating) { return; }
+    updating = true;
+    try {
+      var items = slotItems();
+      var filled = [];
+      items.forEach(function(item) {
+        var v = parseInt(item.get(), 10) || 0;
+        if (v) { filled.push(v); }
+      });
+      // Compact: removing a row pulls the ones below it up.
+      items.forEach(function(item, i) {
+        var want = i < filled.length ? filled[i] : 0;
+        if ((parseInt(item.get(), 10) || 0) !== want) { item.set(want); }
+      });
+      // Show every filled row plus one empty row to grow into.
+      var visible = Math.min(filled.length + 1, MAX_SLOTS);
+      items.forEach(function(item, i) {
+        if (i < visible) { item.show(); } else { item.hide(); }
+      });
+    } finally {
+      updating = false;
+    }
+  }
+
+  clayConfig.on(clayConfig.EVENTS.AFTER_BUILD, function() {
+    slotItems().forEach(function(item) { item.on('change', refresh); });
+    refresh();
+
+    // Pin the submit button to the bottom of the viewport so settings can
+    // be saved from anywhere on the page.
+    var style = document.createElement('style');
+    style.innerHTML =
+        '.section--submit, .component-submit, .item-submit {' +
+        ' position: sticky; position: -webkit-sticky; bottom: 0; z-index: 50; }' +
+        '.section--submit button, .component-submit button, .item-submit button {' +
+        ' box-shadow: 0 -2px 10px rgba(0,0,0,0.45); }';
+    document.head.appendChild(style);
+    var btn = document.querySelector('button[type=submit], .item-submit button, input[type=submit]');
+    if (btn) {
+      var host = btn.closest('div, section') || btn.parentNode;
+      if (host && host.style) {
+        host.style.position = 'sticky';
+        host.style.bottom = '0';
+        host.style.zIndex = '50';
+      }
+    }
+  });
+}
+
 Pebble.addEventListener('showConfiguration', function() {
   // Rebuild the page with the current diagnostics injected under the
   // markers toggle.
@@ -248,7 +316,7 @@ Pebble.addEventListener('showConfiguration', function() {
       }
     }
   }
-  clay = new Clay(config, null, { autoHandleEvents: false });
+  clay = new Clay(config, clayCustomFn, { autoHandleEvents: false });
   Pebble.openURL(clay.generateUrl());
 });
 

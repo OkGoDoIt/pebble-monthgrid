@@ -2,7 +2,7 @@
 // Select values are numbers so they arrive on the watch as int32 tuples.
 
 var METRIC_OPTIONS = [
-  { label: 'None', value: 0 },
+  { label: '— Remove —', value: 0 },
   { label: 'Battery', value: 1 },
   { label: 'Weather', value: 2 },
   { label: 'Steps', value: 3 },
@@ -129,15 +129,19 @@ module.exports = [
       { type: 'heading', defaultValue: 'Status Line' },
       {
         type: 'text',
-        defaultValue: 'Pick up to five items, in priority order. As many as fit are shown; ' +
+        defaultValue: 'Listed in priority order — as many as fit on the watch are shown, and ' +
             'items with nothing to report (no weather yet, no heart-rate sensor, ...) are ' +
-            'skipped automatically.',
+            'skipped automatically. A new row appears as you fill the last one; set a row to ' +
+            'Remove to take it out of the list.',
       },
       { type: 'select', messageKey: 'METRIC1', label: 'Item 1', defaultValue: 1, options: METRIC_OPTIONS },
       { type: 'select', messageKey: 'METRIC2', label: 'Item 2', defaultValue: 2, options: METRIC_OPTIONS },
       { type: 'select', messageKey: 'METRIC3', label: 'Item 3', defaultValue: 0, options: METRIC_OPTIONS },
       { type: 'select', messageKey: 'METRIC4', label: 'Item 4', defaultValue: 0, options: METRIC_OPTIONS },
       { type: 'select', messageKey: 'METRIC5', label: 'Item 5', defaultValue: 0, options: METRIC_OPTIONS },
+      { type: 'select', messageKey: 'METRIC6', label: 'Item 6', defaultValue: 0, options: METRIC_OPTIONS },
+      { type: 'select', messageKey: 'METRIC7', label: 'Item 7', defaultValue: 0, options: METRIC_OPTIONS },
+      { type: 'select', messageKey: 'METRIC8', label: 'Item 8', defaultValue: 0, options: METRIC_OPTIONS },
       {
         type: 'select',
         messageKey: 'TEMP_UNIT',

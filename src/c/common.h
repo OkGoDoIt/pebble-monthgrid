@@ -93,7 +93,7 @@ typedef enum {
   COND_WIND = 8,
 } WeatherCond;
 
-#define NUM_METRIC_SLOTS 5
+#define NUM_METRIC_SLOTS 8
 #define NUM_CALENDARS 3
 
 #define SETTINGS_VERSION 1

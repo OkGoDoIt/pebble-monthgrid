@@ -34,7 +34,8 @@ void settings_set_defaults(Settings *s) {
     .vibe_disconnect = 0,
     .temp_fahrenheit = 1,
     .dist_miles = 1,
-    .metrics = { METRIC_BATTERY, METRIC_WEATHER, METRIC_NONE, METRIC_NONE, METRIC_NONE },
+    .metrics = { METRIC_BATTERY, METRIC_WEATHER, METRIC_NONE, METRIC_NONE, METRIC_NONE,
+                 METRIC_NONE, METRIC_NONE, METRIC_NONE },
     .cal_colors = { GColorRedARGB8, GColorBlueMoonARGB8, GColorIslamicGreenARGB8 },
   };
 }

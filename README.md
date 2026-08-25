@@ -19,8 +19,9 @@ official Pebble SDK.
   (LECO), Pixel (Silkscreen), Bitham bold / light — in three sizes.
   12-hour mode **never shows a leading zero**. Optional seconds (off by default; the
   face ticks once a minute unless enabled).
-- **Prioritized status line** — pick up to four items, shown in priority order, as many
-  as fit. Items with nothing to report are hidden automatically. Choose from:
+- **Prioritized status line** — add as many items as you like (up to 8) in priority
+  order; the settings page grows a new row as you fill the last one and closes gaps
+  when you set a row to Remove. As many as fit on the watch are shown. Items with nothing to report are hidden automatically. Choose from:
   - Battery (icon + %, charge bolt while plugged)
   - Weather (condition icon + temperature, °F/°C)
   - Steps, Distance walked (mi/km), Heart rate, Active minutes, Calories, Sleep
