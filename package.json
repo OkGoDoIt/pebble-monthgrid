@@ -35,6 +35,7 @@
       "THEME_INVERT",
       "TIME_FORMAT",
       "TIME_SIZE",
+      "TIME_FONT",
       "SHOW_SECONDS",
       "START_DAY",
       "SHOW_ADJACENT",
@@ -72,6 +73,31 @@
           "name": "FONT_SILKSCREEN_BOLD_8",
           "file": "fonts/Silkscreen-Bold.ttf",
           "characterRegex": "[!-~°]"
+        },
+        {
+          "type": "font",
+          "name": "FONT_SILKTIME_16",
+          "file": "fonts/Silkscreen-Bold.ttf",
+          "characterRegex": "[0-9:]"
+        },
+        {
+          "type": "font",
+          "name": "FONT_SILKTIME_24",
+          "file": "fonts/Silkscreen-Bold.ttf",
+          "characterRegex": "[0-9:]"
+        },
+        {
+          "type": "font",
+          "name": "FONT_SILKTIME_32",
+          "file": "fonts/Silkscreen-Bold.ttf",
+          "characterRegex": "[0-9:]"
+        },
+        {
+          "type": "font",
+          "name": "FONT_SILKTIME_48",
+          "file": "fonts/Silkscreen-Bold.ttf",
+          "characterRegex": "[0-9:]",
+          "targetPlatforms": ["emery", "gabbro"]
         },
         {
           "type": "font",

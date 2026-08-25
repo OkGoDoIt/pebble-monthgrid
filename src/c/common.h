@@ -19,6 +19,14 @@ typedef enum {
 } TimeSizeOpt;
 
 typedef enum {
+  TIME_FONT_DIGITAL = 0,        // LECO
+  TIME_FONT_PIXEL = 1,          // Silkscreen Bold (matches the grid)
+  TIME_FONT_CLASSIC_BOLD = 2,   // Bitham Bold
+  TIME_FONT_CLASSIC_LIGHT = 3,  // Bitham Light
+  TIME_FONT_COUNT = 4,
+} TimeFontOpt;
+
+typedef enum {
   START_SUNDAY = 0,
   START_MONDAY = 1,
   START_SATURDAY = 2,
@@ -73,6 +81,7 @@ typedef struct __attribute__((__packed__)) {
   uint8_t invert;           // 0 = white-on-black (default), 1 = black-on-white
   uint8_t time_format;      // TimeFmt
   uint8_t time_size;        // TimeSizeOpt
+  uint8_t time_font;        // TimeFontOpt
   uint8_t start_day;        // StartDayOpt
   uint8_t show_seconds;
   uint8_t show_adjacent;    // dimmed prev/next-month days
@@ -122,6 +131,7 @@ typedef struct {
   int16_t grid_x;           // left edge of the 7 * cell_w block
   GFont time_font;
   int16_t time_font_h;      // visual digit height for vertical placement
+  int16_t time_trim;        // px to nudge digits up (per-font internal padding)
 } Layout;
 
 // ---------------------------------------------------------------------------
@@ -162,6 +172,7 @@ void settings_save(const Settings *s);
 
 // layout.c
 void layout_compute(Layer *root_layer);
+void layout_unload_fonts(void);
 
 // draw_time.c
 void draw_time_update_proc(Layer *layer, GContext *ctx);

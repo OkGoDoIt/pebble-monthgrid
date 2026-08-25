@@ -48,6 +48,18 @@ module.exports = [
       },
       {
         type: 'select',
+        messageKey: 'TIME_FONT',
+        label: 'Time font',
+        defaultValue: 0,
+        options: [
+          { label: 'Digital (LECO)', value: 0 },
+          { label: 'Pixel (Silkscreen)', value: 1 },
+          { label: 'Classic bold (Bitham)', value: 2 },
+          { label: 'Classic light (Bitham)', value: 3 },
+        ],
+      },
+      {
+        type: 'select',
         messageKey: 'TIME_SIZE',
         label: 'Time font size',
         defaultValue: 0,

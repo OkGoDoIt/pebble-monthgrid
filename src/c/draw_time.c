@@ -66,9 +66,9 @@ void draw_time_update_proc(Layer *layer, GContext *ctx) {
   if (x0 < zone.origin.x) { x0 = zone.origin.x; }
 
   graphics_context_set_text_color(ctx, fg);
-  // LECO fonts leave a little headroom inside their line box; nudge up so the
-  // digits hug the top of the zone.
-  int16_t digits_y = zone.origin.y - (g_layout.time_font_h / 7);
+  // Fonts leave differing headroom inside their line box; the per-font trim
+  // makes the digits hug the top of the zone.
+  int16_t digits_y = zone.origin.y - g_layout.time_trim;
   graphics_draw_text(ctx, time_buf, g_layout.time_font,
                      GRect(x0, digits_y, time_size.w + 2, zone.size.h + 8),
                      GTextOverflowModeFill, GTextAlignmentLeft, NULL);

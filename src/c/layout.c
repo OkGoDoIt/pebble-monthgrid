@@ -44,31 +44,106 @@
   #define GRID_W_MAX (PBL_DISPLAY_WIDTH - 4)
 #endif
 
-// Time font per (user size + compression shrink), clamped.
+// Time font per (user family, user size + compression shrink). Entries name
+// either a system font key or a custom font resource (Silkscreen Bold, whose
+// pixel grid stays crisp at multiples of 8).
 typedef struct {
-  const char *font_key;
-  int16_t height;
+  const char *font_key;     // system font, or NULL when resource_id is used
+  uint32_t resource_id;
+  int16_t height;           // vertical zone the digits occupy
+  int16_t trim;             // px to nudge up (internal top padding of the font)
 } TimeFontSpec;
 
-static const TimeFontSpec TIME_FONTS[3] = {
+static const TimeFontSpec TIME_FONTS[TIME_FONT_COUNT][3] = {
 #if PBL_DISPLAY_WIDTH >= 200 && !defined(PBL_ROUND)      // emery
-  { FONT_KEY_LECO_60_BOLD_NUMBERS_AM_PM, 62 },
-  { FONT_KEY_LECO_42_NUMBERS, 46 },
-  { FONT_KEY_LECO_36_BOLD_NUMBERS, 40 },
+  { { FONT_KEY_LECO_60_BOLD_NUMBERS_AM_PM, 0, 62, 9 },
+    { FONT_KEY_LECO_42_NUMBERS, 0, 46, 7 },
+    { FONT_KEY_LECO_36_BOLD_NUMBERS, 0, 40, 6 } },
+  { { NULL, RESOURCE_ID_FONT_SILKTIME_48, 50, 2 },
+    { NULL, RESOURCE_ID_FONT_SILKTIME_32, 34, 1 },
+    { NULL, RESOURCE_ID_FONT_SILKTIME_24, 26, 1 } },
+  { { FONT_KEY_BITHAM_42_BOLD, 0, 46, 8 },
+    { FONT_KEY_BITHAM_42_BOLD, 0, 46, 8 },
+    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 6 } },
+  { { FONT_KEY_BITHAM_42_LIGHT, 0, 46, 8 },
+    { FONT_KEY_BITHAM_42_LIGHT, 0, 46, 8 },
+    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 6 } },
 #elif PBL_DISPLAY_WIDTH >= 200 && defined(PBL_ROUND)     // gabbro
-  { FONT_KEY_LECO_42_NUMBERS, 46 },
-  { FONT_KEY_LECO_36_BOLD_NUMBERS, 40 },
-  { FONT_KEY_LECO_32_BOLD_NUMBERS, 36 },
+  { { FONT_KEY_LECO_42_NUMBERS, 0, 46, 7 },
+    { FONT_KEY_LECO_36_BOLD_NUMBERS, 0, 40, 6 },
+    { FONT_KEY_LECO_32_BOLD_NUMBERS, 0, 36, 5 } },
+  { { NULL, RESOURCE_ID_FONT_SILKTIME_32, 34, 1 },
+    { NULL, RESOURCE_ID_FONT_SILKTIME_24, 26, 1 },
+    { NULL, RESOURCE_ID_FONT_SILKTIME_24, 26, 1 } },
+  { { FONT_KEY_BITHAM_42_BOLD, 0, 46, 8 },
+    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 6 },
+    { FONT_KEY_BITHAM_30_BLACK, 0, 34, 5 } },
+  { { FONT_KEY_BITHAM_42_LIGHT, 0, 46, 8 },
+    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 6 },
+    { FONT_KEY_BITHAM_30_BLACK, 0, 34, 5 } },
 #elif defined(PBL_ROUND)                                 // chalk
-  { FONT_KEY_LECO_36_BOLD_NUMBERS, 40 },
-  { FONT_KEY_LECO_32_BOLD_NUMBERS, 36 },
-  { FONT_KEY_LECO_28_LIGHT_NUMBERS, 32 },
+  { { FONT_KEY_LECO_36_BOLD_NUMBERS, 0, 40, 6 },
+    { FONT_KEY_LECO_32_BOLD_NUMBERS, 0, 36, 5 },
+    { FONT_KEY_LECO_28_LIGHT_NUMBERS, 0, 32, 5 } },
+  { { NULL, RESOURCE_ID_FONT_SILKTIME_24, 26, 1 },
+    { NULL, RESOURCE_ID_FONT_SILKTIME_24, 26, 1 },
+    { NULL, RESOURCE_ID_FONT_SILKTIME_16, 18, 1 } },
+  { { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 6 },
+    { FONT_KEY_BITHAM_30_BLACK, 0, 34, 5 },
+    { FONT_KEY_BITHAM_30_BLACK, 0, 34, 5 } },
+  { { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 6 },
+    { FONT_KEY_BITHAM_30_BLACK, 0, 34, 5 },
+    { FONT_KEY_BITHAM_30_BLACK, 0, 34, 5 } },
 #else                                                    // 144x168 rect
-  { FONT_KEY_LECO_38_BOLD_NUMBERS, 42 },
-  { FONT_KEY_LECO_32_BOLD_NUMBERS, 36 },
-  { FONT_KEY_LECO_28_LIGHT_NUMBERS, 32 },
+  { { FONT_KEY_LECO_38_BOLD_NUMBERS, 0, 42, 6 },
+    { FONT_KEY_LECO_32_BOLD_NUMBERS, 0, 36, 5 },
+    { FONT_KEY_LECO_28_LIGHT_NUMBERS, 0, 32, 5 } },
+  { { NULL, RESOURCE_ID_FONT_SILKTIME_32, 34, 1 },
+    { NULL, RESOURCE_ID_FONT_SILKTIME_24, 26, 1 },
+    { NULL, RESOURCE_ID_FONT_SILKTIME_16, 18, 1 } },
+  { { FONT_KEY_BITHAM_42_BOLD, 0, 46, 8 },
+    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 6 },
+    { FONT_KEY_BITHAM_30_BLACK, 0, 34, 5 } },
+  { { FONT_KEY_BITHAM_42_LIGHT, 0, 46, 8 },
+    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 6 },
+    { FONT_KEY_BITHAM_30_BLACK, 0, 34, 5 } },
 #endif
 };
+
+// Lazy cache for custom time fonts; a platform uses at most three sizes.
+static struct {
+  uint32_t resource_id;
+  GFont font;
+} s_font_cache[3];
+
+static GFont prv_resolve_font(const TimeFontSpec *spec) {
+  if (spec->font_key) {
+    return fonts_get_system_font(spec->font_key);
+  }
+  for (unsigned i = 0; i < ARRAY_LENGTH(s_font_cache); i++) {
+    if (s_font_cache[i].resource_id == spec->resource_id) {
+      return s_font_cache[i].font;
+    }
+    if (s_font_cache[i].resource_id == 0) {
+      s_font_cache[i].resource_id = spec->resource_id;
+      s_font_cache[i].font =
+          fonts_load_custom_font(resource_get_handle(spec->resource_id));
+      return s_font_cache[i].font;
+    }
+  }
+  // Cache full (cannot happen with a 3-size ladder); fall back safely.
+  return fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD);
+}
+
+void layout_unload_fonts(void) {
+  for (unsigned i = 0; i < ARRAY_LENGTH(s_font_cache); i++) {
+    if (s_font_cache[i].resource_id) {
+      fonts_unload_custom_font(s_font_cache[i].font);
+      s_font_cache[i].resource_id = 0;
+      s_font_cache[i].font = NULL;
+    }
+  }
+}
 
 static bool prv_any_metric_selected(void) {
   for (int i = 0; i < NUM_METRIC_SLOTS; i++) {
@@ -89,19 +164,20 @@ void layout_compute(Layer *root_layer) {
   bool want_status = prv_any_metric_selected();
   int16_t avail = ub.size.h - TOP_INSET - BOTTOM_INSET;
 
-  // Compression cascade: 0 = full; 1 = smaller time; 2 = drop status;
-  // 3 = drop month banner; 4 = drop weekday header. The 6-row grid always
-  // survives — it is compressed, never cropped.
+  // Compression cascade: 0 = full; 1 = smaller time; 2 = smallest time +
+  // drop status; 3 = drop month banner; 4 = drop weekday header. The 6-row
+  // grid always survives — it is compressed, never cropped.
+  const TimeFontSpec (*family)[3] = &TIME_FONTS[g_settings.time_font];
   int stage;
   int time_idx = g_settings.time_size;
   for (stage = 0; stage <= 4; stage++) {
-    time_idx = g_settings.time_size + (stage >= 1 ? 1 : 0);
+    time_idx = g_settings.time_size + (stage >= 1 ? 1 : 0) + (stage >= 2 ? 1 : 0);
     if (time_idx > 2) { time_idx = 2; }
     l->status_visible = want_status && stage < 2;
     l->banner_visible = stage < 3;
     l->header_visible = stage < 4;
 
-    int16_t needed = TIME_FONTS[time_idx].height + SECTION_GAP;
+    int16_t needed = (*family)[time_idx].height + SECTION_GAP;
     if (l->status_visible) { needed += STATUS_H + SECTION_GAP; }
     if (l->banner_visible) { needed += BANNER_H + SECTION_GAP; }
     if (l->header_visible) { needed += HEADER_H; }
@@ -111,12 +187,14 @@ void layout_compute(Layer *root_layer) {
     }
   }
 
-  l->time_font = fonts_get_system_font(TIME_FONTS[time_idx].font_key);
-  l->time_font_h = TIME_FONTS[time_idx].height;
+  const TimeFontSpec *spec = &(*family)[time_idx];
+  l->time_font = prv_resolve_font(spec);
+  l->time_font_h = spec->height;
+  l->time_trim = spec->trim;
 
   // Fixed height excluding the grid, then give the grid what remains
   // (capped so the calendar doesn't get too airy).
-  int16_t fixed = TIME_FONTS[time_idx].height + SECTION_GAP;
+  int16_t fixed = spec->height + SECTION_GAP;
   if (l->status_visible) { fixed += STATUS_H + SECTION_GAP; }
   if (l->banner_visible) { fixed += BANNER_H + SECTION_GAP; }
   if (l->header_visible) { fixed += HEADER_H; }
@@ -136,8 +214,8 @@ void layout_compute(Layer *root_layer) {
   l->grid_x = ub.origin.x + (ub.size.w - l->cell_w * 7) / 2;
 
   int16_t y = ub.origin.y + pad_top;
-  l->time_zone = GRect(ub.origin.x, y, ub.size.w, TIME_FONTS[time_idx].height);
-  y += TIME_FONTS[time_idx].height + gap_time;
+  l->time_zone = GRect(ub.origin.x, y, ub.size.w, spec->height);
+  y += spec->height + gap_time;
 
   if (l->status_visible) {
     l->status_zone = GRect(ub.origin.x, y, ub.size.w, STATUS_H);

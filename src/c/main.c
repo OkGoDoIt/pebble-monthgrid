@@ -114,6 +114,8 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
       g_settings.time_format = prv_tuple_int(t); settings_changed = true;
     } else if (t->key == MESSAGE_KEY_TIME_SIZE) {
       g_settings.time_size = prv_tuple_int(t); settings_changed = true;
+    } else if (t->key == MESSAGE_KEY_TIME_FONT) {
+      g_settings.time_font = prv_tuple_int(t); settings_changed = true;
     } else if (t->key == MESSAGE_KEY_SHOW_SECONDS) {
       g_settings.show_seconds = prv_tuple_int(t) ? 1 : 0; settings_changed = true;
     } else if (t->key == MESSAGE_KEY_START_DAY) {
@@ -365,6 +367,7 @@ static void prv_deinit(void) {
   battery_state_service_unsubscribe();
   tick_timer_service_unsubscribe();
   window_destroy(s_window);
+  layout_unload_fonts();
   fonts_unload_custom_font(s_custom_small);
   fonts_unload_custom_font(s_custom_small_bold);
 }
