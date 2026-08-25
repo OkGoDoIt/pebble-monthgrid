@@ -28,20 +28,28 @@
   #define SECTION_GAP 2
 #endif
 
+#define TOP_INSET 2
+#define BOTTOM_INSET 2
+#define GRID_W_MAX (PBL_DISPLAY_WIDTH - 4)
+
+// Round layout: the grid sits in the wide middle band of the circle; the
+// month (stacked letters) and the status metrics live in the side crescents.
 #if defined(PBL_ROUND)
   #if PBL_DISPLAY_WIDTH >= 200   // gabbro 260x260
-    #define TOP_INSET 24
-    #define BOTTOM_INSET 26
-    #define GRID_W_MAX 170
+    #define R_TIME_TOP 22
+    #define R_HEADER_H 12
+    #define R_GAP 6
+    #define R_PITCH 19
+    #define R_CELL_W 24
+    #define R_COL_INSET 14
   #else                          // chalk 180x180
-    #define TOP_INSET 16
-    #define BOTTOM_INSET 16
-    #define GRID_W_MAX 113
+    #define R_TIME_TOP 20
+    #define R_HEADER_H 9
+    #define R_GAP 4
+    #define R_PITCH 11
+    #define R_CELL_W 16
+    #define R_COL_INSET 10
   #endif
-#else
-  #define TOP_INSET 2
-  #define BOTTOM_INSET 2
-  #define GRID_W_MAX (PBL_DISPLAY_WIDTH - 4)
 #endif
 
 // Time font per (user family, user size + compression shrink). Entries name
@@ -154,12 +162,48 @@ static bool prv_any_metric_selected(void) {
   return false;
 }
 
+#if defined(PBL_ROUND)
+static void prv_layout_round(Layout *l, GRect ub) {
+  const TimeFontSpec *spec = &TIME_FONTS[g_settings.time_font][g_settings.time_size];
+  l->time_font = prv_resolve_font(spec);
+  l->time_font_h = spec->height;
+  l->time_trim = spec->trim;
+  l->side_columns = true;
+  l->status_visible = prv_any_metric_selected();
+  l->banner_visible = true;
+  l->header_visible = true;
+  l->row_pitch = R_PITCH;
+  l->cell_w = R_CELL_W;
+  l->grid_x = ub.origin.x + (ub.size.w - R_CELL_W * 7) / 2;
+
+  int16_t y = ub.origin.y + R_TIME_TOP;
+  l->time_zone = GRect(ub.origin.x, y, ub.size.w, spec->height);
+  y += spec->height + R_GAP;
+  l->header_zone = GRect(l->grid_x, y, R_CELL_W * 7, R_HEADER_H);
+  y += R_HEADER_H + 2;
+  l->grid_zone = GRect(l->grid_x, y, R_CELL_W * 7, R_PITCH * 6);
+
+  int16_t col_left = ub.origin.x + R_COL_INSET;
+  l->banner_zone = GRect(col_left, y, l->grid_x - 2 - col_left, R_PITCH * 6);
+  int16_t grid_right = l->grid_x + R_CELL_W * 7;
+  l->status_zone = GRect(grid_right + 2, y,
+                         ub.origin.x + ub.size.w - R_COL_INSET - (grid_right + 2),
+                         R_PITCH * 6);
+}
+#endif
+
 void layout_compute(Layer *root_layer) {
   GRect full = layer_get_bounds(root_layer);
   GRect ub = layer_get_unobstructed_bounds(root_layer);
   Layout *l = &g_layout;
   memset(l, 0, sizeof(*l));
   l->bounds = ub;
+
+#if defined(PBL_ROUND)
+  prv_layout_round(l, ub);
+  (void) full;
+  return;
+#endif
 
   bool want_status = prv_any_metric_selected();
   int16_t avail = ub.size.h - TOP_INSET - BOTTOM_INSET;

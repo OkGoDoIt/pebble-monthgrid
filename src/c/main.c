@@ -13,14 +13,13 @@ bool g_connected;
 
 GFont g_font_small;
 GFont g_font_small_bold;
+GFont g_font_header;
 GFont g_font_banner;
 
 static Window *s_window;
 static Layer *s_time_layer;
 static Layer *s_status_layer;
 static Layer *s_calendar_layer;
-static GFont s_custom_small;
-static GFont s_custom_small_bold;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -305,18 +304,18 @@ static void prv_load_caches(void) {
 
 static void prv_load_fonts(void) {
 #if PBL_DISPLAY_WIDTH >= 200
-  s_custom_small = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SILKSCREEN_16));
-  s_custom_small_bold =
-      fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SILKSCREEN_BOLD_16));
+  g_font_small = fonts_get_system_font(FONT_KEY_GOTHIC_18);
+  g_font_small_bold = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+  g_font_header = fonts_get_system_font(FONT_KEY_GOTHIC_14);
   g_font_banner = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
 #else
-  s_custom_small = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SILKSCREEN_8));
-  s_custom_small_bold =
-      fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SILKSCREEN_BOLD_8));
+  g_font_small = fonts_get_system_font(FONT_KEY_GOTHIC_14);
+  g_font_small_bold = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
+  // The tiny 9px Gothic added in the Core Devices era; on very old firmware
+  // fonts_get_system_font falls back to a legible default.
+  g_font_header = fonts_get_system_font(FONT_KEY_GOTHIC_09);
   g_font_banner = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
 #endif
-  g_font_small = s_custom_small;
-  g_font_small_bold = s_custom_small_bold;
 }
 
 static void prv_init(void) {
@@ -368,8 +367,6 @@ static void prv_deinit(void) {
   tick_timer_service_unsubscribe();
   window_destroy(s_window);
   layout_unload_fonts();
-  fonts_unload_custom_font(s_custom_small);
-  fonts_unload_custom_font(s_custom_small_bold);
 }
 
 int main(void) {

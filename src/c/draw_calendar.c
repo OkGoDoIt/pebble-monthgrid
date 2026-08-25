@@ -2,20 +2,31 @@
 
 // Month banner + weekday header + the day grid, with today inverted,
 // optional dimmed adjacent-month days and optional per-day event dots.
+// Small text is system Raster Gothic, placed by its visible pixel metrics
+// (SMALL_DIGIT_H / SMALL_TOP_PAD) so rows stay optically centered.
 
 #if PBL_DISPLAY_WIDTH >= 200
-  #define GRID_TEXT_H 18
+  #define TEXT_BOX_SLACK 12
   #define DOT_S 4
   #define DOT_GAP 2
-  #define MIN_PITCH_FOR_DOTS 16
+  #define MIN_PITCH_FOR_DOTS 15
+  #define MONTH_TILE 17
+  #define HEADER_TOP_PAD 3    // GOTHIC_14 header font
 #else
-  #define GRID_TEXT_H 11
+  #define TEXT_BOX_SLACK 10
   #define DOT_S 3
   #define DOT_GAP 1
-  #define MIN_PITCH_FOR_DOTS 11
+  #define MIN_PITCH_FOR_DOTS 12
+  #define MONTH_TILE 13
+  #define HEADER_TOP_PAD 2    // GOTHIC_09 header font
 #endif
 
 static const char *const WEEKDAY_LABELS[7] = { "SU", "MO", "TU", "WE", "TH", "FR", "SA" };
+static const char *const WEEKDAY_LETTERS[7] = { "S", "M", "T", "W", "T", "F", "S" };
+static const char *const MONTH_ABBR[12] = {
+  "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+  "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
+};
 
 static int prv_start_wday(void) {
   switch (g_settings.start_day) {
@@ -25,44 +36,34 @@ static int prv_start_wday(void) {
   }
 }
 
-// 50%-checkerboard "gray" for B&W platforms: punch background-colored pixels
-// over whatever was just drawn in this rect.
-#if defined(PBL_BW)
-static void prv_dither_rect(GContext *ctx, GRect rect, GColor bg) {
-  graphics_context_set_stroke_color(ctx, bg);
-  for (int16_t y = rect.origin.y; y < rect.origin.y + rect.size.h; y++) {
-    for (int16_t x = rect.origin.x; x < rect.origin.x + rect.size.w; x++) {
-      if (((x + y) & 1) == 0) {
-        graphics_draw_pixel(ctx, GPoint(x, y));
-      }
-    }
-  }
-}
-#endif
-
-static void prv_draw_day_number(GContext *ctx, int day, GRect cell, GColor color) {
+static void prv_draw_day_number(GContext *ctx, int day, GRect cell, GColor color,
+                                bool top_anchor) {
   char buf[4];
   snprintf(buf, sizeof(buf), "%d", day);
+  // top_anchor pushes the number up to make room for event dots below.
+  int16_t y = top_anchor
+      ? cell.origin.y - SMALL_TOP_PAD
+      : cell.origin.y + (cell.size.h - 1 - SMALL_DIGIT_H) / 2 - SMALL_TOP_PAD;
   graphics_context_set_text_color(ctx, color);
   graphics_draw_text(ctx, buf, g_font_small,
-                     GRect(cell.origin.x, cell.origin.y, cell.size.w, GRID_TEXT_H + 4),
+                     GRect(cell.origin.x, y, cell.size.w,
+                           SMALL_DIGIT_H + SMALL_TOP_PAD + TEXT_BOX_SLACK),
                      GTextOverflowModeFill, GTextAlignmentCenter, NULL);
 }
 
 static void prv_draw_dots(GContext *ctx, int day, GRect cell, bool on_today_box) {
-  if (!g_settings.dots_enabled || g_layout.row_pitch < MIN_PITCH_FOR_DOTS) { return; }
   if (day < 1 || day > 31) { return; }
   uint8_t mask = g_dots.days[day - 1];
   if (!mask) { return; }
 
-  // One marker per calendar: solid square = timed event, hollow = all-day.
+  // One marker per calendar: solid dot = timed event, short line = all-day.
   int n = 0;
   for (int cal = 0; cal < NUM_CALENDARS; cal++) {
     if (mask & (DOT_TIMED_BIT(cal) | DOT_ALLDAY_BIT(cal))) { n++; }
   }
   int16_t total_w = n * DOT_S + (n - 1) * DOT_GAP;
   int16_t x = cell.origin.x + (cell.size.w - total_w) / 2;
-  int16_t y = cell.origin.y + cell.size.h - DOT_S - 1;
+  int16_t y = cell.origin.y + cell.size.h - DOT_S - 2;
 
   for (int cal = 0; cal < NUM_CALENDARS; cal++) {
     bool timed = mask & DOT_TIMED_BIT(cal);
@@ -74,13 +75,12 @@ static void prv_draw_dots(GContext *ctx, int day, GRect cell, bool on_today_box)
 #else
     GColor c = on_today_box ? theme_bg() : theme_fg();
 #endif
-    GRect dot = GRect(x, y, DOT_S, DOT_S);
+    graphics_context_set_fill_color(ctx, c);
     if (timed) {
-      graphics_context_set_fill_color(ctx, c);
-      graphics_fill_rect(ctx, dot, 0, GCornerNone);
+      graphics_fill_rect(ctx, GRect(x, y, DOT_S, DOT_S), 0, GCornerNone);
     } else {
-      graphics_context_set_stroke_color(ctx, c);
-      graphics_draw_rect(ctx, dot);
+      // All-day: a line spanning the marker slot, vertically centered.
+      graphics_fill_rect(ctx, GRect(x, y + DOT_S / 2, DOT_S, 2), 0, GCornerNone);
     }
     x += DOT_S + DOT_GAP;
   }
@@ -92,8 +92,31 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
   const GColor bg = theme_bg();
   graphics_context_set_antialiased(ctx, false);
 
-  // ---- Month banner ---------------------------------------------------
-  if (g_layout.banner_visible) {
+  // ---- Month banner / month column ------------------------------------
+  if (g_layout.banner_visible && g_layout.side_columns) {
+    // Round: the month as a stack of inverted letter tiles in the left
+    // crescent — the round-native echo of the rectangular banner.
+    const char *abbr = MONTH_ABBR[g_now.tm_mon];
+    int n = strlen(abbr);
+    int16_t total_h = n * MONTH_TILE + (n - 1) * 2;
+    GRect col = g_layout.banner_zone;
+    int16_t ty = col.origin.y + (col.size.h - total_h) / 2;
+    int16_t tx = col.origin.x + (col.size.w - MONTH_TILE) / 2;
+    char letter[2] = { 0, 0 };
+    for (int i = 0; i < n; i++) {
+      GRect tile = GRect(tx, ty + i * (MONTH_TILE + 2), MONTH_TILE, MONTH_TILE);
+      graphics_context_set_fill_color(ctx, fg);
+      graphics_fill_rect(ctx, tile, 1, GCornersAll);
+      letter[0] = abbr[i];
+      graphics_context_set_text_color(ctx, bg);
+      graphics_draw_text(ctx, letter, g_font_small_bold,
+                         GRect(tile.origin.x,
+                               tile.origin.y + (MONTH_TILE - SMALL_DIGIT_H) / 2
+                                   - SMALL_TOP_PAD,
+                               tile.size.w, MONTH_TILE + TEXT_BOX_SLACK),
+                         GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+    }
+  } else if (g_layout.banner_visible) {
     char month_buf[24];
     strftime(month_buf, sizeof(month_buf), "%B", &g_now);
     // Uppercase ASCII only; leave multi-byte (localized) glyphs untouched.
@@ -115,11 +138,14 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
   if (g_layout.header_visible) {
     graphics_context_set_text_color(ctx, fg);
     for (int i = 0; i < 7; i++) {
-      const char *label = WEEKDAY_LABELS[(start_wday + i) % 7];
+      int day_i = (start_wday + i) % 7;
+      const char *label = g_layout.side_columns ? WEEKDAY_LETTERS[day_i]
+                                                : WEEKDAY_LABELS[day_i];
       GRect box = GRect(g_layout.header_zone.origin.x + i * g_layout.cell_w,
-                        g_layout.header_zone.origin.y,
-                        g_layout.cell_w, g_layout.header_zone.size.h + 4);
-      graphics_draw_text(ctx, label, g_font_small_bold, box,
+                        g_layout.header_zone.origin.y - HEADER_TOP_PAD,
+                        g_layout.cell_w,
+                        g_layout.header_zone.size.h + HEADER_TOP_PAD + TEXT_BOX_SLACK);
+      graphics_draw_text(ctx, label, g_font_header, box,
                          GTextOverflowModeFill, GTextAlignmentCenter, NULL);
     }
   }
@@ -138,6 +164,7 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
   int prev_ndays = days_in_month(prev_year, prev_mon);
 
   bool dots_current = g_settings.dots_enabled
+      && g_layout.row_pitch >= MIN_PITCH_FOR_DOTS
       && g_dots.monthkey == (uint16_t) (year * 16 + mon + 1);
 
   for (int cell_i = 0; cell_i < rows * 7; cell_i++) {
@@ -151,13 +178,9 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
     if (day < 1 || day > ndays) {
       if (!g_settings.show_adjacent) { continue; }
       int shown = (day < 1) ? prev_ndays + day : day - ndays;
-#if defined(PBL_COLOR)
-      prv_draw_day_number(ctx, shown, cell, theme_dim());
-#else
-      prv_draw_day_number(ctx, shown, cell, fg);
-      prv_dither_rect(ctx, GRect(cell.origin.x, cell.origin.y, cell.size.w, GRID_TEXT_H),
-                      bg);
-#endif
+      // Gray on color displays; plain on B&W (dithering 1px glyphs would
+      // destroy them).
+      prv_draw_day_number(ctx, shown, cell, theme_dim(), dots_current);
       continue;
     }
 
@@ -167,9 +190,9 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
                         cell.size.w - 2, cell.size.h - 1);
       graphics_context_set_fill_color(ctx, fg);
       graphics_fill_rect(ctx, box, 2, GCornersAll);
-      prv_draw_day_number(ctx, day, cell, bg);
+      prv_draw_day_number(ctx, day, cell, bg, dots_current);
     } else {
-      prv_draw_day_number(ctx, day, cell, fg);
+      prv_draw_day_number(ctx, day, cell, fg, dots_current);
     }
     if (dots_current) {
       prv_draw_dots(ctx, day, cell, is_today);

@@ -6,11 +6,11 @@
 
 #if PBL_DISPLAY_WIDTH >= 200
   #define SIDE_GAP 4
-  #define SIDE_TEXT_H 18
 #else
   #define SIDE_GAP 3
-  #define SIDE_TEXT_H 11
 #endif
+// Side labels use the small bold Gothic; box tall enough for its line box.
+#define SIDE_TEXT_H (SMALL_DIGIT_H + SMALL_TOP_PAD + 8)
 
 static bool prv_use_24h(void) {
   switch (g_settings.time_format) {
@@ -60,9 +60,16 @@ void draw_time_update_proc(Layer *layer, GContext *ctx) {
         sec_buf, g_font_small_bold, measure_box, GTextOverflowModeFill, GTextAlignmentLeft);
     if (sec_size.w > side_w) { side_w = sec_size.w; }
   }
-  if (side_w > 0) { side_w += SIDE_GAP; }
 
-  int16_t x0 = zone.origin.x + (zone.size.w - time_size.w - side_w) / 2;
+  // The digits are centered on their own; AM/PM and seconds hang off to the
+  // right without affecting the centering (like the original watchface).
+  // Only if the side column would run off-screen is the group nudged left.
+  int16_t x0 = zone.origin.x + (zone.size.w - time_size.w) / 2;
+  if (side_w > 0) {
+    int16_t overflow = (x0 + time_size.w + SIDE_GAP + side_w)
+        - (zone.origin.x + zone.size.w - 1);
+    if (overflow > 0) { x0 -= overflow; }
+  }
   if (x0 < zone.origin.x) { x0 = zone.origin.x; }
 
   graphics_context_set_text_color(ctx, fg);
@@ -76,13 +83,14 @@ void draw_time_update_proc(Layer *layer, GContext *ctx) {
   int16_t side_x = x0 + time_size.w + SIDE_GAP;
   if (ampm_buf[0]) {
     graphics_draw_text(ctx, ampm_buf, g_font_small_bold,
-                       GRect(side_x, zone.origin.y + 2, ampm_size.w + 2, SIDE_TEXT_H),
+                       GRect(side_x, zone.origin.y + 1 - SMALL_TOP_PAD,
+                             ampm_size.w + 2, SIDE_TEXT_H),
                        GTextOverflowModeFill, GTextAlignmentLeft, NULL);
   }
   if (sec_buf[0]) {
     int16_t sec_y = ampm_buf[0]
-        ? zone.origin.y + zone.size.h - SIDE_TEXT_H
-        : zone.origin.y + (zone.size.h - SIDE_TEXT_H) / 2;
+        ? zone.origin.y + zone.size.h - SMALL_DIGIT_H - SMALL_TOP_PAD - 2
+        : zone.origin.y + (zone.size.h - SMALL_DIGIT_H) / 2 - SMALL_TOP_PAD;
     graphics_draw_text(ctx, sec_buf, g_font_small_bold,
                        GRect(side_x, sec_y, sec_size.w + 2, SIDE_TEXT_H),
                        GTextOverflowModeFill, GTextAlignmentLeft, NULL);

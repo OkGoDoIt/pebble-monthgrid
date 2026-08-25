@@ -126,6 +126,10 @@ typedef struct {
   bool status_visible;
   bool banner_visible;
   bool header_visible;
+  // Round layout: banner_zone is a vertical month column in the left
+  // crescent and status_zone a vertical metric column in the right one;
+  // the weekday header uses single letters.
+  bool side_columns;
   int16_t row_pitch;
   int16_t cell_w;
   int16_t grid_x;           // left edge of the 7 * cell_w block
@@ -145,9 +149,23 @@ extern Layout g_layout;
 extern struct tm g_now;
 extern bool g_connected;
 
-extern GFont g_font_small;        // pixel font for grid/status/header (8 or 16 px)
-extern GFont g_font_small_bold;
-extern GFont g_font_banner;
+// System Raster Gothic everywhere for small text — the crisp hand-hinted
+// bitmaps the original face used. Sizes step up on the 200px+ displays.
+extern GFont g_font_small;        // grid digits & status text (GOTHIC_14 / _18)
+extern GFont g_font_small_bold;   // AM/PM, seconds, month tiles (bold variants)
+extern GFont g_font_header;       // weekday header (GOTHIC_09 / GOTHIC_14)
+extern GFont g_font_banner;       // month banner (GOTHIC_14_BOLD / _18_BOLD)
+
+// Visual metrics of the small font: cap/digit height and the internal
+// padding above it inside the font's line box (needed to place text by its
+// visible pixels rather than its line box).
+#if PBL_DISPLAY_WIDTH >= 200
+  #define SMALL_DIGIT_H 11
+  #define SMALL_TOP_PAD 4
+#else
+  #define SMALL_DIGIT_H 8
+  #define SMALL_TOP_PAD 3
+#endif
 
 // Foreground/background per theme.
 static inline GColor theme_bg(void) {

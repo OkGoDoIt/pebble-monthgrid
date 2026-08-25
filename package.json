@@ -64,18 +64,6 @@
       "media": [
         {
           "type": "font",
-          "name": "FONT_SILKSCREEN_8",
-          "file": "fonts/Silkscreen-Regular.ttf",
-          "characterRegex": "[!-~°]"
-        },
-        {
-          "type": "font",
-          "name": "FONT_SILKSCREEN_BOLD_8",
-          "file": "fonts/Silkscreen-Bold.ttf",
-          "characterRegex": "[!-~°]"
-        },
-        {
-          "type": "font",
           "name": "FONT_SILKTIME_16",
           "file": "fonts/Silkscreen-Bold.ttf",
           "characterRegex": "[0-9:]"
@@ -97,23 +85,6 @@
           "name": "FONT_SILKTIME_48",
           "file": "fonts/Silkscreen-Bold.ttf",
           "characterRegex": "[0-9:]",
-          "targetPlatforms": ["emery", "gabbro"]
-        },
-        {
-          "type": "font",
-          "name": "FONT_SILKSCREEN_16",
-          "file": "fonts/Silkscreen-Regular.ttf",
-          "characterRegex": "[!-~°]",
-          "targetPlatforms": [
-            "emery",
-            "gabbro"
-          ]
-        },
-        {
-          "type": "font",
-          "name": "FONT_SILKSCREEN_BOLD_16",
-          "file": "fonts/Silkscreen-Bold.ttf",
-          "characterRegex": "[!-~°]",
           "targetPlatforms": [
             "emery",
             "gabbro"

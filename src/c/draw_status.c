@@ -1,19 +1,25 @@
 #include "common.h"
 
-// The status line: up to NUM_METRIC_SLOTS user-prioritized metrics. Items are
-// measured first and appended in priority order while they fit; metrics with
-// no meaningful data are skipped entirely. A dotted rule underlines the zone.
+// The status line: up to NUM_METRIC_SLOTS user-prioritized metrics. Items
+// are measured first and appended in priority order while they fit; metrics
+// with no meaningful data are skipped entirely.
+//
+// Rectangular watches render one horizontal line under the time with a
+// dotted rule. Round watches render a vertical icon-over-value column in the
+// right crescent beside the grid (layout sets side_columns), where the same
+// fit rule applies vertically — and horizontally: an entry wider than the
+// crescent is skipped.
 
 #if PBL_DISPLAY_WIDTH >= 200
-  #define ICON_S 15
-  #define ITEM_GAP 12
+  #define ICON_S 13
+  #define ITEM_GAP 10
   #define ICON_TEXT_GAP 3
-  #define TEXT_H 18
+  #define TEXT_BOX_SLACK 12
 #else
   #define ICON_S 9
   #define ITEM_GAP 8
   #define ICON_TEXT_GAP 2
-  #define TEXT_H 11
+  #define TEXT_BOX_SLACK 10
 #endif
 
 typedef struct {
@@ -30,9 +36,7 @@ static bool prv_health_ok(HealthMetric metric) {
       health_service_metric_accessible(metric, time_start_of_today(), now);
   return (mask & HealthServiceAccessibilityMaskAvailable) != 0;
 }
-#endif
 
-#if defined(PBL_HEALTH)
 static void prv_format_count(char *buf, size_t len, int32_t v) {
   if (v < 1000) {
     snprintf(buf, len, "%d", (int) v);
@@ -45,12 +49,14 @@ static void prv_format_count(char *buf, size_t len, int32_t v) {
 #endif
 
 // Returns false if this metric has no meaningful data right now (hidden).
-static bool prv_metric_text(uint8_t metric, char *buf, size_t len) {
+// compact drops unit suffixes for the narrow round-crescent column, where
+// the icon already carries the meaning.
+static bool prv_metric_text(uint8_t metric, char *buf, size_t len, bool compact) {
   buf[0] = '\0';
   switch (metric) {
     case METRIC_BATTERY: {
       BatteryChargeState st = battery_state_service_peek();
-      snprintf(buf, len, "%d%%", st.charge_percent);
+      snprintf(buf, len, compact ? "%d" : "%d%%", st.charge_percent);
       return true;
     }
     case METRIC_WEATHER: {
@@ -60,9 +66,9 @@ static bool prv_metric_text(uint8_t metric, char *buf, size_t len) {
       int t = g_weather.temp_c;
       if (g_settings.temp_fahrenheit) {
         t = (t * 9 + (t >= 0 ? 2 : -2)) / 5 + 32;  // rounded C -> F
-        snprintf(buf, len, "%d°F", t);
+        snprintf(buf, len, compact ? "%d°" : "%d°F", t);
       } else {
-        snprintf(buf, len, "%d°C", t);
+        snprintf(buf, len, compact ? "%d°" : "%d°C", t);
       }
       return true;
     }
@@ -75,20 +81,12 @@ static bool prv_metric_text(uint8_t metric, char *buf, size_t len) {
     case METRIC_DISTANCE: {
       if (!prv_health_ok(HealthMetricWalkedDistanceMeters)) { return false; }
       int32_t m = health_service_sum_today(HealthMetricWalkedDistanceMeters);
-      if (g_settings.dist_miles) {
-        int32_t tenths = (m * 10) / 16093;
-        if (tenths >= 100) {
-          snprintf(buf, len, "%dmi", (int) (tenths / 10));
-        } else {
-          snprintf(buf, len, "%d.%dmi", (int) (tenths / 10), (int) (tenths % 10));
-        }
+      const char *unit = g_settings.dist_miles ? "mi" : "km";
+      int32_t tenths = g_settings.dist_miles ? (m * 10) / 16093 : m / 100;
+      if (tenths >= 100) {
+        snprintf(buf, len, "%d%s", (int) (tenths / 10), unit);
       } else {
-        int32_t tenths = m / 100;
-        if (tenths >= 100) {
-          snprintf(buf, len, "%dkm", (int) (tenths / 10));
-        } else {
-          snprintf(buf, len, "%d.%dkm", (int) (tenths / 10), (int) (tenths % 10));
-        }
+        snprintf(buf, len, "%d.%d%s", (int) (tenths / 10), (int) (tenths % 10), unit);
       }
       return true;
     }
@@ -133,7 +131,7 @@ static bool prv_metric_text(uint8_t metric, char *buf, size_t len) {
       if (!lt) { return false; }
       bool use_24h = (g_settings.time_format == TIME_FMT_24H)
           || (g_settings.time_format == TIME_FMT_SYSTEM && clock_is_24h_style());
-      if (use_24h) {
+      if (use_24h || compact) {
         snprintf(buf, len, "%d:%02d", lt->tm_hour, lt->tm_min);
       } else {
         int hour = lt->tm_hour % 12;
@@ -150,59 +148,64 @@ static bool prv_metric_text(uint8_t metric, char *buf, size_t len) {
   }
 }
 
-void draw_status_update_proc(Layer *layer, GContext *ctx) {
-  (void) layer;
-  if (!g_layout.status_visible) { return; }
-  const GRect zone = g_layout.status_zone;
-  const GColor fg = theme_fg();
-  const GColor bg = theme_bg();
+// Collects up to NUM_METRIC_SLOTS displayable items in priority order
+// (deduped, no-data metrics skipped). Returns the count.
+static int prv_collect_items(StatusItem *items, bool compact) {
   const GRect measure_box = GRect(0, 0, 32767, 32767);
-
-  StatusItem items[NUM_METRIC_SLOTS];
-  int n_items = 0;
-  int16_t total_w = 0;
-  const int16_t max_w = zone.size.w - 4;
-
+  int n = 0;
   for (int slot = 0; slot < NUM_METRIC_SLOTS; slot++) {
     uint8_t metric = g_settings.metrics[slot];
     if (metric == METRIC_NONE || metric >= METRIC_TYPE_COUNT) { continue; }
     bool dup = false;
-    for (int j = 0; j < n_items; j++) {
+    for (int j = 0; j < n; j++) {
       if (items[j].metric == metric) { dup = true; break; }
     }
     if (dup) { continue; }
-
-    StatusItem *item = &items[n_items];
+    StatusItem *item = &items[n];
     item->metric = metric;
-    if (!prv_metric_text(metric, item->text, sizeof(item->text))) { continue; }
+    if (!prv_metric_text(metric, item->text, sizeof(item->text), compact)) { continue; }
     item->icon_w = status_icon_width(metric, ICON_S);
     item->text_w = item->text[0]
         ? graphics_text_layout_get_content_size(item->text, g_font_small, measure_box,
                                                 GTextOverflowModeFill,
                                                 GTextAlignmentLeft).w
         : 0;
+    n++;
+  }
+  return n;
+}
+
+static void prv_draw_horizontal(GContext *ctx, const GRect zone) {
+  const GColor fg = theme_fg();
+  const GColor bg = theme_bg();
+  StatusItem items[NUM_METRIC_SLOTS];
+  int n_all = prv_collect_items(items, false);
+
+  // Append in priority order while the line still fits.
+  int n = 0;
+  int16_t total_w = 0;
+  const int16_t max_w = zone.size.w - 4;
+  for (; n < n_all; n++) {
+    StatusItem *item = &items[n];
     int16_t w = item->icon_w + (item->icon_w && item->text_w ? ICON_TEXT_GAP : 0)
         + item->text_w;
-    int16_t gap = n_items > 0 ? ITEM_GAP : 0;
-    if (total_w + gap + w > max_w) {
-      break;  // Priority order: once one doesn't fit, stop.
-    }
+    int16_t gap = n > 0 ? ITEM_GAP : 0;
+    if (total_w + gap + w > max_w) { break; }
     total_w += gap + w;
-    n_items++;
   }
 
-  graphics_context_set_antialiased(ctx, false);
   int16_t x = zone.origin.x + (zone.size.w - total_w) / 2;
   int16_t icon_y = zone.origin.y + (zone.size.h - 2 - ICON_S) / 2;
-  int16_t text_y = zone.origin.y + (zone.size.h - 2 - TEXT_H) / 2 - 1;
+  int16_t text_y = zone.origin.y + (zone.size.h - 2 - SMALL_DIGIT_H) / 2 - SMALL_TOP_PAD;
 
-  for (int i = 0; i < n_items; i++) {
+  for (int i = 0; i < n; i++) {
     StatusItem *item = &items[i];
     if (i > 0) {
       // Small separator dot centered in the gap.
       graphics_context_set_fill_color(ctx, theme_dim());
-      graphics_fill_rect(ctx, GRect(x - ITEM_GAP / 2 - 1, zone.origin.y + zone.size.h / 2 - 2,
-                                    1, 1), 0, GCornerNone);
+      graphics_fill_rect(ctx, GRect(x - ITEM_GAP / 2 - 1,
+                                    zone.origin.y + zone.size.h / 2 - 2, 1, 1),
+                         0, GCornerNone);
     }
     if (item->icon_w) {
       status_icon_draw(ctx, item->metric, GPoint(x, icon_y), ICON_S, fg, bg);
@@ -211,7 +214,8 @@ void draw_status_update_proc(Layer *layer, GContext *ctx) {
     if (item->text_w) {
       graphics_context_set_text_color(ctx, fg);
       graphics_draw_text(ctx, item->text, g_font_small,
-                         GRect(x, text_y, item->text_w + 2, TEXT_H + 4),
+                         GRect(x, text_y, item->text_w + 2,
+                               SMALL_DIGIT_H + SMALL_TOP_PAD + TEXT_BOX_SLACK),
                          GTextOverflowModeFill, GTextAlignmentLeft, NULL);
       x += item->text_w;
     }
@@ -223,5 +227,63 @@ void draw_status_update_proc(Layer *layer, GContext *ctx) {
   int16_t rule_y = zone.origin.y + zone.size.h - 1;
   for (int16_t rx = g_layout.grid_x; rx < g_layout.grid_x + g_layout.cell_w * 7; rx += 3) {
     graphics_draw_pixel(ctx, GPoint(rx, rule_y));
+  }
+}
+
+static void prv_draw_column(GContext *ctx, const GRect zone) {
+  const GColor fg = theme_fg();
+  const GColor bg = theme_bg();
+  StatusItem items[NUM_METRIC_SLOTS];
+  int n_all = prv_collect_items(items, true);
+
+  // Vertical fit: entries stack while there is room; entries wider than the
+  // crescent are skipped (they would clip against the bezel).
+  StatusItem *fit[NUM_METRIC_SLOTS];
+  int n = 0;
+  int16_t total_h = 0;
+  const int16_t entry_gap = 5;
+  for (int i = 0; i < n_all; i++) {
+    StatusItem *item = &items[i];
+    if (item->text_w > zone.size.w && item->icon_w == 0) { continue; }
+    if (item->text_w > zone.size.w) { item->text[0] = '\0'; item->text_w = 0; }
+    int16_t h = (item->icon_w ? ICON_S : 0)
+        + (item->icon_w && item->text_w ? 2 : 0)
+        + (item->text_w ? SMALL_DIGIT_H : 0);
+    if (h == 0) { continue; }
+    int16_t gap = n > 0 ? entry_gap : 0;
+    if (total_h + gap + h > zone.size.h) { break; }
+    fit[n] = item;
+    total_h += gap + h;
+    n++;
+  }
+
+  int16_t y = zone.origin.y + (zone.size.h - total_h) / 2;
+  for (int i = 0; i < n; i++) {
+    StatusItem *item = fit[i];
+    if (item->icon_w) {
+      int16_t ix = zone.origin.x + (zone.size.w - item->icon_w) / 2;
+      status_icon_draw(ctx, item->metric, GPoint(ix, y), ICON_S, fg, bg);
+      y += ICON_S + (item->text_w ? 2 : 0);
+    }
+    if (item->text_w) {
+      graphics_context_set_text_color(ctx, fg);
+      graphics_draw_text(ctx, item->text, g_font_small,
+                         GRect(zone.origin.x, y - SMALL_TOP_PAD, zone.size.w,
+                               SMALL_DIGIT_H + SMALL_TOP_PAD + TEXT_BOX_SLACK),
+                         GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+      y += SMALL_DIGIT_H;
+    }
+    y += entry_gap;
+  }
+}
+
+void draw_status_update_proc(Layer *layer, GContext *ctx) {
+  (void) layer;
+  if (!g_layout.status_visible) { return; }
+  graphics_context_set_antialiased(ctx, false);
+  if (g_layout.side_columns) {
+    prv_draw_column(ctx, g_layout.status_zone);
+  } else {
+    prv_draw_horizontal(ctx, g_layout.status_zone);
   }
 }
