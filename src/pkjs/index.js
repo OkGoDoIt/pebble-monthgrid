@@ -242,9 +242,13 @@ function pushDots(monthkey) {
           var marks = ics.scanMonth(res.text, year, month0);
           var matched = 0;
           for (var d = 0; d < daysInMonth; d++) {
-            if (marks.timed[d]) { bytes[d] |= (1 << cal); }
-            if (marks.allday[d]) { bytes[d] |= (1 << (cal + 3)); }
-            if (marks.timed[d] || marks.allday[d]) { matched++; }
+            // Two bits per calendar: how many events that day, capped at 3.
+            var n = marks.count[d];
+            if (n > 3) { n = 3; }
+            if (n > 0) {
+              bytes[d] |= (n << (2 * cal));
+              matched++;
+            }
           }
           entry.ok = true;
           entry.detail = 'OK — ' + Math.round(res.text.length / 1024) + 'kB, ' +

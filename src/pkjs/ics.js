@@ -207,12 +207,17 @@ function eventDuration(ev) {
   return Math.max(0, span);
 }
 
-// Mark [startIdx .. startIdx+duration] ∩ month into out.{timed,allday}.
+// Mark [startIdx .. startIdx+duration] ∩ month into out.{timed,allday} and
+// bump out.count[day] — the watch shows up to three markers per day, so the
+// number of events on a day matters, not just that there was one.
 function markOccurrence(ev, startIdx, duration, monthStartIdx, daysInMonth, out) {
   var target = ev.start.allDay ? out.allday : out.timed;
   for (var d = startIdx; d <= startIdx + duration; d++) {
     var off = d - monthStartIdx;
-    if (off >= 0 && off < daysInMonth) { target[off] = true; }
+    if (off >= 0 && off < daysInMonth) {
+      target[off] = true;
+      out.count[off]++;
+    }
   }
 }
 
@@ -304,8 +309,10 @@ function expandEvent(ev, monthStartIdx, daysInMonth, out) {
 function scanMonth(icsText, year, month0) {
   var daysInMonth = new Date(year, month0 + 1, 0).getDate();
   var monthStartIdx = dayIndex(year, month0, 1);
-  var out = { timed: [], allday: [] };
-  for (var i = 0; i < daysInMonth; i++) { out.timed.push(false); out.allday.push(false); }
+  var out = { timed: [], allday: [], count: [] };
+  for (var i = 0; i < daysInMonth; i++) {
+    out.timed.push(false); out.allday.push(false); out.count.push(0);
+  }
   var events = parseEvents(icsText);
   for (var e = 0; e < events.length; e++) {
     expandEvent(events[e], monthStartIdx, daysInMonth, out);

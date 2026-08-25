@@ -55,11 +55,36 @@ static void prv_draw_dots(GContext *ctx, int day, GRect cell, bool on_today_box)
   uint8_t mask = g_dots.days[day - 1];
   if (!mask) { return; }
 
+  // Per-calendar event counts (2 bits each, saturating at 3).
+  uint8_t counts[NUM_CALENDARS];
+  int distinct = 0, total = 0;
+  for (int cal = 0; cal < NUM_CALENDARS; cal++) {
+    counts[cal] = DOT_COUNT(mask, cal);
+    if (counts[cal]) { distinct++; total += counts[cal]; }
+  }
+  if (!distinct) { return; }
+
+  // Marker slots: every calendar with an event gets one first, then any
+  // spare slots go to calendars with more than one event (round-robin, so a
+  // busy calendar can take two or three). Grouped by calendar so same-color
+  // markers sit together.
+  uint8_t slots[NUM_CALENDARS];
   int n = 0;
   for (int cal = 0; cal < NUM_CALENDARS; cal++) {
-    if (mask & (DOT_TIMED_BIT(cal) | DOT_ALLDAY_BIT(cal))) { n++; }
+    slots[cal] = counts[cal] ? 1 : 0;
+    n += slots[cal];
   }
-  if (n == 0) { return; }
+  for (bool progress = true; n < DOT_MAX_MARKERS && progress; ) {
+    progress = false;
+    for (int cal = 0; cal < NUM_CALENDARS && n < DOT_MAX_MARKERS; cal++) {
+      if (slots[cal] && slots[cal] < counts[cal]) {
+        slots[cal]++;
+        n++;
+        progress = true;
+      }
+    }
+  }
+  (void) total;
   bool bar_style = g_settings.dots_style == DOTS_STYLE_BAR;
   int seg = 0;
 
@@ -77,7 +102,8 @@ static void prv_draw_dots(GContext *ctx, int day, GRect cell, bool on_today_box)
   }
 
   for (int cal = 0; cal < NUM_CALENDARS; cal++) {
-    if (!(mask & (DOT_TIMED_BIT(cal) | DOT_ALLDAY_BIT(cal)))) { continue; }
+    int reps = bar_style ? (counts[cal] ? 1 : 0) : slots[cal];
+    if (!reps) { continue; }
 #if defined(PBL_COLOR)
     GColor c = (GColor) { .argb = g_settings.cal_colors[cal] };
     if (on_today_box && gcolor_equal(c, theme_accent())) { c = theme_on_accent(); }
@@ -85,17 +111,19 @@ static void prv_draw_dots(GContext *ctx, int day, GRect cell, bool on_today_box)
     GColor c = on_today_box ? theme_on_accent() : theme_fg();
 #endif
     graphics_context_set_fill_color(ctx, c);
-    if (bar_style) {
-      // A 1px bar split into equal per-calendar sections (single solid bar
-      // on B&W).
-      int16_t w = bar_w / n + (seg == n - 1 ? bar_w % n : 0);
-      graphics_fill_rect(ctx, GRect(x, marker_y, w, DOT_BAR_H), 0, GCornerNone);
-      x += w;
-    } else {
-      graphics_fill_rect(ctx, GRect(x, marker_y, DOT_SQ_W, sq_h), 0, GCornerNone);
-      x += DOT_SQ_W + DOT_GAP;
+    for (int r = 0; r < reps; r++) {
+      if (bar_style) {
+        // A 1px bar split into equal per-calendar sections (single solid
+        // bar on B&W).
+        int16_t w = bar_w / distinct + (seg == distinct - 1 ? bar_w % distinct : 0);
+        graphics_fill_rect(ctx, GRect(x, marker_y, w, DOT_BAR_H), 0, GCornerNone);
+        x += w;
+      } else {
+        graphics_fill_rect(ctx, GRect(x, marker_y, DOT_SQ_W, sq_h), 0, GCornerNone);
+        x += DOT_SQ_W + DOT_GAP;
+      }
+      seg++;
     }
-    seg++;
   }
 }
 

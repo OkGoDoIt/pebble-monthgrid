@@ -32,7 +32,9 @@ official Pebble SDK.
 - **Calendar event markers** — up to three iCal/ICS subscriptions (e.g. Google
   Calendar's *Secret address in iCal format*) mark days with events. Two styles: a
   1px underline that splits into per-calendar color sections, or small squares —
-  color-coded per calendar on color watches, sized per display density. The URLs stay
+  color-coded per calendar on color watches, sized per display density. The squares
+  show up to three markers per day based on how many events you have, prioritising
+  one marker per calendar before doubling up. The URLs stay
   on your phone; the watch only ever receives a per-day bitmask.
 - **Timeline Quick View aware** — when the system overlay appears, the face compresses
   (smaller time, then status, banner, header yield) instead of cropping the grid.

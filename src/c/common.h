@@ -98,7 +98,7 @@ typedef enum {
 
 #define SETTINGS_VERSION 1
 #define WEATHER_VERSION 1
-#define DOTS_VERSION 1
+#define DOTS_VERSION 2
 
 #define PERSIST_KEY_SETTINGS 1
 #define PERSIST_KEY_WEATHER 2
@@ -142,13 +142,13 @@ typedef struct __attribute__((__packed__)) {
   // Last refresh outcome from the phone: 0 = ok, nonzero = the most recent
   // calendar fetch/parse failed (cached days below stay valid).
   uint8_t status;
-  // Per day-of-month bitmask: bits 0..2 = timed event in calendar 1..3,
-  // bits 3..5 = all-day event in calendar 1..3.
+  // Per day-of-month: a 2-bit event count per calendar (0..3, saturating),
+  // calendar 1 in bits 0-1, calendar 2 in bits 2-3, calendar 3 in bits 4-5.
   uint8_t days[31];
 } DotsCache;
 
-#define DOT_TIMED_BIT(cal) (1 << (cal))
-#define DOT_ALLDAY_BIT(cal) (1 << ((cal) + 3))
+#define DOT_COUNT(mask, cal) (((mask) >> (2 * (cal))) & 0x3)
+#define DOT_MAX_MARKERS 3
 
 // ---------------------------------------------------------------------------
 // Layout: computed from the current unobstructed bounds + settings.
