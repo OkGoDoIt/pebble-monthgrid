@@ -44,7 +44,7 @@ function parseIcsDate(value, params) {
 
 function parseRrule(value) {
   var rule = { freq: null, interval: 1, count: null, untilIdx: null, byday: null,
-               bymonthday: null };
+               bymonthday: null, wkst: 1 /* Monday, the RFC default */ };
   var parts = value.split(';');
   var daymap = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 };
   for (var i = 0; i < parts.length; i++) {
@@ -56,6 +56,8 @@ function parseRrule(value) {
     else if (k === 'UNTIL') {
       var u = parseIcsDate(v, '');
       if (u) { rule.untilIdx = u.idx; }
+    } else if (k === 'WKST') {
+      if (daymap.hasOwnProperty(v)) { rule.wkst = daymap[v]; }
     } else if (k === 'BYDAY') {
       var days = v.split(',');
       rule.byday = [];
@@ -72,7 +74,39 @@ function parseRrule(value) {
       rule.unsupported = true;
     }
   }
+  // BYDAY on monthly/yearly rules would need weekday expansion we don't do;
+  // fall back to the safe first-instance-only path rather than mark wrong
+  // days from DTSTART's day-of-month.
+  if ((rule.freq === 'MONTHLY' || rule.freq === 'YEARLY') && rule.byday) {
+    rule.unsupported = true;
+  }
   return rule;
+}
+
+// Split "NAME;PARAMS:VALUE" at the first colon OUTSIDE quoted parameter
+// values (TZID="Foo:Bar" is legal per RFC 5545).
+function splitProperty(line) {
+  var inQuotes = false;
+  for (var i = 0; i < line.length; i++) {
+    var ch = line.charAt(i);
+    if (ch === '"') { inQuotes = !inQuotes; }
+    else if (ch === ':' && !inQuotes) {
+      return [line.slice(0, i), line.slice(i + 1)];
+    }
+  }
+  return null;
+}
+
+// ISO 8601 duration -> extra days spanned beyond the first (approximate for
+// timed events that cross midnight mid-day, exact for whole-day multiples).
+function durationExtraDays(value) {
+  var m = /^\+?P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/.exec(value);
+  if (!m) { return null; }
+  var secs = ((+m[1] || 0) * 7 + (+m[2] || 0)) * 86400
+      + (+m[3] || 0) * 3600 + (+m[4] || 0) * 60 + (+m[5] || 0);
+  if (secs <= 0) { return 0; }
+  if (secs % 86400 === 0) { return secs / 86400 - 1; }
+  return Math.floor(secs / 86400);
 }
 
 // Parse the raw ICS text into simple event records.
@@ -89,18 +123,24 @@ function parseEvents(text) {
       continue;
     }
     if (!cur) { continue; }
-    var colon = line.indexOf(':');
-    if (colon < 0) { continue; }
-    var left = line.slice(0, colon);
-    var value = line.slice(colon + 1);
+    var split = splitProperty(line);
+    if (!split) { continue; }
+    var left = split[0];
+    var value = split[1];
     var name = left.split(';')[0];
     var params = left.slice(name.length);
     if (name === 'DTSTART') {
       cur.start = parseIcsDate(value, params);
     } else if (name === 'DTEND') {
       cur.end = parseIcsDate(value, params);
+    } else if (name === 'DURATION') {
+      cur.durationExtra = durationExtraDays(value);
     } else if (name === 'RRULE') {
       cur.rrule = parseRrule(value);
+    } else if (name === 'UID') {
+      cur.uid = value;
+    } else if (name === 'RECURRENCE-ID') {
+      cur.recurrenceId = parseIcsDate(value, params);
     } else if (name === 'EXDATE') {
       var vals = value.split(',');
       for (var j = 0; j < vals.length; j++) {
@@ -111,12 +151,31 @@ function parseEvents(text) {
       cur.cancelled = true;
     }
   }
+  // RECURRENCE-ID overrides: a rescheduled instance appears as its own
+  // VEVENT (marked normally above); suppress the master rule's original
+  // occurrence so it doesn't leave a phantom mark.
+  var overrides = {};
+  for (var e = 0; e < events.length; e++) {
+    var ev = events[e];
+    if (ev.uid && ev.recurrenceId) {
+      (overrides[ev.uid] = overrides[ev.uid] || []).push(ev.recurrenceId.idx);
+    }
+  }
+  for (var e2 = 0; e2 < events.length; e2++) {
+    var master = events[e2];
+    if (master.uid && master.rrule && !master.recurrenceId && overrides[master.uid]) {
+      var idxs = overrides[master.uid];
+      for (var k = 0; k < idxs.length; k++) { master.exdates[idxs[k]] = true; }
+    }
+  }
   return events;
 }
 
 function eventDuration(ev) {
   // Duration in *days spanned beyond the first*, for marking purposes.
-  if (!ev.end) { return 0; }
+  if (!ev.end) {
+    return (typeof ev.durationExtra === 'number') ? ev.durationExtra : 0;
+  }
   var span = ev.end.idx - ev.start.idx;
   if (span <= 0) { return 0; }
   // DTEND is exclusive for all-day events; a timed event ending exactly at
@@ -168,16 +227,32 @@ function expandEvent(ev, monthStartIdx, daysInMonth, out) {
     return idx >= winEnd;
   };
 
+  // For unbounded/UNTIL rules the walk can fast-forward close to the month
+  // window (COUNT rules must walk from the start to count occurrences, so
+  // very old COUNT series beyond MAX_WALK stay best-effort).
+  var target = monthStartIdx - duration;
+
   if (rule.freq === 'DAILY') {
-    for (var i = 0, idx = s0; i < MAX_WALK && !done(idx); i++, idx += rule.interval) {
+    var start = s0;
+    if (rule.count === null && start < target) {
+      start += Math.floor((target - start) / rule.interval) * rule.interval;
+    }
+    for (var i = 0, idx = start; i < MAX_WALK && !done(idx); i++, idx += rule.interval) {
       emit(idx);
     }
   } else if (rule.freq === 'WEEKLY') {
     var byday = rule.byday && rule.byday.length ? rule.byday
         : [weekdayOfDayIndex(s0)];
-    // Weeks start Monday (WKST default). Walk day by day from the series start.
-    var week0 = s0 - ((weekdayOfDayIndex(s0) + 6) % 7);
-    for (var w = 0, d2 = s0; w < MAX_WALK && !done(d2); w++, d2++) {
+    // Week bucketing anchored at the series start's WKST week.
+    var week0 = s0 - ((weekdayOfDayIndex(s0) - rule.wkst + 7) % 7);
+    var d2 = s0;
+    if (rule.count === null && d2 < target) {
+      // Jump whole interval-week blocks; preserves weekNo % interval.
+      var span = 7 * rule.interval;
+      d2 += Math.floor((target - d2) / span) * span;
+      if (d2 < s0) { d2 = s0; }
+    }
+    for (var w = 0; w < MAX_WALK && !done(d2); w++, d2++) {
       var weekNo = Math.floor((d2 - week0) / 7);
       if (weekNo % rule.interval !== 0) { continue; }
       if (byday.indexOf(weekdayOfDayIndex(d2)) === -1) { continue; }

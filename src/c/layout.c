@@ -68,7 +68,7 @@ typedef struct {
 // blocky — deliberate options, but Roboto renders natively there.
 static const TimeFontSpec TIME_FONTS[TIME_FONT_COUNT][3] = {
 #if PBL_DISPLAY_WIDTH >= 200 && !defined(PBL_ROUND)      // emery
-  { { FONT_KEY_ROBOTO_BOLD_SUBSET_49, 0, 52, 8 },
+  { { FONT_KEY_ROBOTO_BOLD_SUBSET_49, 0, 46, 8 },
     { FONT_KEY_GOTHIC_28_BOLD, 0, 32, 6 },
     { FONT_KEY_GOTHIC_24_BOLD, 0, 28, 5 } },
   { { FONT_KEY_LECO_60_BOLD_NUMBERS_AM_PM, 0, 62, 9 },
@@ -84,7 +84,7 @@ static const TimeFontSpec TIME_FONTS[TIME_FONT_COUNT][3] = {
     { FONT_KEY_BITHAM_42_LIGHT, 0, 46, 8 },
     { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 6 } },
 #elif PBL_DISPLAY_WIDTH >= 200 && defined(PBL_ROUND)     // gabbro
-  { { FONT_KEY_ROBOTO_BOLD_SUBSET_49, 0, 52, 8 },
+  { { FONT_KEY_ROBOTO_BOLD_SUBSET_49, 0, 46, 8 },
     { FONT_KEY_GOTHIC_28_BOLD, 0, 32, 6 },
     { FONT_KEY_GOTHIC_24_BOLD, 0, 28, 5 } },
   { { FONT_KEY_LECO_42_NUMBERS, 0, 46, 7 },
@@ -118,7 +118,7 @@ static const TimeFontSpec TIME_FONTS[TIME_FONT_COUNT][3] = {
     { FONT_KEY_BITHAM_30_BLACK, 0, 34, 5 },
     { FONT_KEY_BITHAM_30_BLACK, 0, 34, 5 } },
 #else                                                    // 144x168 rect
-  { { FONT_KEY_ROBOTO_BOLD_SUBSET_49, 0, 52, 8 },
+  { { FONT_KEY_ROBOTO_BOLD_SUBSET_49, 0, 46, 8 },
     { FONT_KEY_GOTHIC_28_BOLD, 0, 32, 6 },
     { FONT_KEY_GOTHIC_24_BOLD, 0, 28, 5 } },
   { { FONT_KEY_LECO_38_BOLD_NUMBERS, 0, 42, 6 },
@@ -266,36 +266,32 @@ void layout_compute(Layer *root_layer) {
   if (pitch > PITCH_MAX) { pitch = PITCH_MAX; }
   l->row_pitch = pitch;
 
-  int16_t leftover = avail - fixed - pitch * 6;
-  if (leftover < 0) { leftover = 0; }
-  // Slack distribution: a bit above the time, a bit after it, rest at bottom.
-  int16_t pad_top = TOP_INSET + leftover / 4;
-  int16_t gap_time = SECTION_GAP + leftover / 4;
-
   l->cell_w = GRID_W_MAX / 7;
   l->grid_x = ub.origin.x + (ub.size.w - l->cell_w * 7) / 2;
 
-  int16_t y = ub.origin.y + pad_top;
-  l->time_zone = GRect(ub.origin.x, y, ub.size.w, spec->height);
-  y += spec->height + gap_time;
+  // Anchor the time to the top and the grid block (grid + header + banner)
+  // to the bottom; the status line floats vertically centered in whatever
+  // space remains between the time and the banner, so slack becomes even
+  // breathing room instead of one lopsided gap.
+  l->time_zone = GRect(ub.origin.x, ub.origin.y + TOP_INSET, ub.size.w, spec->height);
 
-  if (l->status_visible) {
-    l->status_zone = GRect(ub.origin.x, y, ub.size.w, STATUS_H);
-    y += STATUS_H + SECTION_GAP;
+  int16_t y = ub.origin.y + ub.size.h - BOTTOM_INSET - pitch * 6;
+  l->grid_zone = GRect(l->grid_x, y, l->cell_w * 7, pitch * 6);
+  if (l->header_visible) {
+    y -= HEADER_H;
+    l->header_zone = GRect(l->grid_x, y, l->cell_w * 7, HEADER_H);
   }
   if (l->banner_visible) {
-#if defined(PBL_ROUND)
-    l->banner_zone = GRect(l->grid_x, y, l->cell_w * 7, BANNER_H);
-#else
+    y -= SECTION_GAP + BANNER_H;
     l->banner_zone = GRect(ub.origin.x, y, ub.size.w, BANNER_H);
-#endif
-    y += BANNER_H + SECTION_GAP;
   }
-  if (l->header_visible) {
-    l->header_zone = GRect(l->grid_x, y, l->cell_w * 7, HEADER_H);
-    y += HEADER_H;
+  if (l->status_visible) {
+    int16_t time_bottom = l->time_zone.origin.y + l->time_zone.size.h;
+    int16_t gap = y - time_bottom;
+    if (gap < STATUS_H) { gap = STATUS_H; }
+    l->status_zone = GRect(ub.origin.x, time_bottom + (gap - STATUS_H) / 2,
+                           ub.size.w, STATUS_H);
   }
-  l->grid_zone = GRect(l->grid_x, y, l->cell_w * 7, pitch * 6);
 
   (void) full;
 }

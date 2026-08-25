@@ -141,14 +141,25 @@ module.exports = [
         type: 'text',
         defaultValue: 'Marks days that have events, using up to three calendar subscriptions ' +
             '(iCal/ICS URLs — e.g. Google Calendar’s “Secret address in iCal format”). ' +
-            'A solid dot is a timed event, a hollow dot an all-day event. ' +
-            'The URLs never leave your phone; only a per-day yes/no reaches the watch.',
+            'Days with events get a marker under the date, color-coded per calendar on ' +
+            'color watches. The URLs never leave your phone; only a per-day yes/no ' +
+            'reaches the watch.',
       },
       {
         type: 'toggle',
         messageKey: 'DOTS_ENABLED',
-        label: 'Show event dots',
+        label: 'Show event markers',
         defaultValue: false,
+      },
+      {
+        type: 'select',
+        messageKey: 'DOTS_STYLE',
+        label: 'Marker style',
+        defaultValue: 0,
+        options: [
+          { label: 'Underline (splits per calendar)', value: 0 },
+          { label: 'Small squares', value: 1 },
+        ],
       },
       {
         type: 'input',

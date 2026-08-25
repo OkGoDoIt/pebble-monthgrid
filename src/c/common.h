@@ -50,6 +50,11 @@ typedef enum {
 } MetricType;
 
 typedef enum {
+  DOTS_STYLE_BAR = 0,    // 1px underline split into per-calendar sections
+  DOTS_STYLE_SQUARES = 1,
+} DotsStyleOpt;
+
+typedef enum {
   COND_UNKNOWN = 0,
   COND_CLEAR = 1,
   COND_PARTLY = 2,
@@ -87,6 +92,7 @@ typedef struct __attribute__((__packed__)) {
   uint8_t show_seconds;
   uint8_t show_adjacent;    // dimmed prev/next-month days
   uint8_t dots_enabled;     // calendar event dots
+  uint8_t dots_style;       // DotsStyleOpt
   uint8_t vibe_disconnect;
   uint8_t temp_fahrenheit;  // 1 = °F (default), 0 = °C
   uint8_t dist_miles;       // 1 = miles (default), 0 = km
@@ -157,15 +163,17 @@ extern GFont g_font_small_bold;   // AM/PM, seconds, month tiles (bold variants)
 extern GFont g_font_header;       // weekday header (GOTHIC_09 / GOTHIC_14)
 extern GFont g_font_banner;       // month banner (GOTHIC_14_BOLD / _18_BOLD)
 
-// Visual metrics of the small font: cap/digit height and the internal
-// padding above it inside the font's line box (needed to place text by its
-// visible pixels rather than its line box).
+// Visual metrics of the small font: digit ink height and the top bearing
+// above it inside the font's line box (needed to place text by its visible
+// pixels rather than its line box). Measured from the actual firmware
+// fonts: GOTHIC_14 digits are 9px ink below a 5px bearing; GOTHIC_18 is
+// 11px below 7px.
 #if PBL_DISPLAY_WIDTH >= 200
   #define SMALL_DIGIT_H 11
-  #define SMALL_TOP_PAD 4
+  #define SMALL_TOP_PAD 7
 #else
-  #define SMALL_DIGIT_H 8
-  #define SMALL_TOP_PAD 3
+  #define SMALL_DIGIT_H 9
+  #define SMALL_TOP_PAD 5
 #endif
 
 // Foreground/background per theme.

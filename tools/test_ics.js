@@ -138,6 +138,50 @@ check('recurring multi-day all-day event',
   'RRULE:FREQ=WEEKLY;COUNT=3\r\nEND:VEVENT',
   2026, 7, '', '1,2,8,9,15,16');
 
+// --- review-fix regressions ------------------------------------------------
+
+check('old unbounded daily series reaches the month (fast-forward)',
+  'BEGIN:VEVENT\r\nDTSTART:20190101T080000\r\nDTEND:20190101T083000\r\n' +
+  'RRULE:FREQ=DAILY;INTERVAL=7\r\nEND:VEVENT',
+  // Jan 1 2019 is a Tuesday; every 7 days = every Tuesday thereafter.
+  2026, 7, '4,11,18,25', '');
+
+check('old unbounded weekly series reaches the month (fast-forward)',
+  'BEGIN:VEVENT\r\nDTSTART:20180507T100000\r\nDTEND:20180507T110000\r\n' +   // Monday
+  'RRULE:FREQ=WEEKLY;BYDAY=MO\r\nEND:VEVENT',
+  2026, 7, '3,10,17,24,31', '');
+
+check('WKST=SU biweekly keeps SA/SU in the same week',
+  // Jul 5 2026 is a Sunday; with WKST=SU the following Saturday Jul 11 is the
+  // SAME week, so occurrences pair as (Jul 5,11), (Jul 19,25), (Aug 2,8), ...
+  'BEGIN:VEVENT\r\nDTSTART:20260705T100000\r\nDTEND:20260705T110000\r\n' +
+  'RRULE:FREQ=WEEKLY;INTERVAL=2;WKST=SU;BYDAY=SU,SA\r\nEND:VEVENT',
+  2026, 7, '2,8,16,22,30', '');
+
+check('monthly with plain BYDAY falls back to first instance only',
+  'BEGIN:VEVENT\r\nDTSTART:20260804T100000\r\nDTEND:20260804T110000\r\n' +
+  'RRULE:FREQ=MONTHLY;BYDAY=TU\r\nEND:VEVENT',
+  2026, 7, '4', '');
+
+check('RECURRENCE-ID override moves an instance',
+  'BEGIN:VEVENT\r\nUID:m1\r\nDTSTART:20260803T100000\r\nDTEND:20260803T110000\r\n' +
+  'RRULE:FREQ=WEEKLY;BYDAY=MO;UNTIL=20260901T000000Z\r\nEND:VEVENT\r\n' +
+  'BEGIN:VEVENT\r\nUID:m1\r\nRECURRENCE-ID:20260817T100000\r\n' +
+  'DTSTART:20260819T100000\r\nDTEND:20260819T110000\r\nEND:VEVENT',
+  2026, 7, '3,10,19,24,31', '');
+
+check('DURATION all-day span (P3D)',
+  'BEGIN:VEVENT\r\nDTSTART;VALUE=DATE:20260810\r\nDURATION:P3D\r\nEND:VEVENT',
+  2026, 7, '', '10,11,12');
+
+check('DURATION short timed event stays on its day',
+  'BEGIN:VEVENT\r\nDTSTART:20260810T140000\r\nDURATION:PT2H\r\nEND:VEVENT',
+  2026, 7, '10', '');
+
+check('quoted parameter containing a colon parses',
+  'BEGIN:VEVENT\r\nDTSTART;X-FOO="bar:baz":20260812T140000\r\nEND:VEVENT',
+  2026, 7, '12', '');
+
 console.log('---');
 console.log(tests + ' tests, ' + failures + ' failures');
 process.exit(failures ? 1 : 0);

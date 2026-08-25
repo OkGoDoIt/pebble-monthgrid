@@ -123,6 +123,8 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
       g_settings.show_adjacent = prv_tuple_int(t) ? 1 : 0; settings_changed = true;
     } else if (t->key == MESSAGE_KEY_DOTS_ENABLED) {
       g_settings.dots_enabled = prv_tuple_int(t) ? 1 : 0; settings_changed = true;
+    } else if (t->key == MESSAGE_KEY_DOTS_STYLE) {
+      g_settings.dots_style = prv_tuple_int(t); settings_changed = true;
     } else if (t->key == MESSAGE_KEY_VIBE_DISCONNECT) {
       g_settings.vibe_disconnect = prv_tuple_int(t) ? 1 : 0; settings_changed = true;
     } else if (t->key == MESSAGE_KEY_TEMP_UNIT) {

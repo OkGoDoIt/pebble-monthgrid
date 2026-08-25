@@ -80,19 +80,40 @@ void draw_time_update_proc(Layer *layer, GContext *ctx) {
                      GRect(x0, digits_y, time_size.w + 2, zone.size.h + 8),
                      GTextOverflowModeFill, GTextAlignmentLeft, NULL);
 
+  // Side-label placement works in *visual* tops (the font's top bearing is
+  // subtracted only at draw time).
   int16_t side_x = x0 + time_size.w + SIDE_GAP;
+  int16_t ampm_top, sec_top;
+#if defined(PBL_ROUND)
+  // On round screens the top arc is narrow; center the side column on the
+  // zone's vertical middle where the chord is widest.
+  {
+    int16_t total = (ampm_buf[0] && sec_buf[0]) ? 2 * SMALL_DIGIT_H + 3 : SMALL_DIGIT_H;
+    int16_t base = zone.origin.y + (zone.size.h - total) / 2;
+    ampm_top = base;
+    sec_top = ampm_buf[0] ? base + SMALL_DIGIT_H + 3 : base;
+  }
+#else
+  ampm_top = zone.origin.y + 1;
+  sec_top = ampm_buf[0]
+      ? zone.origin.y + zone.size.h - SMALL_DIGIT_H - 1
+      : zone.origin.y + (zone.size.h - SMALL_DIGIT_H) / 2;
+  // Short time zones (e.g. the smallest Pixel size): keep the seconds clear
+  // of the AM/PM label even if they dip below the zone.
+  if (ampm_buf[0] && sec_buf[0] && sec_top < ampm_top + SMALL_DIGIT_H + 2) {
+    sec_top = ampm_top + SMALL_DIGIT_H + 2;
+  }
+#endif
   if (ampm_buf[0]) {
     graphics_draw_text(ctx, ampm_buf, g_font_small_bold,
-                       GRect(side_x, zone.origin.y + 1 - SMALL_TOP_PAD,
+                       GRect(side_x, ampm_top - SMALL_TOP_PAD,
                              ampm_size.w + 2, SIDE_TEXT_H),
                        GTextOverflowModeFill, GTextAlignmentLeft, NULL);
   }
   if (sec_buf[0]) {
-    int16_t sec_y = ampm_buf[0]
-        ? zone.origin.y + zone.size.h - SMALL_DIGIT_H - SMALL_TOP_PAD - 2
-        : zone.origin.y + (zone.size.h - SMALL_DIGIT_H) / 2 - SMALL_TOP_PAD;
     graphics_draw_text(ctx, sec_buf, g_font_small_bold,
-                       GRect(side_x, sec_y, sec_size.w + 2, SIDE_TEXT_H),
+                       GRect(side_x, sec_top - SMALL_TOP_PAD,
+                             sec_size.w + 2, SIDE_TEXT_H),
                        GTextOverflowModeFill, GTextAlignmentLeft, NULL);
   }
 }

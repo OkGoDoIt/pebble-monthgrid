@@ -5,21 +5,26 @@
 // Small text is system Raster Gothic, placed by its visible pixel metrics
 // (SMALL_DIGIT_H / SMALL_TOP_PAD) so rows stay optically centered.
 
+// Event markers sit exactly 1px below the digit ink (digits are top-anchored
+// while dots are active), so marker and number can never touch. The user
+// picks the style: a 1px underline bar split into per-calendar color
+// sections, or a row of small squares.
 #if PBL_DISPLAY_WIDTH >= 200
   #define TEXT_BOX_SLACK 12
-  #define DOT_S 4
+  #define DOT_SQ 3
   #define DOT_GAP 2
-  #define MIN_PITCH_FOR_DOTS 15
   #define MONTH_TILE 19
   #define HEADER_TOP_PAD 3    // GOTHIC_14 header font
 #else
   #define TEXT_BOX_SLACK 10
-  #define DOT_S 3
-  #define DOT_GAP 1
-  #define MIN_PITCH_FOR_DOTS 12
+  #define DOT_SQ 2
+  #define DOT_GAP 2
   #define MONTH_TILE 13
   #define HEADER_TOP_PAD 2    // GOTHIC_09 header font
 #endif
+#define DOT_BAR_H 1
+// Digit ink + 1px gap + at least 1px of marker must fit the row pitch.
+#define MIN_PITCH_FOR_DOTS (SMALL_DIGIT_H + 2)
 
 static const char *const WEEKDAY_LABELS[7] = { "SU", "MO", "TU", "WE", "TH", "FR", "SA" };
 static const char *const WEEKDAY_LETTERS[7] = { "S", "M", "T", "W", "T", "F", "S" };
@@ -56,19 +61,30 @@ static void prv_draw_dots(GContext *ctx, int day, GRect cell, bool on_today_box)
   uint8_t mask = g_dots.days[day - 1];
   if (!mask) { return; }
 
-  // One marker per calendar: solid dot = timed event, short line = all-day.
   int n = 0;
   for (int cal = 0; cal < NUM_CALENDARS; cal++) {
     if (mask & (DOT_TIMED_BIT(cal) | DOT_ALLDAY_BIT(cal))) { n++; }
   }
-  int16_t total_w = n * DOT_S + (n - 1) * DOT_GAP;
-  int16_t x = cell.origin.x + (cell.size.w - total_w) / 2;
-  int16_t y = cell.origin.y + cell.size.h - DOT_S - 2;
+  if (n == 0) { return; }
+
+  // Anchored to the digits: one blank row below the ink, never touching.
+  int16_t marker_y = cell.origin.y + SMALL_DIGIT_H + 1;
+  int16_t avail_h = cell.size.h - SMALL_DIGIT_H - 1;
+  if (avail_h < 1) { return; }
+  bool bar_style = g_settings.dots_style == DOTS_STYLE_BAR;
+
+  int16_t sq_h = DOT_SQ < avail_h ? DOT_SQ : avail_h;
+  int16_t x, bar_w = cell.size.w - 7;
+  int seg = 0;
+  if (bar_style) {
+    x = cell.origin.x + (cell.size.w - bar_w) / 2;
+  } else {
+    int16_t total_w = n * DOT_SQ + (n - 1) * DOT_GAP;
+    x = cell.origin.x + (cell.size.w - total_w) / 2;
+  }
 
   for (int cal = 0; cal < NUM_CALENDARS; cal++) {
-    bool timed = mask & DOT_TIMED_BIT(cal);
-    bool allday = mask & DOT_ALLDAY_BIT(cal);
-    if (!timed && !allday) { continue; }
+    if (!(mask & (DOT_TIMED_BIT(cal) | DOT_ALLDAY_BIT(cal)))) { continue; }
 #if defined(PBL_COLOR)
     GColor c = (GColor) { .argb = g_settings.cal_colors[cal] };
     if (on_today_box && gcolor_equal(c, theme_fg())) { c = theme_bg(); }
@@ -76,13 +92,17 @@ static void prv_draw_dots(GContext *ctx, int day, GRect cell, bool on_today_box)
     GColor c = on_today_box ? theme_bg() : theme_fg();
 #endif
     graphics_context_set_fill_color(ctx, c);
-    if (timed) {
-      graphics_fill_rect(ctx, GRect(x, y, DOT_S, DOT_S), 0, GCornerNone);
+    if (bar_style) {
+      // A 1px bar split into equal per-calendar sections (single solid bar
+      // on B&W).
+      int16_t w = bar_w / n + (seg == n - 1 ? bar_w % n : 0);
+      graphics_fill_rect(ctx, GRect(x, marker_y, w, DOT_BAR_H), 0, GCornerNone);
+      x += w;
+      seg++;
     } else {
-      // All-day: a line spanning the marker slot, vertically centered.
-      graphics_fill_rect(ctx, GRect(x, y + DOT_S / 2, DOT_S, 2), 0, GCornerNone);
+      graphics_fill_rect(ctx, GRect(x, marker_y, DOT_SQ, sq_h), 0, GCornerNone);
+      x += DOT_SQ + DOT_GAP;
     }
-    x += DOT_S + DOT_GAP;
   }
 }
 
@@ -168,7 +188,10 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
       && g_layout.row_pitch >= MIN_PITCH_FOR_DOTS
       && g_dots.monthkey == (uint16_t) (year * 16 + mon + 1);
 
-  for (int cell_i = 0; cell_i < rows * 7; cell_i++) {
+  // With adjacent days on, fill the whole reserved 6-row zone (a 4- or
+  // 5-row month then shows the next month's first weeks dimmed).
+  int total_cells = g_settings.show_adjacent ? 6 * 7 : rows * 7;
+  for (int cell_i = 0; cell_i < total_cells; cell_i++) {
     int day = cell_i - lead + 1;
     int col = cell_i % 7;
     int row = cell_i / 7;
@@ -187,10 +210,17 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
 
     bool is_today = (day == today);
     if (is_today) {
-      // Nudged down so the digits sit centered in the box with clearance
-      // below (the box previously clipped the digit bottoms).
-      GRect box = GRect(cell.origin.x + 1, cell.origin.y + 2,
-                        cell.size.w - 2, cell.size.h - 2);
+      // The box is anchored to where the digits actually render (their
+      // visible top), so it stays optically centered at every pitch.
+      int16_t digit_top = dots_current
+          ? cell.origin.y
+          : cell.origin.y + (cell.size.h - 1 - SMALL_DIGIT_H) / 2;
+      GRect box = GRect(cell.origin.x + 1, digit_top - 2,
+                        cell.size.w - 2, SMALL_DIGIT_H + 5);
+      if (box.origin.y < cell.origin.y) { box.origin.y = cell.origin.y; }
+      if (box.origin.y + box.size.h > cell.origin.y + cell.size.h) {
+        box.size.h = cell.origin.y + cell.size.h - box.origin.y;
+      }
       graphics_context_set_fill_color(ctx, fg);
       graphics_fill_rect(ctx, box, 2, GCornersAll);
       prv_draw_day_number(ctx, day, cell, bg, dots_current);
