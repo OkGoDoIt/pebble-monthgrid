@@ -12,7 +12,7 @@ void settings_set_defaults(Settings *s) {
     .show_adjacent = 0,
     .dots_enabled = 0,
     .dots_style = DOTS_STYLE_BAR,
-    .banner_content = (BannerContentOpt) 3,
+    .banner_content = BANNER_MONTH,
     .vibe_disconnect = 0,
     .temp_fahrenheit = 1,
     .dist_miles = 1,
