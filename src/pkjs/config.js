@@ -102,6 +102,7 @@ module.exports = [
           { label: 'Weekday, month + day', value: 2 },
           { label: 'Month + day, year', value: 3 },
           { label: 'Weekday, month + day, year', value: 4 },
+          { label: 'Numeric (8/25/2026)', value: 5 },
         ],
       },
       {

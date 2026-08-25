@@ -28,6 +28,15 @@
   #define SECTION_GAP 2
 #endif
 
+// A compression stage is only accepted while the grid keeps at least this
+// row pitch; below it the cascade prefers sacrificing one more element
+// (PITCH_MIN remains the hard floor when nothing comfortable fits).
+#if PBL_DISPLAY_WIDTH >= 200
+  #define PITCH_COMFORT 14
+#else
+  #define PITCH_COMFORT 11
+#endif
+
 #define TOP_INSET 2
 #define BOTTOM_INSET 2
 #define GRID_W_MAX (PBL_DISPLAY_WIDTH - 4)
@@ -242,28 +251,38 @@ void layout_compute(Layer *root_layer) {
       : month_rows_for(&g_now, start_wday_setting());
 
   const TimeFontSpec (*family)[3] = &TIME_FONTS[g_settings.time_font];
+  // Compression priority: the weekday header goes first (its columns are
+  // learnable), then the banner, then one time rung, then the status line,
+  // and only then the smallest time. The grid never shrinks below PITCH_MIN
+  // or loses rows — and a stage is only accepted while the grid keeps a
+  // comfortable pitch, so e.g. a 6-row month drops the time to Medium under
+  // Quick View while a 5-row month keeps it Large.
   int stage;
   int time_idx = g_settings.time_size;
-  for (stage = 0; stage <= 5; stage++) {
-    // Compression priority: the weekday header goes first (its columns are
-    // learnable), then the banner, then one time rung, then the status
-    // line, and only then the smallest time. The grid itself never shrinks
-    // below PITCH_MIN or loses rows.
-    l->header_visible = stage < 1;
-    l->banner_visible = stage < 2;
-    time_idx = g_settings.time_size + (stage >= 3 ? 1 : 0) + (stage >= 5 ? 1 : 0);
-    if (time_idx > 2) { time_idx = 2; }
-    l->status_visible = want_status && stage < 4;
+  int fallback_stage = -1;
+  for (int pass = 0; pass < 2; pass++) {
+    for (stage = 0; stage <= 5; stage++) {
+      l->header_visible = stage < 1;
+      l->banner_visible = stage < 2;
+      time_idx = g_settings.time_size + (stage >= 3 ? 1 : 0) + (stage >= 5 ? 1 : 0);
+      if (time_idx > 2) { time_idx = 2; }
+      l->status_visible = want_status && stage < 4;
 
-    int16_t needed = (*family)[time_idx].height + SECTION_GAP;
-    if (l->status_visible) { needed += STATUS_H + SECTION_GAP; }
-    if (l->banner_visible) { needed += BANNER_H + SECTION_GAP; }
-    if (l->header_visible) { needed += HEADER_H; }
-    needed += PITCH_MIN * rows;
-    if (needed <= avail || stage == 5) {
+      int16_t fixed_h = (*family)[time_idx].height + SECTION_GAP;
+      if (l->status_visible) { fixed_h += STATUS_H + SECTION_GAP; }
+      if (l->banner_visible) { fixed_h += BANNER_H + SECTION_GAP; }
+      if (l->header_visible) { fixed_h += HEADER_H; }
+      if (fixed_h + PITCH_MIN * rows > avail) { continue; }   // doesn't fit at all
+      if (fallback_stage < 0) { fallback_stage = stage; }
+      int16_t stage_pitch = (avail - fixed_h) / rows;
+      if (pass == 1 && stage != fallback_stage) { continue; } // pass 2: take fallback
+      if (pass == 0 && stage_pitch < PITCH_COMFORT && stage < 5) { continue; }
+      pass = 2;  // accept: break both loops
       break;
     }
+    if (pass >= 2) { break; }
   }
+  if (stage > 5) { stage = 5; }
 
 #if PBL_DISPLAY_WIDTH < 200
   // Bitham has no face between 42 and 34: the 42px faces are kept for

@@ -161,6 +161,15 @@ static void prv_banner_text(char *buf, size_t len, GFont font, int16_t max_w) {
         snprintf(cand[n++], sizeof(cand[0]), "%s %d", mon_ab, day);
       }
       break;
+    case BANNER_NUMERIC:
+      if (day_first) {
+        snprintf(cand[n++], sizeof(cand[0]), "%d/%d/%d", day, g_now.tm_mon + 1, year);
+        snprintf(cand[n++], sizeof(cand[0]), "%d/%d", day, g_now.tm_mon + 1);
+      } else {
+        snprintf(cand[n++], sizeof(cand[0]), "%d/%d/%d", g_now.tm_mon + 1, day, year);
+        snprintf(cand[n++], sizeof(cand[0]), "%d/%d", g_now.tm_mon + 1, day);
+      }
+      break;
     case BANNER_WD_MD_YEAR:
       if (day_first) {
         snprintf(cand[n++], sizeof(cand[0]), "%s, %d %s %d", wd_ab, day, mon_ab, year);

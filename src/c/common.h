@@ -55,7 +55,8 @@ typedef enum {
   BANNER_WD_MONTH_DAY = 2,   // TUESDAY, AUGUST 25 (degrades to TUE, AUG 25)
   BANNER_MONTH_DAY_YEAR = 3, // AUGUST 25, 2026
   BANNER_WD_MD_YEAR = 4,     // TUE, AUG 25, 2026
-  BANNER_CONTENT_COUNT = 5,
+  BANNER_NUMERIC = 5,        // 8/25/2026 (US) / 25/8/2026 (elsewhere)
+  BANNER_CONTENT_COUNT = 6,
 } BannerContentOpt;
 
 typedef enum {
