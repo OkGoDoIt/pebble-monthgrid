@@ -221,13 +221,6 @@ static void prv_draw_horizontal(GContext *ctx, const GRect zone) {
     }
     x += ITEM_GAP;
   }
-
-  // Dotted rule at the bottom of the zone.
-  graphics_context_set_stroke_color(ctx, fg);
-  int16_t rule_y = zone.origin.y + zone.size.h - 1;
-  for (int16_t rx = g_layout.grid_x; rx < g_layout.grid_x + g_layout.cell_w * 7; rx += 3) {
-    graphics_draw_pixel(ctx, GPoint(rx, rule_y));
-  }
 }
 
 static void prv_draw_column(GContext *ctx, const GRect zone) {
@@ -241,13 +234,16 @@ static void prv_draw_column(GContext *ctx, const GRect zone) {
   StatusItem *fit[NUM_METRIC_SLOTS];
   int n = 0;
   int16_t total_h = 0;
-  const int16_t entry_gap = 5;
+  // Tight icon-over-value pairs with generous space BETWEEN entries, so
+  // each metric reads as one unit.
+  const int16_t pair_gap = 1;
+  const int16_t entry_gap = (PBL_DISPLAY_WIDTH >= 200) ? 13 : 9;
   for (int i = 0; i < n_all; i++) {
     StatusItem *item = &items[i];
     if (item->text_w > zone.size.w && item->icon_w == 0) { continue; }
     if (item->text_w > zone.size.w) { item->text[0] = '\0'; item->text_w = 0; }
     int16_t h = (item->icon_w ? ICON_S : 0)
-        + (item->icon_w && item->text_w ? 2 : 0)
+        + (item->icon_w && item->text_w ? pair_gap : 0)
         + (item->text_w ? SMALL_DIGIT_H : 0);
     if (h == 0) { continue; }
     int16_t gap = n > 0 ? entry_gap : 0;
@@ -263,7 +259,7 @@ static void prv_draw_column(GContext *ctx, const GRect zone) {
     if (item->icon_w) {
       int16_t ix = zone.origin.x + (zone.size.w - item->icon_w) / 2;
       status_icon_draw(ctx, item->metric, GPoint(ix, y), ICON_S, fg, bg);
-      y += ICON_S + (item->text_w ? 2 : 0);
+      y += ICON_S + (item->text_w ? pair_gap : 0);
     }
     if (item->text_w) {
       graphics_context_set_text_color(ctx, fg);

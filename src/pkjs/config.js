@@ -52,10 +52,11 @@ module.exports = [
         label: 'Time font',
         defaultValue: 0,
         options: [
-          { label: 'Digital (LECO)', value: 0 },
-          { label: 'Pixel (Silkscreen)', value: 1 },
-          { label: 'Classic bold (Bitham)', value: 2 },
-          { label: 'Classic light (Bitham)', value: 3 },
+          { label: 'Roboto (classic bold)', value: 0 },
+          { label: 'Digital (LECO)', value: 1 },
+          { label: 'Pixel (Silkscreen)', value: 2 },
+          { label: 'Bitham bold', value: 3 },
+          { label: 'Bitham light', value: 4 },
         ],
       },
       {

@@ -6,7 +6,7 @@ void settings_set_defaults(Settings *s) {
     .invert = 0,
     .time_format = TIME_FMT_SYSTEM,
     .time_size = TIME_SIZE_LARGE,
-    .time_font = TIME_FONT_DIGITAL,
+    .time_font = TIME_FONT_ROBOTO,
     .start_day = START_SUNDAY,
     .show_seconds = 0,
     .show_adjacent = 0,
@@ -22,7 +22,7 @@ void settings_set_defaults(Settings *s) {
 void settings_sanitize(Settings *s) {
   if (s->time_format > TIME_FMT_24H) { s->time_format = TIME_FMT_SYSTEM; }
   if (s->time_size > TIME_SIZE_SMALL) { s->time_size = TIME_SIZE_LARGE; }
-  if (s->time_font >= TIME_FONT_COUNT) { s->time_font = TIME_FONT_DIGITAL; }
+  if (s->time_font >= TIME_FONT_COUNT) { s->time_font = TIME_FONT_ROBOTO; }
   if (s->start_day > START_SATURDAY) { s->start_day = START_SUNDAY; }
   for (int i = 0; i < NUM_METRIC_SLOTS; i++) {
     if (s->metrics[i] >= METRIC_TYPE_COUNT) { s->metrics[i] = METRIC_NONE; }

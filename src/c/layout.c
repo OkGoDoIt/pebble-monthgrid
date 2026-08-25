@@ -40,8 +40,8 @@
     #define R_HEADER_H 12
     #define R_GAP 6
     #define R_PITCH 19
-    #define R_CELL_W 24
-    #define R_COL_INSET 14
+    #define R_CELL_W 25
+    #define R_COL_INSET 12
   #else                          // chalk 180x180
     #define R_TIME_TOP 20
     #define R_HEADER_H 9
@@ -62,8 +62,15 @@ typedef struct {
   int16_t trim;             // px to nudge up (internal top padding of the font)
 } TimeFontSpec;
 
+// Family order matches TimeFontOpt: Roboto (default), Digital, Pixel,
+// Bitham bold, Bitham light. Note: on the new-generation firmware
+// (emery/gabbro) the classic LECO/Bitham bitmaps are integer-scaled and look
+// blocky — deliberate options, but Roboto renders natively there.
 static const TimeFontSpec TIME_FONTS[TIME_FONT_COUNT][3] = {
 #if PBL_DISPLAY_WIDTH >= 200 && !defined(PBL_ROUND)      // emery
+  { { FONT_KEY_ROBOTO_BOLD_SUBSET_49, 0, 52, 8 },
+    { FONT_KEY_GOTHIC_28_BOLD, 0, 32, 6 },
+    { FONT_KEY_GOTHIC_24_BOLD, 0, 28, 5 } },
   { { FONT_KEY_LECO_60_BOLD_NUMBERS_AM_PM, 0, 62, 9 },
     { FONT_KEY_LECO_42_NUMBERS, 0, 46, 7 },
     { FONT_KEY_LECO_36_BOLD_NUMBERS, 0, 40, 6 } },
@@ -77,6 +84,9 @@ static const TimeFontSpec TIME_FONTS[TIME_FONT_COUNT][3] = {
     { FONT_KEY_BITHAM_42_LIGHT, 0, 46, 8 },
     { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 6 } },
 #elif PBL_DISPLAY_WIDTH >= 200 && defined(PBL_ROUND)     // gabbro
+  { { FONT_KEY_ROBOTO_BOLD_SUBSET_49, 0, 52, 8 },
+    { FONT_KEY_GOTHIC_28_BOLD, 0, 32, 6 },
+    { FONT_KEY_GOTHIC_24_BOLD, 0, 28, 5 } },
   { { FONT_KEY_LECO_42_NUMBERS, 0, 46, 7 },
     { FONT_KEY_LECO_36_BOLD_NUMBERS, 0, 40, 6 },
     { FONT_KEY_LECO_32_BOLD_NUMBERS, 0, 36, 5 } },
@@ -90,6 +100,11 @@ static const TimeFontSpec TIME_FONTS[TIME_FONT_COUNT][3] = {
     { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 6 },
     { FONT_KEY_BITHAM_30_BLACK, 0, 34, 5 } },
 #elif defined(PBL_ROUND)                                 // chalk
+  // Roboto-49 is too tall for the 180px circle (the grid band would sink
+  // into the bezel); the classic medium numbers carry the look instead.
+  { { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 6 },
+    { FONT_KEY_GOTHIC_28_BOLD, 0, 32, 6 },
+    { FONT_KEY_GOTHIC_24_BOLD, 0, 28, 5 } },
   { { FONT_KEY_LECO_36_BOLD_NUMBERS, 0, 40, 6 },
     { FONT_KEY_LECO_32_BOLD_NUMBERS, 0, 36, 5 },
     { FONT_KEY_LECO_28_LIGHT_NUMBERS, 0, 32, 5 } },
@@ -103,6 +118,9 @@ static const TimeFontSpec TIME_FONTS[TIME_FONT_COUNT][3] = {
     { FONT_KEY_BITHAM_30_BLACK, 0, 34, 5 },
     { FONT_KEY_BITHAM_30_BLACK, 0, 34, 5 } },
 #else                                                    // 144x168 rect
+  { { FONT_KEY_ROBOTO_BOLD_SUBSET_49, 0, 52, 8 },
+    { FONT_KEY_GOTHIC_28_BOLD, 0, 32, 6 },
+    { FONT_KEY_GOTHIC_24_BOLD, 0, 28, 5 } },
   { { FONT_KEY_LECO_38_BOLD_NUMBERS, 0, 42, 6 },
     { FONT_KEY_LECO_32_BOLD_NUMBERS, 0, 36, 5 },
     { FONT_KEY_LECO_28_LIGHT_NUMBERS, 0, 32, 5 } },

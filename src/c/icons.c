@@ -27,10 +27,19 @@ static void prv_draw_cloud(GContext *ctx, GPoint o, int s) {
 
 static void prv_draw_sun(GContext *ctx, GPoint c, int r) {
   graphics_fill_circle(ctx, c, r);
-  graphics_draw_line(ctx, GPoint(c.x - r - 2, c.y), GPoint(c.x - r - 1, c.y));
-  graphics_draw_line(ctx, GPoint(c.x + r + 1, c.y), GPoint(c.x + r + 2, c.y));
-  graphics_draw_line(ctx, GPoint(c.x, c.y - r - 2), GPoint(c.x, c.y - r - 1));
-  graphics_draw_line(ctx, GPoint(c.x, c.y + r + 1), GPoint(c.x, c.y + r + 2));
+  // Cardinal rays with a 1px gap off the disc; diagonals only when there is
+  // room, so the small size stays a clean disc-with-rays, not a diamond.
+  graphics_draw_line(ctx, GPoint(c.x - r - 3, c.y), GPoint(c.x - r - 2, c.y));
+  graphics_draw_line(ctx, GPoint(c.x + r + 2, c.y), GPoint(c.x + r + 3, c.y));
+  graphics_draw_line(ctx, GPoint(c.x, c.y - r - 3), GPoint(c.x, c.y - r - 2));
+  graphics_draw_line(ctx, GPoint(c.x, c.y + r + 2), GPoint(c.x, c.y + r + 3));
+  if (r >= 4) {
+    int d = r + 1;
+    graphics_draw_pixel(ctx, GPoint(c.x - d, c.y - d));
+    graphics_draw_pixel(ctx, GPoint(c.x + d, c.y - d));
+    graphics_draw_pixel(ctx, GPoint(c.x - d, c.y + d));
+    graphics_draw_pixel(ctx, GPoint(c.x + d, c.y + d));
+  }
 }
 
 static void prv_icon_weather(GContext *ctx, GPoint o, int s, WeatherCond cond,
@@ -39,7 +48,7 @@ static void prv_icon_weather(GContext *ctx, GPoint o, int s, WeatherCond cond,
   graphics_context_set_stroke_color(ctx, fg);
   switch (cond) {
     case COND_CLEAR:
-      prv_draw_sun(ctx, GPoint(o.x + s / 2, o.y + s / 2), s / 4);
+      prv_draw_sun(ctx, GPoint(o.x + s / 2, o.y + s / 2), s / 3);
       break;
     case COND_PARTLY:
       prv_draw_sun(ctx, GPoint(o.x + (s * 3) / 10, o.y + (s * 3) / 10), s / 5);

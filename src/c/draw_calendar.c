@@ -10,7 +10,7 @@
   #define DOT_S 4
   #define DOT_GAP 2
   #define MIN_PITCH_FOR_DOTS 15
-  #define MONTH_TILE 17
+  #define MONTH_TILE 19
   #define HEADER_TOP_PAD 3    // GOTHIC_14 header font
 #else
   #define TEXT_BOX_SLACK 10
@@ -94,26 +94,27 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
 
   // ---- Month banner / month column ------------------------------------
   if (g_layout.banner_visible && g_layout.side_columns) {
-    // Round: the month as a stack of inverted letter tiles in the left
-    // crescent — the round-native echo of the rectangular banner.
+    // Round: the month as ONE inverted rounded bar with the abbreviation
+    // stacked inside — the round-native echo of the rectangular banner.
     const char *abbr = MONTH_ABBR[g_now.tm_mon];
     int n = strlen(abbr);
-    int16_t total_h = n * MONTH_TILE + (n - 1) * 2;
+    const int16_t letter_pitch = SMALL_DIGIT_H + 3;
+    const int16_t pad = 4;
     GRect col = g_layout.banner_zone;
-    int16_t ty = col.origin.y + (col.size.h - total_h) / 2;
-    int16_t tx = col.origin.x + (col.size.w - MONTH_TILE) / 2;
+    int16_t bar_h = n * letter_pitch - 3 + 2 * pad;
+    GRect bar = GRect(col.origin.x + (col.size.w - MONTH_TILE) / 2,
+                      col.origin.y + (col.size.h - bar_h) / 2,
+                      MONTH_TILE, bar_h);
+    graphics_context_set_fill_color(ctx, fg);
+    graphics_fill_rect(ctx, bar, 3, GCornersAll);
+    graphics_context_set_text_color(ctx, bg);
     char letter[2] = { 0, 0 };
     for (int i = 0; i < n; i++) {
-      GRect tile = GRect(tx, ty + i * (MONTH_TILE + 2), MONTH_TILE, MONTH_TILE);
-      graphics_context_set_fill_color(ctx, fg);
-      graphics_fill_rect(ctx, tile, 1, GCornersAll);
       letter[0] = abbr[i];
-      graphics_context_set_text_color(ctx, bg);
       graphics_draw_text(ctx, letter, g_font_small_bold,
-                         GRect(tile.origin.x,
-                               tile.origin.y + (MONTH_TILE - SMALL_DIGIT_H) / 2
-                                   - SMALL_TOP_PAD,
-                               tile.size.w, MONTH_TILE + TEXT_BOX_SLACK),
+                         GRect(bar.origin.x,
+                               bar.origin.y + pad + i * letter_pitch - SMALL_TOP_PAD,
+                               bar.size.w, SMALL_DIGIT_H + SMALL_TOP_PAD + TEXT_BOX_SLACK),
                          GTextOverflowModeFill, GTextAlignmentCenter, NULL);
     }
   } else if (g_layout.banner_visible) {
@@ -186,8 +187,10 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
 
     bool is_today = (day == today);
     if (is_today) {
-      GRect box = GRect(cell.origin.x + 1, cell.origin.y,
-                        cell.size.w - 2, cell.size.h - 1);
+      // Nudged down so the digits sit centered in the box with clearance
+      // below (the box previously clipped the digit bottoms).
+      GRect box = GRect(cell.origin.x + 1, cell.origin.y + 2,
+                        cell.size.w - 2, cell.size.h - 2);
       graphics_context_set_fill_color(ctx, fg);
       graphics_fill_rect(ctx, box, 2, GCornersAll);
       prv_draw_day_number(ctx, day, cell, bg, dots_current);

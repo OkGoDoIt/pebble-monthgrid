@@ -19,11 +19,12 @@ typedef enum {
 } TimeSizeOpt;
 
 typedef enum {
-  TIME_FONT_DIGITAL = 0,        // LECO
-  TIME_FONT_PIXEL = 1,          // Silkscreen Bold (matches the grid)
-  TIME_FONT_CLASSIC_BOLD = 2,   // Bitham Bold
-  TIME_FONT_CLASSIC_LIGHT = 3,  // Bitham Light
-  TIME_FONT_COUNT = 4,
+  TIME_FONT_ROBOTO = 0,         // Roboto Bold (default; Gothic bold when small)
+  TIME_FONT_DIGITAL = 1,        // LECO
+  TIME_FONT_PIXEL = 2,          // Silkscreen Bold (retro pixel)
+  TIME_FONT_CLASSIC_BOLD = 3,   // Bitham Bold
+  TIME_FONT_CLASSIC_LIGHT = 4,  // Bitham Light
+  TIME_FONT_COUNT = 5,
 } TimeFontOpt;
 
 typedef enum {
