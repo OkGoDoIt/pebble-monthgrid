@@ -20,12 +20,16 @@ int start_wday_setting(void) {
   }
 }
 
+// Empty leading cells in the month's first grid row (0..6).
+int month_lead_for(const struct tm *t, int start_wday) {
+  int wday1 = (t->tm_wday - ((t->tm_mday - 1) % 7) + 7) % 7;
+  return (wday1 - start_wday + 7) % 7;
+}
+
 // Rows the current month occupies in the grid (4..6) for a given week start.
 int month_rows_for(const struct tm *t, int start_wday) {
   int ndays = days_in_month(t->tm_year + 1900, t->tm_mon);
-  int wday1 = (t->tm_wday - ((t->tm_mday - 1) % 7) + 7) % 7;
-  int lead = (wday1 - start_wday + 7) % 7;
-  return (lead + ndays + 6) / 7;
+  return (month_lead_for(t, start_wday) + ndays + 6) / 7;
 }
 
 // Sakamoto's algorithm; 0 = Sunday. month is 1..12.

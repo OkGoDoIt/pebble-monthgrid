@@ -7,6 +7,23 @@
 // ---------------------------------------------------------------------------
 
 typedef enum {
+  THEME_CLASSIC = 0,   // white on black (the original look; default)
+  THEME_PAPER = 1,     // black on white
+  THEME_AMBER = 2,     // amber terminal on black
+  THEME_ICE = 3,       // white on black, cyan accent
+  THEME_CRIMSON = 4,   // white on black, red accent
+  THEME_MIDNIGHT = 5,  // white on oxford blue, gold accent
+  THEME_COUNT = 6,
+} ThemeOpt;
+
+// Colors as GColor8 .argb values. accent fills the banner bar and today's
+// box; on_accent is legible text on the accent; dim is for adjacent days.
+typedef struct {
+  uint8_t bg, fg, accent, on_accent, dim;
+} ThemeSpec;
+extern const ThemeSpec g_themes[THEME_COUNT];
+
+typedef enum {
   TIME_FMT_SYSTEM = 0,
   TIME_FMT_12H = 1,
   TIME_FMT_24H = 2,
@@ -94,7 +111,7 @@ typedef enum {
 
 typedef struct __attribute__((__packed__)) {
   uint8_t version;
-  uint8_t invert;           // 0 = white-on-black (default), 1 = black-on-white
+  uint8_t theme;            // ThemeOpt
   uint8_t time_format;      // TimeFmt
   uint8_t time_size;        // TimeSizeOpt
   uint8_t time_font;        // TimeFontOpt
@@ -146,6 +163,9 @@ typedef struct {
   GRect grid_zone;          // holds rows_max * row_pitch
   bool status_visible;
   bool banner_visible;
+  // Compressed alternative to the banner bar: the month name drawn in the
+  // empty leading cells of the first grid row (costs no extra height).
+  bool banner_inline;
   bool header_visible;
   // Round layout: banner_zone is a vertical month column in the left
   // crescent and status_zone a vertical metric column in the right one;
@@ -190,18 +210,24 @@ extern GFont g_font_banner;       // month banner (GOTHIC_14_BOLD / _18_BOLD)
   #define SMALL_TOP_PAD 5
 #endif
 
-// Foreground/background per theme.
-static inline GColor theme_bg(void) {
-  return g_settings.invert ? GColorWhite : GColorBlack;
+// Theme access. B&W platforms map every color theme onto Classic/Paper.
+static inline const ThemeSpec *theme_spec(void) {
+#if defined(PBL_BW)
+  uint8_t t = (g_settings.theme <= THEME_PAPER) ? g_settings.theme : THEME_CLASSIC;
+#else
+  uint8_t t = (g_settings.theme < THEME_COUNT) ? g_settings.theme : THEME_CLASSIC;
+#endif
+  return &g_themes[t];
 }
-static inline GColor theme_fg(void) {
-  return g_settings.invert ? GColorBlack : GColorWhite;
-}
+static inline GColor theme_bg(void) { return (GColor) { .argb = theme_spec()->bg }; }
+static inline GColor theme_fg(void) { return (GColor) { .argb = theme_spec()->fg }; }
+static inline GColor theme_accent(void) { return (GColor) { .argb = theme_spec()->accent }; }
+static inline GColor theme_on_accent(void) { return (GColor) { .argb = theme_spec()->on_accent }; }
 static inline GColor theme_dim(void) {
 #if defined(PBL_COLOR)
-  return g_settings.invert ? GColorLightGray : GColorDarkGray;
+  return (GColor) { .argb = theme_spec()->dim };
 #else
-  return theme_fg();  // B&W dims via pixel dithering instead
+  return theme_fg();
 #endif
 }
 
@@ -236,3 +262,4 @@ int days_in_month(int year, int month0);   // month0: 0..11, year: full year
 int iso_week_number(const struct tm *t);
 int start_wday_setting(void);              // 0=Sun per the user's start-day setting
 int month_rows_for(const struct tm *t, int start_wday);  // 4..6
+int month_lead_for(const struct tm *t, int start_wday);  // 0..6

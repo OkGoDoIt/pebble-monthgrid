@@ -252,21 +252,40 @@ void layout_compute(Layer *root_layer) {
 
   const TimeFontSpec (*family)[3] = &TIME_FONTS[g_settings.time_font];
   // Compression priority: the weekday header goes first (its columns are
-  // learnable), then the banner, then one time rung, then the status line,
-  // and only then the smallest time. The grid never shrinks below PITCH_MIN
-  // or loses rows — and a stage is only accepted while the grid keeps a
-  // comfortable pitch, so e.g. a 6-row month drops the time to Medium under
-  // Quick View while a 5-row month keeps it Large.
+  // learnable); next the banner moves INLINE into the first grid row's
+  // empty leading cells when the month shape allows it (>=5 empty cells,
+  // adjacent-days off) — costing no height at all; then one time rung;
+  // then the status line (the month outranks the status items); the banner
+  // is fully hidden only after that, and the smallest time comes last.
+  // The grid never shrinks below PITCH_MIN or loses rows, and a stage is
+  // only accepted while the grid keeps a comfortable pitch.
+  bool can_inline = !g_settings.show_adjacent
+      && month_lead_for(&g_now, start_wday_setting()) >= 5;
+  // Per stage: header?, banner mode (0 bar / 1 inline-if-possible /
+  // 2 hidden), status?, time shrink steps.
+  static const struct { uint8_t hdr, ban, stat, shrink; } STAGES[] = {
+    { 1, 0, 1, 0 },
+    { 0, 0, 1, 0 },
+    { 0, 1, 1, 0 },
+    { 0, 1, 1, 1 },
+    { 0, 1, 0, 1 },
+    { 0, 2, 0, 1 },
+    { 0, 2, 0, 2 },
+  };
+  const int last_stage = (int) ARRAY_LENGTH(STAGES) - 1;
   int stage;
   int time_idx = g_settings.time_size;
+  bool banner_inline = false;
   int fallback_stage = -1;
   for (int pass = 0; pass < 2; pass++) {
-    for (stage = 0; stage <= 5; stage++) {
-      l->header_visible = stage < 1;
-      l->banner_visible = stage < 2;
-      time_idx = g_settings.time_size + (stage >= 3 ? 1 : 0) + (stage >= 5 ? 1 : 0);
+    for (stage = 0; stage <= last_stage; stage++) {
+      l->header_visible = STAGES[stage].hdr;
+      banner_inline = (STAGES[stage].ban == 1) && can_inline;
+      l->banner_visible = (STAGES[stage].ban == 0)
+          || (STAGES[stage].ban == 1 && !can_inline);
+      time_idx = g_settings.time_size + STAGES[stage].shrink;
       if (time_idx > 2) { time_idx = 2; }
-      l->status_visible = want_status && stage < 4;
+      l->status_visible = want_status && STAGES[stage].stat;
 
       int16_t fixed_h = (*family)[time_idx].height + SECTION_GAP;
       if (l->status_visible) { fixed_h += STATUS_H + SECTION_GAP; }
@@ -276,13 +295,14 @@ void layout_compute(Layer *root_layer) {
       if (fallback_stage < 0) { fallback_stage = stage; }
       int16_t stage_pitch = (avail - fixed_h) / rows;
       if (pass == 1 && stage != fallback_stage) { continue; } // pass 2: take fallback
-      if (pass == 0 && stage_pitch < PITCH_COMFORT && stage < 5) { continue; }
+      if (pass == 0 && stage_pitch < PITCH_COMFORT && stage < last_stage) { continue; }
       pass = 2;  // accept: break both loops
       break;
     }
     if (pass >= 2) { break; }
   }
-  if (stage > 5) { stage = 5; }
+  if (stage > last_stage) { stage = last_stage; }
+  l->banner_inline = banner_inline;
 
 #if PBL_DISPLAY_WIDTH < 200
   // Bitham has no face between 42 and 34: the 42px faces are kept for

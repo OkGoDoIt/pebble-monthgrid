@@ -32,7 +32,7 @@
       "health"
     ],
     "messageKeys": [
-      "THEME_INVERT",
+      "THEME",
       "TIME_FORMAT",
       "TIME_SIZE",
       "TIME_FONT",

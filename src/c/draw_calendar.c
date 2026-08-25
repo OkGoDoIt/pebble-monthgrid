@@ -80,9 +80,9 @@ static void prv_draw_dots(GContext *ctx, int day, GRect cell, bool on_today_box)
     if (!(mask & (DOT_TIMED_BIT(cal) | DOT_ALLDAY_BIT(cal)))) { continue; }
 #if defined(PBL_COLOR)
     GColor c = (GColor) { .argb = g_settings.cal_colors[cal] };
-    if (on_today_box && gcolor_equal(c, theme_fg())) { c = theme_bg(); }
+    if (on_today_box && gcolor_equal(c, theme_accent())) { c = theme_on_accent(); }
 #else
-    GColor c = on_today_box ? theme_bg() : theme_fg();
+    GColor c = on_today_box ? theme_on_accent() : theme_fg();
 #endif
     graphics_context_set_fill_color(ctx, c);
     if (bar_style) {
@@ -201,7 +201,6 @@ static void prv_banner_text(char *buf, size_t len, GFont font, int16_t max_w) {
 void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
   (void) layer;
   const GColor fg = theme_fg();
-  const GColor bg = theme_bg();
   graphics_context_set_antialiased(ctx, false);
 
   // ---- Month banner / month column ------------------------------------
@@ -217,9 +216,9 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
     GRect bar = GRect(col.origin.x + (col.size.w - MONTH_TILE) / 2,
                       col.origin.y + (col.size.h - bar_h) / 2,
                       MONTH_TILE, bar_h);
-    graphics_context_set_fill_color(ctx, fg);
+    graphics_context_set_fill_color(ctx, theme_accent());
     graphics_fill_rect(ctx, bar, 3, GCornersAll);
-    graphics_context_set_text_color(ctx, bg);
+    graphics_context_set_text_color(ctx, theme_on_accent());
     char letter[2] = { 0, 0 };
     for (int i = 0; i < n; i++) {
       letter[0] = abbr[i];
@@ -233,9 +232,9 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
     char banner_buf[40];
     prv_banner_text(banner_buf, sizeof(banner_buf), g_font_banner,
                     g_layout.banner_zone.size.w - 6);
-    graphics_context_set_fill_color(ctx, fg);
+    graphics_context_set_fill_color(ctx, theme_accent());
     graphics_fill_rect(ctx, g_layout.banner_zone, 0, GCornerNone);
-    graphics_context_set_text_color(ctx, bg);
+    graphics_context_set_text_color(ctx, theme_on_accent());
     GRect text_box = g_layout.banner_zone;
     text_box.origin.y -= (PBL_DISPLAY_WIDTH >= 200 ? 3 : 2);
     text_box.size.h += 6;
@@ -256,11 +255,43 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
                          GTextOverflowModeFill, GTextAlignmentCenter, NULL);
     } else if (g_layout.banner_visible) {
       GRect bz = g_layout.banner_zone;
-      graphics_context_set_text_color(ctx, bg);
+      graphics_context_set_text_color(ctx, theme_on_accent());
       graphics_draw_text(ctx, "!", g_font_banner,
                          GRect(bz.origin.x, bz.origin.y - (PBL_DISPLAY_WIDTH >= 200 ? 3 : 2),
                                bz.size.w - 5, bz.size.h + 6),
                          GTextOverflowModeFill, GTextAlignmentRight, NULL);
+    }
+  }
+
+  // ---- Inline month (compressed view) ---------------------------------
+  // When the banner bar is squeezed out but the month's first row has >=5
+  // empty leading cells, the month lives there instead: an accent mini-bar
+  // in the otherwise-empty space, costing no height.
+  if (g_layout.banner_inline) {
+    int ilead = month_lead_for(&g_now, start_wday_setting());
+    if (ilead >= 2) {
+      GRect bar = GRect(g_layout.grid_zone.origin.x,
+                        g_layout.grid_zone.origin.y,
+                        (int16_t) (ilead * g_layout.cell_w - 3),
+                        (int16_t) (g_layout.row_pitch - 1));
+      graphics_context_set_fill_color(ctx, theme_accent());
+      graphics_fill_rect(ctx, bar, 2, GCornersAll);
+      char inbuf[16];
+      strftime(inbuf, sizeof(inbuf), "%B", &g_now);
+      for (char *ip = inbuf; *ip; ip++) {
+        if (*ip >= 'a' && *ip <= 'z') { *ip -= 32; }
+      }
+      if (!prv_text_fits(inbuf, g_font_small_bold, bar.size.w - 4)) {
+        strncpy(inbuf, MONTH_ABBR[g_now.tm_mon], sizeof(inbuf) - 1);
+        inbuf[sizeof(inbuf) - 1] = 0;
+      }
+      graphics_context_set_text_color(ctx, theme_on_accent());
+      graphics_draw_text(ctx, inbuf, g_font_small_bold,
+                         GRect(bar.origin.x,
+                               bar.origin.y + (bar.size.h - SMALL_DIGIT_H) / 2
+                                   - SMALL_TOP_PAD,
+                               bar.size.w, SMALL_DIGIT_H + SMALL_TOP_PAD + TEXT_BOX_SLACK),
+                         GTextOverflowModeFill, GTextAlignmentCenter, NULL);
     }
   }
 
@@ -335,9 +366,9 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
       if (box.origin.y + box.size.h > max_bottom) {
         box.size.h = max_bottom - box.origin.y;
       }
-      graphics_context_set_fill_color(ctx, fg);
+      graphics_context_set_fill_color(ctx, theme_accent());
       graphics_fill_rect(ctx, box, 2, GCornersAll);
-      prv_draw_day_number(ctx, day, cell, bg, dots_current);
+      prv_draw_day_number(ctx, day, cell, theme_on_accent(), dots_current);
     } else {
       prv_draw_day_number(ctx, day, cell, fg, dots_current);
     }

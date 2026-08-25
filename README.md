@@ -38,7 +38,10 @@ official Pebble SDK.
 - **Round-native layout** on Pebble Time Round and Pebble Round 2: time on the top arc,
   single-letter weekday header, grid across the wide middle of the circle, month stacked
   in the left crescent, status metrics stacked in the right crescent.
-- Sunday / Monday / Saturday week start, inverted (white) theme, vibrate-on-disconnect.
+- **Six color themes** — Classic (white-on-black, default), Paper, Amber terminal,
+  Ice, Crimson, and Midnight — all high-contrast and legible with the backlight off.
+  B&W watches use Classic/Paper.
+- Sunday / Monday / Saturday week start, vibrate-on-disconnect.
 
 ## Platforms
 

@@ -30,10 +30,19 @@ module.exports = [
     items: [
       { type: 'heading', defaultValue: 'Theme & Layout' },
       {
-        type: 'toggle',
-        messageKey: 'THEME_INVERT',
-        label: 'Inverted theme (white background)',
-        defaultValue: false,
+        type: 'select',
+        messageKey: 'THEME',
+        label: 'Color theme',
+        description: 'Color themes apply on color watches; black-and-white models use Classic or Paper.',
+        defaultValue: 0,
+        options: [
+          { label: 'Classic (white on black)', value: 0 },
+          { label: 'Paper (black on white)', value: 1 },
+          { label: 'Amber terminal', value: 2 },
+          { label: 'Ice (cyan accent)', value: 3 },
+          { label: 'Crimson (red accent)', value: 4 },
+          { label: 'Midnight (blue & gold)', value: 5 },
+        ],
       },
       {
         type: 'select',
