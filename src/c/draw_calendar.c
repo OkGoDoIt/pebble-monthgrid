@@ -6,18 +6,20 @@
 // (SMALL_DIGIT_H / SMALL_TOP_PAD) so rows stay optically centered.
 
 // Event markers sit exactly 1px below the digit ink (digits are top-anchored
-// while dots are active), so marker and number can never touch. The user
-// picks the style: a 1px underline bar split into per-calendar color
-// sections, or a row of small squares.
+// while markers are active). On low-DPI screens the markers are a single
+// pixel tall (squares 2x1) so they cannot crowd the row beneath; high-DPI
+// gets 3x3 squares. The bar style is 1px tall everywhere.
 #if PBL_DISPLAY_WIDTH >= 200
   #define TEXT_BOX_SLACK 12
-  #define DOT_SQ 3
+  #define DOT_SQ_W 3
+  #define DOT_SQ_H 3
   #define DOT_GAP 2
   #define MONTH_TILE 19
   #define HEADER_TOP_PAD 3    // GOTHIC_14 header font
 #else
   #define TEXT_BOX_SLACK 10
-  #define DOT_SQ 2
+  #define DOT_SQ_W 2
+  #define DOT_SQ_H 1
   #define DOT_GAP 2
   #define MONTH_TILE 13
   #define HEADER_TOP_PAD 2    // GOTHIC_09 header font
@@ -66,20 +68,19 @@ static void prv_draw_dots(GContext *ctx, int day, GRect cell, bool on_today_box)
     if (mask & (DOT_TIMED_BIT(cal) | DOT_ALLDAY_BIT(cal))) { n++; }
   }
   if (n == 0) { return; }
+  bool bar_style = g_settings.dots_style == DOTS_STYLE_BAR;
+  int seg = 0;
 
-  // Anchored to the digits: one blank row below the ink, never touching.
+  // One blank row below the digit ink, never touching either neighbor.
   int16_t marker_y = cell.origin.y + SMALL_DIGIT_H + 1;
   int16_t avail_h = cell.size.h - SMALL_DIGIT_H - 1;
   if (avail_h < 1) { return; }
-  bool bar_style = g_settings.dots_style == DOTS_STYLE_BAR;
-
-  int16_t sq_h = DOT_SQ < avail_h ? DOT_SQ : avail_h;
+  int16_t sq_h = DOT_SQ_H < avail_h ? DOT_SQ_H : avail_h;
   int16_t x, bar_w = cell.size.w - 7;
-  int seg = 0;
   if (bar_style) {
     x = cell.origin.x + (cell.size.w - bar_w) / 2;
   } else {
-    int16_t total_w = n * DOT_SQ + (n - 1) * DOT_GAP;
+    int16_t total_w = n * DOT_SQ_W + (n - 1) * DOT_GAP;
     x = cell.origin.x + (cell.size.w - total_w) / 2;
   }
 
@@ -98,11 +99,11 @@ static void prv_draw_dots(GContext *ctx, int day, GRect cell, bool on_today_box)
       int16_t w = bar_w / n + (seg == n - 1 ? bar_w % n : 0);
       graphics_fill_rect(ctx, GRect(x, marker_y, w, DOT_BAR_H), 0, GCornerNone);
       x += w;
-      seg++;
     } else {
-      graphics_fill_rect(ctx, GRect(x, marker_y, DOT_SQ, sq_h), 0, GCornerNone);
-      x += DOT_SQ + DOT_GAP;
+      graphics_fill_rect(ctx, GRect(x, marker_y, DOT_SQ_W, sq_h), 0, GCornerNone);
+      x += DOT_SQ_W + DOT_GAP;
     }
+    seg++;
   }
 }
 
