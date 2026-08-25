@@ -36,19 +36,21 @@
 // month (stacked letters) and the status metrics live in the side crescents.
 #if defined(PBL_ROUND)
   #if PBL_DISPLAY_WIDTH >= 200   // gabbro 260x260
-    #define R_TIME_TOP 22
+    #define R_TIME_TOP 24
     #define R_HEADER_H 12
     #define R_GAP 6
     #define R_PITCH 19
     #define R_CELL_W 25
     #define R_COL_INSET 12
+    #define R_GRID_SHIFT 12
   #else                          // chalk 180x180
-    #define R_TIME_TOP 20
+    #define R_TIME_TOP 22
     #define R_HEADER_H 9
     #define R_GAP 4
     #define R_PITCH 11
     #define R_CELL_W 16
     #define R_COL_INSET 10
+    #define R_GRID_SHIFT 10
   #endif
 #endif
 
@@ -202,7 +204,10 @@ static void prv_layout_round(Layout *l, GRect ub) {
 
   int16_t y = ub.origin.y + R_TIME_TOP;
   l->time_zone = GRect(ub.origin.x, y, ub.size.w, spec->height);
-  int16_t grid_bottom = y + spec->height + R_GAP + R_HEADER_H + 2 + R_PITCH * 6;
+  // R_GRID_SHIFT presses the calendar block toward the lower bezel so the
+  // face doesn't read as vertically centered.
+  int16_t grid_bottom = y + spec->height + R_GAP + R_HEADER_H + 2 + R_PITCH * 6
+      + R_GRID_SHIFT;
   int16_t grid_y = grid_bottom - grid_h;
   l->header_zone = GRect(l->grid_x, grid_y - 2 - R_HEADER_H, R_CELL_W * 7, R_HEADER_H);
   l->grid_zone = GRect(l->grid_x, grid_y, R_CELL_W * 7, grid_h);

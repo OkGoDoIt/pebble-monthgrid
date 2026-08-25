@@ -6,7 +6,7 @@ void settings_set_defaults(Settings *s) {
     .invert = 0,
     .time_format = TIME_FMT_SYSTEM,
     .time_size = TIME_SIZE_LARGE,
-    .time_font = TIME_FONT_PIXEL,
+    .time_font = TIME_FONT_ROBOTO,
     .start_day = START_SUNDAY,
     .show_seconds = 0,
     .show_adjacent = 0,
