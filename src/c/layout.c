@@ -129,11 +129,13 @@ static const TimeFontSpec TIME_FONTS[TIME_FONT_COUNT][3] = {
   { { NULL, RESOURCE_ID_FONT_SILKTIME_32, 24, 11 },
     { NULL, RESOURCE_ID_FONT_SILKTIME_24, 19, 8 },
     { NULL, RESOURCE_ID_FONT_SILKTIME_16, 14, 5 } },
-  { { FONT_KEY_BITHAM_42_BOLD, 0, 35, 18 },
-    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9 },
+  // Bitham-42 crowds the 144px screens (especially with the seconds
+  // column); both Bitham families run one rung smaller here.
+  { { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9 },
+    { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8 },
     { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8 } },
-  { { FONT_KEY_BITHAM_42_LIGHT, 0, 35, 18 },
-    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9 },
+  { { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9 },
+    { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8 },
     { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8 } },
 #endif
 };
