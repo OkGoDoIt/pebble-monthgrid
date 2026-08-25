@@ -1,12 +1,12 @@
 {
   "name": "monthgrid",
-  "author": "MakeAwesomeHappen",
+  "author": "Roger",
   "version": "1.0.0",
   "keywords": ["pebble-app"],
   "private": true,
   "dependencies": {},
   "pebble": {
-    "displayName": "monthgrid",
+    "displayName": "MonthGrid",
     "uuid": "45829fc0-2bd8-4b99-a273-1cd63d8f5ef5",
     "sdkVersion": "3",
     "enableMultiJS": true,
@@ -20,13 +20,63 @@
       "gabbro"
     ],
     "watchapp": {
-      "watchface": false
+      "watchface": true
     },
+    "capabilities": ["location", "configurable", "health"],
     "messageKeys": [
-      "dummy"
+      "THEME_INVERT",
+      "TIME_FORMAT",
+      "TIME_SIZE",
+      "SHOW_SECONDS",
+      "START_DAY",
+      "SHOW_ADJACENT",
+      "METRIC1",
+      "METRIC2",
+      "METRIC3",
+      "METRIC4",
+      "TEMP_UNIT",
+      "DIST_UNIT",
+      "DOTS_ENABLED",
+      "VIBE_DISCONNECT",
+      "CAL1_COLOR",
+      "CAL2_COLOR",
+      "CAL3_COLOR",
+      "WEATHER_REQUEST",
+      "WEATHER_TEMP_C",
+      "WEATHER_COND",
+      "DOTS_REQUEST",
+      "DOTS_MONTH",
+      "DOTS_DATA"
     ],
     "resources": {
-      "media": []
+      "media": [
+        {
+          "type": "font",
+          "name": "FONT_SILKSCREEN_8",
+          "file": "fonts/Silkscreen-Regular.ttf",
+          "characterRegex": "[!-~°]"
+        },
+        {
+          "type": "font",
+          "name": "FONT_SILKSCREEN_BOLD_8",
+          "file": "fonts/Silkscreen-Bold.ttf",
+          "characterRegex": "[!-~°]"
+        },
+        {
+          "type": "font",
+          "name": "FONT_SILKSCREEN_16",
+          "file": "fonts/Silkscreen-Regular.ttf",
+          "characterRegex": "[!-~°]",
+          "targetPlatforms": ["emery", "gabbro"]
+        },
+        {
+          "type": "font",
+          "name": "FONT_SILKSCREEN_BOLD_16",
+          "file": "fonts/Silkscreen-Bold.ttf",
+          "characterRegex": "[!-~°]",
+          "targetPlatforms": ["emery", "gabbro"]
+        }
+      ]
     }
   }
 }

@@ -1,0 +1,184 @@
+#pragma once
+
+#include <pebble.h>
+
+// ---------------------------------------------------------------------------
+// Shared types and globals for MonthGrid.
+// ---------------------------------------------------------------------------
+
+typedef enum {
+  TIME_FMT_SYSTEM = 0,
+  TIME_FMT_12H = 1,
+  TIME_FMT_24H = 2,
+} TimeFmt;
+
+typedef enum {
+  TIME_SIZE_LARGE = 0,
+  TIME_SIZE_MEDIUM = 1,
+  TIME_SIZE_SMALL = 2,
+} TimeSizeOpt;
+
+typedef enum {
+  START_SUNDAY = 0,
+  START_MONDAY = 1,
+  START_SATURDAY = 2,
+} StartDayOpt;
+
+typedef enum {
+  METRIC_NONE = 0,
+  METRIC_BATTERY = 1,
+  METRIC_WEATHER = 2,
+  METRIC_STEPS = 3,
+  METRIC_DISTANCE = 4,
+  METRIC_HEART_RATE = 5,
+  METRIC_ACTIVE_MIN = 6,
+  METRIC_CALORIES = 7,
+  METRIC_SLEEP = 8,
+  METRIC_WEEK_NUM = 9,
+  METRIC_CONNECTION = 10,
+  METRIC_NEXT_ALARM = 11,
+  METRIC_TYPE_COUNT = 12,
+} MetricType;
+
+typedef enum {
+  COND_UNKNOWN = 0,
+  COND_CLEAR = 1,
+  COND_PARTLY = 2,
+  COND_CLOUDY = 3,
+  COND_FOG = 4,
+  COND_RAIN = 5,
+  COND_SNOW = 6,
+  COND_THUNDER = 7,
+  COND_WIND = 8,
+} WeatherCond;
+
+#define NUM_METRIC_SLOTS 4
+#define NUM_CALENDARS 3
+
+#define SETTINGS_VERSION 1
+#define WEATHER_VERSION 1
+#define DOTS_VERSION 1
+
+#define PERSIST_KEY_SETTINGS 1
+#define PERSIST_KEY_WEATHER 2
+#define PERSIST_KEY_DOTS 3
+
+// Weather older than this is treated as "no data" (metric hidden).
+#define WEATHER_STALE_SECONDS (3 * 3600)
+// How often to ask the phone for fresh weather.
+#define WEATHER_REFRESH_SECONDS (30 * 60)
+
+typedef struct __attribute__((__packed__)) {
+  uint8_t version;
+  uint8_t invert;           // 0 = white-on-black (default), 1 = black-on-white
+  uint8_t time_format;      // TimeFmt
+  uint8_t time_size;        // TimeSizeOpt
+  uint8_t start_day;        // StartDayOpt
+  uint8_t show_seconds;
+  uint8_t show_adjacent;    // dimmed prev/next-month days
+  uint8_t dots_enabled;     // calendar event dots
+  uint8_t vibe_disconnect;
+  uint8_t temp_fahrenheit;  // 1 = °F (default), 0 = °C
+  uint8_t dist_miles;       // 1 = miles (default), 0 = km
+  uint8_t metrics[NUM_METRIC_SLOTS];   // MetricType, priority order
+  uint8_t cal_colors[NUM_CALENDARS];   // GColor8 .argb per calendar
+} Settings;
+
+typedef struct __attribute__((__packed__)) {
+  uint8_t version;
+  int16_t temp_c;
+  uint8_t cond;             // WeatherCond
+  int32_t fetched_at;       // time_t of the fix
+} WeatherCache;
+
+// monthkey = year * 16 + month(1..12); fits uint16_t until year 4095.
+typedef struct __attribute__((__packed__)) {
+  uint8_t version;
+  uint16_t monthkey;
+  // Per day-of-month bitmask: bits 0..2 = timed event in calendar 1..3,
+  // bits 3..5 = all-day event in calendar 1..3.
+  uint8_t days[31];
+} DotsCache;
+
+#define DOT_TIMED_BIT(cal) (1 << (cal))
+#define DOT_ALLDAY_BIT(cal) (1 << ((cal) + 3))
+
+// ---------------------------------------------------------------------------
+// Layout: computed from the current unobstructed bounds + settings.
+// ---------------------------------------------------------------------------
+
+typedef struct {
+  GRect bounds;             // unobstructed bounds used for this layout
+  GRect time_zone;
+  GRect status_zone;
+  GRect banner_zone;
+  GRect header_zone;
+  GRect grid_zone;          // holds rows_max * row_pitch
+  bool status_visible;
+  bool banner_visible;
+  bool header_visible;
+  int16_t row_pitch;
+  int16_t cell_w;
+  int16_t grid_x;           // left edge of the 7 * cell_w block
+  GFont time_font;
+  int16_t time_font_h;      // visual digit height for vertical placement
+} Layout;
+
+// ---------------------------------------------------------------------------
+// Globals (defined in main.c)
+// ---------------------------------------------------------------------------
+
+extern Settings g_settings;
+extern WeatherCache g_weather;
+extern DotsCache g_dots;
+extern Layout g_layout;
+extern struct tm g_now;
+extern bool g_connected;
+
+extern GFont g_font_small;        // pixel font for grid/status/header (8 or 16 px)
+extern GFont g_font_small_bold;
+extern GFont g_font_banner;
+
+// Foreground/background per theme.
+static inline GColor theme_bg(void) {
+  return g_settings.invert ? GColorWhite : GColorBlack;
+}
+static inline GColor theme_fg(void) {
+  return g_settings.invert ? GColorBlack : GColorWhite;
+}
+static inline GColor theme_dim(void) {
+#if defined(PBL_COLOR)
+  return g_settings.invert ? GColorLightGray : GColorDarkGray;
+#else
+  return theme_fg();  // B&W dims via pixel dithering instead
+#endif
+}
+
+// settings.c
+void settings_set_defaults(Settings *s);
+void settings_sanitize(Settings *s);
+void settings_load(Settings *s);
+void settings_save(const Settings *s);
+
+// layout.c
+void layout_compute(Layer *root_layer);
+
+// draw_time.c
+void draw_time_update_proc(Layer *layer, GContext *ctx);
+
+// draw_status.c
+void draw_status_update_proc(Layer *layer, GContext *ctx);
+
+// draw_calendar.c
+void draw_calendar_update_proc(Layer *layer, GContext *ctx);
+
+// icons.c — procedural status-line icons. Icons draw inside a box of height
+// s at origin; status_icon_width reports the horizontal space one needs
+// (0 = this metric has no icon).
+int status_icon_width(uint8_t metric, int s);
+void status_icon_draw(GContext *ctx, uint8_t metric, GPoint origin, int s,
+                      GColor fg, GColor bg);
+
+// util shared by drawing code
+int days_in_month(int year, int month0);   // month0: 0..11, year: full year
+int iso_week_number(const struct tm *t);
