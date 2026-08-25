@@ -75,7 +75,9 @@ static bool prv_metric_text(uint8_t metric, char *buf, size_t len, bool compact)
 #if defined(PBL_HEALTH)
     case METRIC_STEPS: {
       if (!prv_health_ok(HealthMetricStepCount)) { return false; }
-      prv_format_count(buf, len, health_service_sum_today(HealthMetricStepCount));
+      HealthValue steps = health_service_sum_today(HealthMetricStepCount);
+      if (steps < 10) { return false; }   // not meaningful yet
+      prv_format_count(buf, len, steps);
       return true;
     }
     case METRIC_DISTANCE: {
@@ -83,6 +85,7 @@ static bool prv_metric_text(uint8_t metric, char *buf, size_t len, bool compact)
       int32_t m = health_service_sum_today(HealthMetricWalkedDistanceMeters);
       const char *unit = g_settings.dist_miles ? "mi" : "km";
       int32_t tenths = g_settings.dist_miles ? (m * 10) / 16093 : m / 100;
+      if (tenths < 1) { return false; }   // under 0.1 mi/km: not meaningful
       if (tenths >= 100) {
         snprintf(buf, len, "%d%s", (int) (tenths / 10), unit);
       } else {

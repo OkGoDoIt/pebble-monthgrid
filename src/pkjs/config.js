@@ -120,7 +120,7 @@ module.exports = [
       { type: 'heading', defaultValue: 'Status Line' },
       {
         type: 'text',
-        defaultValue: 'Pick up to four items, in priority order. As many as fit are shown; ' +
+        defaultValue: 'Pick up to five items, in priority order. As many as fit are shown; ' +
             'items with nothing to report (no weather yet, no heart-rate sensor, ...) are ' +
             'skipped automatically.',
       },
@@ -128,6 +128,7 @@ module.exports = [
       { type: 'select', messageKey: 'METRIC2', label: 'Item 2', defaultValue: 2, options: METRIC_OPTIONS },
       { type: 'select', messageKey: 'METRIC3', label: 'Item 3', defaultValue: 0, options: METRIC_OPTIONS },
       { type: 'select', messageKey: 'METRIC4', label: 'Item 4', defaultValue: 0, options: METRIC_OPTIONS },
+      { type: 'select', messageKey: 'METRIC5', label: 'Item 5', defaultValue: 0, options: METRIC_OPTIONS },
       {
         type: 'select',
         messageKey: 'TEMP_UNIT',

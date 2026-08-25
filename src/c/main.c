@@ -141,6 +141,8 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
       g_settings.metrics[2] = prv_tuple_int(t); settings_changed = true;
     } else if (t->key == MESSAGE_KEY_METRIC4) {
       g_settings.metrics[3] = prv_tuple_int(t); settings_changed = true;
+    } else if (t->key == MESSAGE_KEY_METRIC5) {
+      g_settings.metrics[4] = prv_tuple_int(t); settings_changed = true;
     } else if (t->key == MESSAGE_KEY_CAL1_COLOR) {
       g_settings.cal_colors[0] = GColorFromHEX(prv_tuple_int(t)).argb; settings_changed = true;
     } else if (t->key == MESSAGE_KEY_CAL2_COLOR) {
