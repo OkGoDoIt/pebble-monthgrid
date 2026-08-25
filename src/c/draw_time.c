@@ -67,7 +67,7 @@ void draw_time_update_proc(Layer *layer, GContext *ctx) {
   int16_t x0 = zone.origin.x + (zone.size.w - time_size.w) / 2;
   if (side_w > 0) {
     int16_t overflow = (x0 + time_size.w + SIDE_GAP + side_w)
-        - (zone.origin.x + zone.size.w - 1);
+        - (zone.origin.x + zone.size.w - 2);
     if (overflow > 0) { x0 -= overflow; }
   }
   if (x0 < zone.origin.x) { x0 = zone.origin.x; }
@@ -81,8 +81,11 @@ void draw_time_update_proc(Layer *layer, GContext *ctx) {
                      GTextOverflowModeFill, GTextAlignmentLeft, NULL);
 
   // Side-label placement works in *visual* tops (the font's top bearing is
-  // subtracted only at draw time).
+  // subtracted only at draw time). A hard clamp keeps the labels at least
+  // 2px inside the right edge no matter what the digits measured.
   int16_t side_x = x0 + time_size.w + SIDE_GAP;
+  int16_t side_x_max = zone.origin.x + zone.size.w - 2 - side_w;
+  if (side_w > 0 && side_x > side_x_max) { side_x = side_x_max; }
   int16_t ampm_top, sec_top;
 #if defined(PBL_ROUND)
   // On round screens the top arc is narrow; center the side column on the

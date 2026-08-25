@@ -35,14 +35,6 @@ static const char *const MONTH_ABBR[12] = {
   "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
 };
 
-static int prv_start_wday(void) {
-  switch (g_settings.start_day) {
-    case START_MONDAY: return 1;
-    case START_SATURDAY: return 6;
-    default: return 0;
-  }
-}
-
 static void prv_draw_day_number(GContext *ctx, int day, GRect cell, GColor color,
                                 bool top_anchor) {
   char buf[4];
@@ -156,7 +148,7 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
   }
 
   // ---- Weekday header -------------------------------------------------
-  int start_wday = prv_start_wday();
+  int start_wday = start_wday_setting();
   if (g_layout.header_visible) {
     graphics_context_set_text_color(ctx, fg);
     for (int i = 0; i < 7; i++) {
@@ -212,21 +204,15 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
     bool is_today = (day == today);
     if (is_today) {
       // The box is anchored to where the digits actually render (their
-      // visible top), so it stays optically centered at every pitch.
-      // On low-DPI it rides 1px higher (and keeps 1px clear at the cell
-      // bottom even when clamped) — it read one pixel low otherwise.
-#if PBL_DISPLAY_WIDTH >= 200
-      const int16_t lift = 0;
-#else
-      const int16_t lift = 1;
-#endif
+      // visible top) with symmetric 2px margins, so it stays optically
+      // centered at every pitch and on every platform.
       int16_t digit_top = dots_current
           ? cell.origin.y
           : cell.origin.y + (cell.size.h - 1 - SMALL_DIGIT_H) / 2;
-      GRect box = GRect(cell.origin.x + 1, digit_top - 2 - lift,
-                        cell.size.w - 2, SMALL_DIGIT_H + 5);
+      GRect box = GRect(cell.origin.x + 1, digit_top - 2,
+                        cell.size.w - 2, SMALL_DIGIT_H + 4);
       if (box.origin.y < cell.origin.y) { box.origin.y = cell.origin.y; }
-      int16_t max_bottom = cell.origin.y + cell.size.h - lift;
+      int16_t max_bottom = cell.origin.y + cell.size.h;
       if (box.origin.y + box.size.h > max_bottom) {
         box.size.h = max_bottom - box.origin.y;
       }

@@ -220,3 +220,5 @@ void status_icon_draw(GContext *ctx, uint8_t metric, GPoint origin, int s,
 // util shared by drawing code
 int days_in_month(int year, int month0);   // month0: 0..11, year: full year
 int iso_week_number(const struct tm *t);
+int start_wday_setting(void);              // 0=Sun per the user's start-day setting
+int month_rows_for(const struct tm *t, int start_wday);  // 4..6

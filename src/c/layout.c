@@ -68,71 +68,71 @@ typedef struct {
 // blocky — deliberate options, but Roboto renders natively there.
 static const TimeFontSpec TIME_FONTS[TIME_FONT_COUNT][3] = {
 #if PBL_DISPLAY_WIDTH >= 200 && !defined(PBL_ROUND)      // emery
-  { { FONT_KEY_ROBOTO_BOLD_SUBSET_49, 0, 46, 8 },
-    { FONT_KEY_GOTHIC_28_BOLD, 0, 32, 6 },
-    { FONT_KEY_GOTHIC_24_BOLD, 0, 28, 5 } },
-  { { FONT_KEY_LECO_60_BOLD_NUMBERS_AM_PM, 0, 62, 9 },
-    { FONT_KEY_LECO_42_NUMBERS, 0, 46, 7 },
-    { FONT_KEY_LECO_36_BOLD_NUMBERS, 0, 40, 6 } },
-  { { NULL, RESOURCE_ID_FONT_SILKTIME_48, 50, 2 },
-    { NULL, RESOURCE_ID_FONT_SILKTIME_32, 34, 1 },
-    { NULL, RESOURCE_ID_FONT_SILKTIME_24, 26, 1 } },
-  { { FONT_KEY_BITHAM_42_BOLD, 0, 46, 8 },
-    { FONT_KEY_BITHAM_42_BOLD, 0, 46, 8 },
-    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 6 } },
-  { { FONT_KEY_BITHAM_42_LIGHT, 0, 46, 8 },
-    { FONT_KEY_BITHAM_42_LIGHT, 0, 46, 8 },
-    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 6 } },
+  { { FONT_KEY_ROBOTO_BOLD_SUBSET_49, 0, 46, 23 },
+    { FONT_KEY_GOTHIC_28_BOLD, 0, 32, 10 },
+    { FONT_KEY_GOTHIC_24_BOLD, 0, 28, 8 } },
+  { { FONT_KEY_LECO_60_BOLD_NUMBERS_AM_PM, 0, 62, 24 },
+    { FONT_KEY_LECO_42_NUMBERS, 0, 46, 16 },
+    { FONT_KEY_LECO_36_BOLD_NUMBERS, 0, 40, 14 } },
+  { { NULL, RESOURCE_ID_FONT_SILKTIME_48, 50, 17 },
+    { NULL, RESOURCE_ID_FONT_SILKTIME_32, 34, 11 },
+    { NULL, RESOURCE_ID_FONT_SILKTIME_24, 26, 8 } },
+  { { FONT_KEY_BITHAM_42_BOLD, 0, 46, 23 },
+    { FONT_KEY_BITHAM_42_BOLD, 0, 46, 23 },
+    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 19 } },
+  { { FONT_KEY_BITHAM_42_LIGHT, 0, 46, 23 },
+    { FONT_KEY_BITHAM_42_LIGHT, 0, 46, 23 },
+    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 19 } },
 #elif PBL_DISPLAY_WIDTH >= 200 && defined(PBL_ROUND)     // gabbro
-  { { FONT_KEY_ROBOTO_BOLD_SUBSET_49, 0, 46, 8 },
-    { FONT_KEY_GOTHIC_28_BOLD, 0, 32, 6 },
-    { FONT_KEY_GOTHIC_24_BOLD, 0, 28, 5 } },
-  { { FONT_KEY_LECO_42_NUMBERS, 0, 46, 7 },
-    { FONT_KEY_LECO_36_BOLD_NUMBERS, 0, 40, 6 },
-    { FONT_KEY_LECO_32_BOLD_NUMBERS, 0, 36, 5 } },
-  { { NULL, RESOURCE_ID_FONT_SILKTIME_32, 34, 1 },
-    { NULL, RESOURCE_ID_FONT_SILKTIME_24, 26, 1 },
-    { NULL, RESOURCE_ID_FONT_SILKTIME_24, 26, 1 } },
-  { { FONT_KEY_BITHAM_42_BOLD, 0, 46, 8 },
-    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 6 },
-    { FONT_KEY_BITHAM_30_BLACK, 0, 34, 5 } },
-  { { FONT_KEY_BITHAM_42_LIGHT, 0, 46, 8 },
-    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 6 },
-    { FONT_KEY_BITHAM_30_BLACK, 0, 34, 5 } },
+  { { FONT_KEY_ROBOTO_BOLD_SUBSET_49, 0, 46, 23 },
+    { FONT_KEY_GOTHIC_28_BOLD, 0, 32, 10 },
+    { FONT_KEY_GOTHIC_24_BOLD, 0, 28, 8 } },
+  { { FONT_KEY_LECO_42_NUMBERS, 0, 46, 16 },
+    { FONT_KEY_LECO_36_BOLD_NUMBERS, 0, 40, 14 },
+    { FONT_KEY_LECO_32_BOLD_NUMBERS, 0, 36, 8 } },
+  { { NULL, RESOURCE_ID_FONT_SILKTIME_32, 34, 11 },
+    { NULL, RESOURCE_ID_FONT_SILKTIME_24, 26, 8 },
+    { NULL, RESOURCE_ID_FONT_SILKTIME_24, 26, 8 } },
+  { { FONT_KEY_BITHAM_42_BOLD, 0, 46, 23 },
+    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 19 },
+    { FONT_KEY_BITHAM_30_BLACK, 0, 34, 16 } },
+  { { FONT_KEY_BITHAM_42_LIGHT, 0, 46, 23 },
+    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 19 },
+    { FONT_KEY_BITHAM_30_BLACK, 0, 34, 16 } },
 #elif defined(PBL_ROUND)                                 // chalk
   // Roboto-49 is too tall for the 180px circle (the grid band would sink
   // into the bezel); the classic medium numbers carry the look instead.
-  { { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 6 },
-    { FONT_KEY_GOTHIC_28_BOLD, 0, 32, 6 },
-    { FONT_KEY_GOTHIC_24_BOLD, 0, 28, 5 } },
-  { { FONT_KEY_LECO_36_BOLD_NUMBERS, 0, 40, 6 },
-    { FONT_KEY_LECO_32_BOLD_NUMBERS, 0, 36, 5 },
-    { FONT_KEY_LECO_28_LIGHT_NUMBERS, 0, 32, 5 } },
-  { { NULL, RESOURCE_ID_FONT_SILKTIME_24, 26, 1 },
-    { NULL, RESOURCE_ID_FONT_SILKTIME_24, 26, 1 },
-    { NULL, RESOURCE_ID_FONT_SILKTIME_16, 18, 1 } },
-  { { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 6 },
-    { FONT_KEY_BITHAM_30_BLACK, 0, 34, 5 },
-    { FONT_KEY_BITHAM_30_BLACK, 0, 34, 5 } },
-  { { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 6 },
-    { FONT_KEY_BITHAM_30_BLACK, 0, 34, 5 },
-    { FONT_KEY_BITHAM_30_BLACK, 0, 34, 5 } },
+  { { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 19 },
+    { FONT_KEY_GOTHIC_28_BOLD, 0, 32, 10 },
+    { FONT_KEY_GOTHIC_24_BOLD, 0, 28, 8 } },
+  { { FONT_KEY_LECO_36_BOLD_NUMBERS, 0, 40, 14 },
+    { FONT_KEY_LECO_32_BOLD_NUMBERS, 0, 36, 8 },
+    { FONT_KEY_LECO_28_LIGHT_NUMBERS, 0, 32, 7 } },
+  { { NULL, RESOURCE_ID_FONT_SILKTIME_24, 26, 8 },
+    { NULL, RESOURCE_ID_FONT_SILKTIME_24, 26, 8 },
+    { NULL, RESOURCE_ID_FONT_SILKTIME_16, 18, 5 } },
+  { { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 19 },
+    { FONT_KEY_BITHAM_30_BLACK, 0, 34, 16 },
+    { FONT_KEY_BITHAM_30_BLACK, 0, 34, 16 } },
+  { { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 19 },
+    { FONT_KEY_BITHAM_30_BLACK, 0, 34, 16 },
+    { FONT_KEY_BITHAM_30_BLACK, 0, 34, 16 } },
 #else                                                    // 144x168 rect
-  { { FONT_KEY_ROBOTO_BOLD_SUBSET_49, 0, 46, 8 },
-    { FONT_KEY_GOTHIC_28_BOLD, 0, 32, 6 },
-    { FONT_KEY_GOTHIC_24_BOLD, 0, 28, 5 } },
-  { { FONT_KEY_LECO_38_BOLD_NUMBERS, 0, 42, 6 },
-    { FONT_KEY_LECO_32_BOLD_NUMBERS, 0, 36, 5 },
-    { FONT_KEY_LECO_28_LIGHT_NUMBERS, 0, 32, 5 } },
-  { { NULL, RESOURCE_ID_FONT_SILKTIME_32, 34, 1 },
-    { NULL, RESOURCE_ID_FONT_SILKTIME_24, 26, 1 },
-    { NULL, RESOURCE_ID_FONT_SILKTIME_16, 18, 1 } },
-  { { FONT_KEY_BITHAM_42_BOLD, 0, 46, 8 },
-    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 6 },
-    { FONT_KEY_BITHAM_30_BLACK, 0, 34, 5 } },
-  { { FONT_KEY_BITHAM_42_LIGHT, 0, 46, 8 },
-    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 6 },
-    { FONT_KEY_BITHAM_30_BLACK, 0, 34, 5 } },
+  { { FONT_KEY_ROBOTO_BOLD_SUBSET_49, 0, 46, 23 },
+    { FONT_KEY_GOTHIC_28_BOLD, 0, 32, 10 },
+    { FONT_KEY_GOTHIC_24_BOLD, 0, 28, 8 } },
+  { { FONT_KEY_LECO_38_BOLD_NUMBERS, 0, 42, 10 },
+    { FONT_KEY_LECO_32_BOLD_NUMBERS, 0, 36, 8 },
+    { FONT_KEY_LECO_28_LIGHT_NUMBERS, 0, 32, 7 } },
+  { { NULL, RESOURCE_ID_FONT_SILKTIME_32, 34, 11 },
+    { NULL, RESOURCE_ID_FONT_SILKTIME_24, 26, 8 },
+    { NULL, RESOURCE_ID_FONT_SILKTIME_16, 18, 5 } },
+  { { FONT_KEY_BITHAM_42_BOLD, 0, 46, 23 },
+    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 19 },
+    { FONT_KEY_BITHAM_30_BLACK, 0, 34, 16 } },
+  { { FONT_KEY_BITHAM_42_LIGHT, 0, 46, 23 },
+    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 38, 19 },
+    { FONT_KEY_BITHAM_30_BLACK, 0, 34, 16 } },
 #endif
 };
 
@@ -194,19 +194,25 @@ static void prv_layout_round(Layout *l, GRect ub) {
   l->cell_w = R_CELL_W;
   l->grid_x = ub.origin.x + (ub.size.w - R_CELL_W * 7) / 2;
 
+  // Short months bottom-align: the grid's BOTTOM stays where a 6-row month
+  // would end, so 4/5-row months sink toward it instead of floating high.
+  int rows = g_settings.show_adjacent ? 6
+      : month_rows_for(&g_now, start_wday_setting());
+  int16_t grid_h = R_PITCH * rows;
+
   int16_t y = ub.origin.y + R_TIME_TOP;
   l->time_zone = GRect(ub.origin.x, y, ub.size.w, spec->height);
-  y += spec->height + R_GAP;
-  l->header_zone = GRect(l->grid_x, y, R_CELL_W * 7, R_HEADER_H);
-  y += R_HEADER_H + 2;
-  l->grid_zone = GRect(l->grid_x, y, R_CELL_W * 7, R_PITCH * 6);
+  int16_t grid_bottom = y + spec->height + R_GAP + R_HEADER_H + 2 + R_PITCH * 6;
+  int16_t grid_y = grid_bottom - grid_h;
+  l->header_zone = GRect(l->grid_x, grid_y - 2 - R_HEADER_H, R_CELL_W * 7, R_HEADER_H);
+  l->grid_zone = GRect(l->grid_x, grid_y, R_CELL_W * 7, grid_h);
 
   int16_t col_left = ub.origin.x + R_COL_INSET;
-  l->banner_zone = GRect(col_left, y, l->grid_x - 2 - col_left, R_PITCH * 6);
+  l->banner_zone = GRect(col_left, grid_y, l->grid_x - 2 - col_left, grid_h);
   int16_t grid_right = l->grid_x + R_CELL_W * 7;
-  l->status_zone = GRect(grid_right + 2, y,
+  l->status_zone = GRect(grid_right + 2, grid_y,
                          ub.origin.x + ub.size.w - R_COL_INSET - (grid_right + 2),
-                         R_PITCH * 6);
+                         grid_h);
 }
 #endif
 
@@ -225,6 +231,10 @@ void layout_compute(Layer *root_layer) {
 
   bool want_status = prv_any_metric_selected();
   int16_t avail = ub.size.h - TOP_INSET - BOTTOM_INSET;
+  // The grid only needs as many rows as this month occupies (6 with
+  // adjacent-days fill); short months bottom-align rather than floating.
+  int rows = g_settings.show_adjacent ? 6
+      : month_rows_for(&g_now, start_wday_setting());
 
   // Compression cascade: 0 = full; 1 = smaller time; 2 = smallest time +
   // drop status; 3 = drop month banner; 4 = drop weekday header. The 6-row
@@ -243,7 +253,7 @@ void layout_compute(Layer *root_layer) {
     if (l->status_visible) { needed += STATUS_H + SECTION_GAP; }
     if (l->banner_visible) { needed += BANNER_H + SECTION_GAP; }
     if (l->header_visible) { needed += HEADER_H; }
-    needed += PITCH_MIN * 6;
+    needed += PITCH_MIN * rows;
     if (needed <= avail || stage == 4) {
       break;
     }
@@ -261,7 +271,7 @@ void layout_compute(Layer *root_layer) {
   if (l->banner_visible) { fixed += BANNER_H + SECTION_GAP; }
   if (l->header_visible) { fixed += HEADER_H; }
 
-  int16_t pitch = (avail - fixed) / 6;
+  int16_t pitch = (avail - fixed) / rows;
   if (pitch < PITCH_MIN) { pitch = PITCH_MIN; }
   if (pitch > PITCH_MAX) { pitch = PITCH_MAX; }
   l->row_pitch = pitch;
@@ -275,8 +285,8 @@ void layout_compute(Layer *root_layer) {
   // breathing room instead of one lopsided gap.
   l->time_zone = GRect(ub.origin.x, ub.origin.y + TOP_INSET, ub.size.w, spec->height);
 
-  int16_t y = ub.origin.y + ub.size.h - BOTTOM_INSET - pitch * 6;
-  l->grid_zone = GRect(l->grid_x, y, l->cell_w * 7, pitch * 6);
+  int16_t y = ub.origin.y + ub.size.h - BOTTOM_INSET - pitch * rows;
+  l->grid_zone = GRect(l->grid_x, y, l->cell_w * 7, pitch * rows);
   if (l->header_visible) {
     y -= HEADER_H;
     l->header_zone = GRect(l->grid_x, y, l->cell_w * 7, HEADER_H);

@@ -205,7 +205,8 @@ static void prv_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
     prv_periodic_requests();
   }
   if (units_changed & DAY_UNIT) {
-    layer_mark_dirty(s_calendar_layer);
+    // The layout depends on the month's row count (bottom-aligned grid).
+    prv_relayout();
     if (month_rolled && g_settings.dots_enabled) {
       prv_send_requests(false, prv_current_monthkey());
     }
