@@ -74,6 +74,13 @@ function clayCustomFn() {
 
   // The three custom-color pickers only appear when the Custom theme is
   // selected, so the page stays short for everyone else.
+  function refreshGrid() {
+    var t = clayConfig.getItemByMessageKey('GRID_LINES');
+    var c = clayConfig.getItemByMessageKey('GRID_COLOR');
+    if (!t || !c) { return; }
+    if (t.get()) { c.show(); } else { c.hide(); }
+  }
+
   function refreshTheme() {
     var themeItem = clayConfig.getItemByMessageKey('THEME');
     if (!themeItem) { return; }
@@ -91,6 +98,9 @@ function clayCustomFn() {
     var themeItem = clayConfig.getItemByMessageKey('THEME');
     if (themeItem) { themeItem.on('change', refreshTheme); }
     refreshTheme();
+    var gridItem = clayConfig.getItemByMessageKey('GRID_LINES');
+    if (gridItem) { gridItem.on('change', refreshGrid); }
+    refreshGrid();
 
     // Pin the submit button to the bottom of the viewport so settings can
     // be saved from anywhere on the page.

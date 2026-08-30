@@ -166,6 +166,20 @@ module.exports = [
       },
       {
         type: 'toggle',
+        messageKey: 'GRID_LINES',
+        label: 'Grid borders',
+        description: 'Draws thin table borders around the calendar cells, like the classic calendar faces.',
+        defaultValue: false,
+      },
+      {
+        type: 'color',
+        messageKey: 'GRID_COLOR',
+        label: 'Grid border color',
+        defaultValue: '0x555555',
+        sunlight: true,
+      },
+      {
+        type: 'toggle',
         messageKey: 'SHOW_ADJACENT',
         label: 'Show adjacent months',
         description: 'Fills the first and last weeks with dimmed days from the previous and next month.',

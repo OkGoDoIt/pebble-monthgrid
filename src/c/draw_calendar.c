@@ -37,6 +37,31 @@ static const char *const MONTH_ABBR[12] = {
   "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
 };
 
+// Optional table borders around the date cells, like the classic calendar
+// faces: 1px verticals and horizontals across the grid, drawn before the
+// day numbers so today's filled box sits on top. Monochrome watches use the
+// foreground color (the customizable color would just dither away).
+static void prv_draw_grid_lines(GContext *ctx, GRect grid, int rows) {
+  if (!g_settings.grid_lines) { return; }
+#if defined(PBL_COLOR)
+  GColor c = (GColor) { .argb = g_settings.grid_color };
+#else
+  GColor c = theme_fg();
+#endif
+  graphics_context_set_fill_color(ctx, c);
+  int16_t cw = grid.size.w / 7;
+  int16_t h = (int16_t) (g_layout.row_pitch * rows);
+  for (int i = 0; i <= 7; i++) {
+    graphics_fill_rect(ctx, GRect(grid.origin.x + i * cw, grid.origin.y, 1, h),
+                       0, GCornerNone);
+  }
+  for (int r = 0; r <= rows; r++) {
+    graphics_fill_rect(ctx, GRect(grid.origin.x, grid.origin.y + r * g_layout.row_pitch,
+                                  (int16_t) (cw * 7 + 1), 1),
+                       0, GCornerNone);
+  }
+}
+
 static void prv_draw_day_number(GContext *ctx, int day, GRect cell, GColor color,
                                 bool top_anchor) {
   char buf[4];
@@ -402,6 +427,9 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
   bool dots_current = g_settings.dots_enabled
       && g_layout.row_pitch >= MIN_PITCH_FOR_DOTS
       && g_dots.monthkey == (uint16_t) (year * 16 + mon + 1);
+
+  prv_draw_grid_lines(ctx, g_layout.grid_zone,
+                      g_settings.show_adjacent ? 6 : rows);
 
   // With adjacent days on, fill the whole reserved 6-row zone (a 4- or
   // 5-row month then shows the next month's first weeks dimmed).

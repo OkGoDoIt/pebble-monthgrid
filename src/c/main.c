@@ -159,6 +159,10 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
       g_settings.metrics[6] = prv_tuple_int(t); settings_changed = true;
     } else if (t->key == MESSAGE_KEY_METRIC8) {
       g_settings.metrics[7] = prv_tuple_int(t); settings_changed = true;
+    } else if (t->key == MESSAGE_KEY_GRID_LINES) {
+      g_settings.grid_lines = prv_tuple_int(t) ? 1 : 0; settings_changed = true;
+    } else if (t->key == MESSAGE_KEY_GRID_COLOR) {
+      g_settings.grid_color = GColorFromHEX(prv_tuple_int(t)).argb; settings_changed = true;
     } else if (t->key == MESSAGE_KEY_CAL1_COLOR) {
       g_settings.cal_colors[0] = GColorFromHEX(prv_tuple_int(t)).argb; settings_changed = true;
     } else if (t->key == MESSAGE_KEY_CAL2_COLOR) {

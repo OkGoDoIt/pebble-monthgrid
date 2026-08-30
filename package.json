@@ -70,7 +70,9 @@
       "DOTS_REQUEST",
       "DOTS_MONTH",
       "DOTS_DATA",
-      "DOTS_STATUS"
+      "DOTS_STATUS",
+      "GRID_LINES",
+      "GRID_COLOR"
     ],
     "resources": {
       "media": [

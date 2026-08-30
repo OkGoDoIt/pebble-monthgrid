@@ -151,6 +151,8 @@ typedef struct __attribute__((__packed__)) {
   uint8_t dist_miles;       // 1 = miles (default), 0 = km
   uint8_t metrics[NUM_METRIC_SLOTS];   // MetricType, priority order
   uint8_t cal_colors[NUM_CALENDARS];   // GColor8 .argb per calendar
+  uint8_t grid_lines;       // draw borders around the month grid cells
+  uint8_t grid_color;       // GColor8 .argb for the borders (color platforms)
 } Settings;
 
 typedef struct __attribute__((__packed__)) {

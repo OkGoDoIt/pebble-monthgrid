@@ -78,6 +78,8 @@ void settings_set_defaults(Settings *s) {
     .metrics = { METRIC_BATTERY, METRIC_WEATHER, METRIC_NONE, METRIC_NONE, METRIC_NONE,
                  METRIC_NONE, METRIC_NONE, METRIC_NONE },
     .cal_colors = { GColorRedARGB8, GColorBlueMoonARGB8, GColorIslamicGreenARGB8 },
+    .grid_lines = 0,
+    .grid_color = GColorDarkGrayARGB8,
   };
 }
 
