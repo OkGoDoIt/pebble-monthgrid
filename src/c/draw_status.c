@@ -269,6 +269,7 @@ static void prv_draw_column(GContext *ctx, const GRect zone,
   // crescent are skipped (they would clip against the bezel).
   StatusItem *fit[NUM_METRIC_SLOTS];
   int16_t icon_x[NUM_METRIC_SLOTS], text_x[NUM_METRIC_SLOTS];
+  int16_t item_h[NUM_METRIC_SLOTS];
   int n = 0;
   int16_t total_h = 0;
   // Tight icon-over-value pairs with generous space BETWEEN entries, so
@@ -310,10 +311,43 @@ static void prv_draw_column(GContext *ctx, const GRect zone,
     fit[n] = item;
     icon_x[n] = ix;
     text_x[n] = tx;
+    item_h[n] = h;
     total_h += gap + h;
     place_y = iy + h;
     n++;
   }
+  (void) item_h;
+
+#if defined(PBL_ROUND)
+  // Centered column (the 180px round watch): the selection above skipped
+  // the chord check because the start y depends on the final content
+  // height. Validate now — if the lowest entry would cross the bezel,
+  // shift it inward, and when even that fails drop it and re-center.
+  while (!top_anchor && n > 0) {
+    int16_t yy = zone.origin.y + (zone.size.h - total_h) / 2;
+    bool ok = true;
+    for (int i = 0; i < n && ok; i++) {
+      StatusItem *item = fit[i];
+      if (i > 0) { yy += entry_gap; }
+      int16_t ix = -1, tx = -1;
+      if (item->icon_w) {
+        ix = prv_crescent_x(zone, item->icon_w, yy, yy + ICON_S, left_column);
+        if (ix < 0) { ok = false; break; }
+        yy += ICON_S + (item->text_w ? pair_gap : 0);
+      }
+      if (item->text_w) {
+        tx = prv_crescent_x(zone, item->text_w, yy, yy + SMALL_DIGIT_H, left_column);
+        if (tx < 0) { ok = false; break; }
+        yy += SMALL_DIGIT_H;
+      }
+      icon_x[i] = ix;
+      text_x[i] = tx;
+    }
+    if (ok) { break; }
+    n--;
+    total_h -= item_h[n] + (n > 0 ? entry_gap : 0);
+  }
+#endif
 
   int16_t y = top_anchor ? zone.origin.y
                          : zone.origin.y + (zone.size.h - total_h) / 2;
