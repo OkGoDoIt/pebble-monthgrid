@@ -64,6 +64,98 @@ Every Pebble, its own look — one scene per model:
   above and below.
 - Sunday / Monday / Saturday week start, vibrate-on-disconnect.
 
+## Settings
+
+Everything is configured from the phone (Settings → MonthGrid). Settings apply as
+soon as you hit Save — the Save button stays pinned to the bottom of the page, so
+it's always one tap away. All examples below are on Pebble Time 2.
+
+### Color themes
+
+Ten built-in themes plus **Custom**. The accent colors the month banner and today's
+box; text stays high-contrast so every theme reads with the backlight off.
+Black-and-white watches automatically use Classic (or Paper for light themes).
+
+| Classic (default) | Paper | Amber | Ice | Crimson | Midnight |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| ![](screenshots/settings/th_classic.png) | ![](screenshots/settings/th_paper.png) | ![](screenshots/settings/th_amber.png) | ![](screenshots/settings/th_ice.png) | ![](screenshots/settings/th_crimson.png) | ![](screenshots/settings/th_midnight.png) |
+
+| Terminal | Sunset | Violet | Newsprint | Custom |
+|:---:|:---:|:---:|:---:|:---:|
+| ![](screenshots/settings/th_terminal.png) | ![](screenshots/settings/th_sunset.png) | ![](screenshots/settings/th_violet.png) | ![](screenshots/settings/th_newsprint.png) | ![](screenshots/settings/th_custom.png) |
+
+Picking **Custom** reveals three color pickers (background, text, accent); the
+remaining colors are derived automatically for contrast.
+
+### Month banner
+
+**Style** — a solid accent bar (default), plain text, or thin rules above and below
+(a rounded outline on round watches). **Content** — from just the month name up to
+full dates, ordered for your region and automatically shortened when space is tight.
+
+| Filled bar (default) | Plain text | Ruled |
+|:---:|:---:|:---:|
+| ![](screenshots/settings/th_classic.png) | ![](screenshots/settings/bs_plain.png) | ![](screenshots/settings/bs_ruled.png) |
+
+| Month + day | Weekday, month + day | Month + day, year | Weekday + full date | Numeric |
+|:---:|:---:|:---:|:---:|:---:|
+| ![](screenshots/settings/bc_month_day.png) | ![](screenshots/settings/bc_wd_md.png) | ![](screenshots/settings/bc_md_year.png) | ![](screenshots/settings/bc_wd_md_year.png) | ![](screenshots/settings/bc_numeric.png) |
+
+### Time display
+
+Five fonts, three sizes, optional seconds, and 12/24-hour (or follow the watch).
+12-hour mode never shows a leading zero.
+
+| Roboto (default) | Digital | Pixel | Bitham bold | Bitham light |
+|:---:|:---:|:---:|:---:|:---:|
+| ![](screenshots/settings/th_classic.png) | ![](screenshots/settings/font_digital.png) | ![](screenshots/settings/font_pixel.png) | ![](screenshots/settings/font_bithamb.png) | ![](screenshots/settings/font_bithaml.png) |
+
+| Medium size | Small size | Seconds on | 24-hour (+ °C) |
+|:---:|:---:|:---:|:---:|
+| ![](screenshots/settings/size_medium.png) | ![](screenshots/settings/size_small.png) | ![](screenshots/settings/secs_on.png) | ![](screenshots/settings/fmt_24h.png) |
+
+### Calendar grid
+
+Start the week on Sunday (default), Monday, or Saturday; two- or one-letter weekday
+headers (Pebble Time Round always uses one letter); optionally fill the first and
+last weeks with dimmed days from the neighboring months.
+
+| Monday start | Saturday start | One-letter header | Adjacent months |
+|:---:|:---:|:---:|:---:|
+| ![](screenshots/settings/start_monday.png) | ![](screenshots/settings/start_saturday.png) | ![](screenshots/settings/hdr_one.png) | ![](screenshots/settings/adj_on.png) |
+
+### Status line
+
+Add items in priority order — the settings page grows a new row as you fill the
+last one, and a row set to "Remove" closes up the list (up to 8). As many as fit
+are shown; items with nothing to report (no weather yet, no heart-rate sensor,
+steps still at zero) hide instead of showing clutter. Choose from battery, weather,
+steps, distance (mi/km), heart rate, active minutes, calories, sleep, ISO week
+number, next alarm, and a disconnected alert.
+
+| Battery + weather (default) | Battery, weather, steps + more queued |
+|:---:|:---:|
+| ![](screenshots/settings/th_classic.png) | ![](screenshots/settings/status_five.png) |
+
+### Calendar event markers
+
+Paste up to three iCal/ICS subscription URLs (e.g. Google Calendar's *Secret
+address in iCal format*) and days with events get a marker under the date, color
+coded per calendar. Two styles: a thin underline that splits into per-calendar
+segments, or up to three small squares reflecting how many events the day holds.
+The URLs never leave your phone — the watch only receives a per-day summary — and
+the settings page shows a plain-language diagnostic (with a "!" on the watch) if a
+calendar ever fails to refresh.
+
+| Underline (default) | Squares |
+|:---:|:---:|
+| ![](screenshots/settings/mk_underline.png) | ![](screenshots/settings/mk_squares.png) |
+
+### And the rest
+
+- **Temperature / distance units** — °F or °C, miles or kilometers.
+- **Vibrate on disconnect** — a short pulse when the phone link drops.
+
 ## Platforms
 
 All seven: `aplite`, `basalt`, `chalk`, `diorite`, `emery` (Pebble Time 2), `flint`
