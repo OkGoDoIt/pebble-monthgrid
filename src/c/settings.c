@@ -34,7 +34,9 @@ const ThemeSpec *theme_spec(void) {
   static ThemeSpec custom;
   uint8_t t = g_settings.theme;
 #if defined(PBL_BW)
-  if (t != THEME_PAPER && t != THEME_CUSTOM) { t = THEME_CLASSIC; }
+  // Light themes read as Paper on monochrome; everything else as Classic.
+  if (t == THEME_NEWSPRINT) { t = THEME_PAPER; }
+  else if (t != THEME_PAPER && t != THEME_CUSTOM) { t = THEME_CLASSIC; }
 #endif
   if (t == THEME_CUSTOM) {
     GColor accent = (GColor) { .argb = g_settings.custom_accent };
