@@ -226,20 +226,60 @@ static void prv_draw_horizontal(GContext *ctx, const GRect zone) {
   }
 }
 
+// Half-width of the display circle at row y, with a 2px bezel margin
+// (integer sqrt — no float math on the watch).
+static int16_t prv_chord_half(int16_t y) {
+  const int32_t r = PBL_DISPLAY_WIDTH / 2 - 2;
+  int32_t dy = (int32_t) y - PBL_DISPLAY_WIDTH / 2;
+  int32_t v = r * r - dy * dy;
+  if (v <= 0) { return 0; }
+  int32_t s = 0;
+  while ((s + 1) * (s + 1) <= v) { s++; }
+  return (int16_t) s;
+}
+
+// Places a run of width w, nominally centered in the zone, so it stays
+// inside the circle at rows [y0, y1] without crossing into the grid.
+// Returns the x to draw at, or -1 when it cannot fit.
+static int16_t prv_crescent_x(const GRect zone, int16_t w, int16_t y0, int16_t y1,
+                              bool left_column) {
+  const int16_t c = PBL_DISPLAY_WIDTH / 2;
+  int16_t dy0 = (int16_t) (y0 < c ? c - y0 : y0 - c);
+  int16_t dy1 = (int16_t) (y1 < c ? c - y1 : y1 - c);
+  int16_t half = prv_chord_half(c + (dy0 > dy1 ? dy0 : dy1));
+  int16_t x = zone.origin.x + (zone.size.w - w) / 2;
+  if (left_column) {
+    int16_t min_x = c - half;
+    if (x < min_x) { x = min_x; }
+    if (x + w > zone.origin.x + zone.size.w) { return -1; }   // would hit the grid
+  } else {
+    int16_t max_x = c + half;
+    if (x + w > max_x) { x = max_x - w; }
+    if (x < zone.origin.x) { return -1; }                      // would hit the grid
+  }
+  return x;
+}
+
 static void prv_draw_column(GContext *ctx, const GRect zone,
-                            StatusItem **picked, int n_all) {
+                            StatusItem **picked, int n_all, bool left_column) {
   const GColor fg = theme_fg();
   const GColor bg = theme_bg();
 
   // Vertical fit: entries stack while there is room; entries wider than the
   // crescent are skipped (they would clip against the bezel).
   StatusItem *fit[NUM_METRIC_SLOTS];
+  int16_t icon_x[NUM_METRIC_SLOTS], text_x[NUM_METRIC_SLOTS];
   int n = 0;
   int16_t total_h = 0;
   // Tight icon-over-value pairs with generous space BETWEEN entries, so
   // each metric reads as one unit.
   const int16_t pair_gap = 1;
   const int16_t entry_gap = (PBL_DISPLAY_WIDTH >= 200) ? 13 : 9;
+  // Two-crescent mode anchors at the top of the band, where the circle is
+  // widest; the single right column (chalk) stays vertically centered.
+  const bool top_anchor = g_layout.status_two_columns;
+
+  int16_t place_y = zone.origin.y;
   for (int i = 0; i < n_all; i++) {
     StatusItem *item = picked[i];
     if (item->text_w > zone.size.w && item->icon_w == 0) { continue; }
@@ -250,25 +290,49 @@ static void prv_draw_column(GContext *ctx, const GRect zone,
     if (h == 0) { continue; }
     int16_t gap = n > 0 ? entry_gap : 0;
     if (total_h + gap + h > zone.size.h) { break; }
+    // Chord check at the rows this entry would occupy (top-anchored mode
+    // only — the centered single column moves after selection, and its
+    // right-crescent placement has always cleared the bezel there).
+    int16_t iy = place_y + gap;
+    int16_t ix = -1, tx = -1;
+    if (top_anchor) {
+      int16_t yy = iy;
+      if (item->icon_w) {
+        ix = prv_crescent_x(zone, item->icon_w, yy, yy + ICON_S, left_column);
+        if (ix < 0) { break; }   // rows below are only narrower
+        yy += ICON_S + (item->text_w ? pair_gap : 0);
+      }
+      if (item->text_w) {
+        tx = prv_crescent_x(zone, item->text_w, yy, yy + SMALL_DIGIT_H, left_column);
+        if (tx < 0) { break; }
+      }
+    }
     fit[n] = item;
+    icon_x[n] = ix;
+    text_x[n] = tx;
     total_h += gap + h;
+    place_y = iy + h;
     n++;
   }
 
-  int16_t y = zone.origin.y + (zone.size.h - total_h) / 2;
+  int16_t y = top_anchor ? zone.origin.y
+                         : zone.origin.y + (zone.size.h - total_h) / 2;
   for (int i = 0; i < n; i++) {
     StatusItem *item = fit[i];
     if (item->icon_w) {
-      int16_t ix = zone.origin.x + (zone.size.w - item->icon_w) / 2;
+      int16_t ix = icon_x[i] >= 0 ? icon_x[i]
+          : (int16_t) (zone.origin.x + (zone.size.w - item->icon_w) / 2);
       status_icon_draw(ctx, item->metric, GPoint(ix, y), ICON_S, fg, bg);
       y += ICON_S + (item->text_w ? pair_gap : 0);
     }
     if (item->text_w) {
+      int16_t tx = text_x[i] >= 0 ? text_x[i]
+          : (int16_t) (zone.origin.x + (zone.size.w - item->text_w) / 2);
       graphics_context_set_text_color(ctx, fg);
       graphics_draw_text(ctx, item->text, g_font_small,
-                         GRect(zone.origin.x, y - SMALL_TOP_PAD, zone.size.w,
+                         GRect(tx, y - SMALL_TOP_PAD, item->text_w + 3,
                                SMALL_DIGIT_H + SMALL_TOP_PAD + TEXT_BOX_SLACK),
-                         GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+                         GTextOverflowModeFill, GTextAlignmentLeft, NULL);
       y += SMALL_DIGIT_H;
     }
     y += entry_gap;
@@ -289,7 +353,7 @@ void draw_status_update_proc(Layer *layer, GContext *ctx) {
   if (!g_layout.status_two_columns) {
     StatusItem *all[NUM_METRIC_SLOTS];
     for (int i = 0; i < n_all; i++) { all[i] = &items[i]; }
-    prv_draw_column(ctx, g_layout.status_zone, all, n_all);
+    prv_draw_column(ctx, g_layout.status_zone, all, n_all, false);
     return;
   }
 
@@ -300,6 +364,6 @@ void draw_status_update_proc(Layer *layer, GContext *ctx) {
   for (int i = 0; i < n_all; i++) {
     if (i % 2 == 0) { left[nl++] = &items[i]; } else { right[nr++] = &items[i]; }
   }
-  prv_draw_column(ctx, g_layout.status_zone_left, left, nl);
-  prv_draw_column(ctx, g_layout.status_zone, right, nr);
+  prv_draw_column(ctx, g_layout.status_zone_left, left, nl, true);
+  prv_draw_column(ctx, g_layout.status_zone, right, nr, false);
 }

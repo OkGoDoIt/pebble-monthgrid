@@ -280,12 +280,13 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
       graphics_context_set_text_color(ctx, theme_on_accent());
     } else {
       if (g_settings.banner_style == BANNER_STYLE_RULED) {
-        // A 1px rule above and below the text, spanning the grid width.
+        // A 1px rule above and below the text, spanning the same width the
+        // filled bar would (full bleed on the round display).
         graphics_context_set_fill_color(ctx, theme_accent());
-        graphics_fill_rect(ctx, GRect(g_layout.grid_x, bz.origin.y,
-                                      g_layout.cell_w * 7, 1), 0, GCornerNone);
-        graphics_fill_rect(ctx, GRect(g_layout.grid_x, bz.origin.y + bz.size.h - 1,
-                                      g_layout.cell_w * 7, 1), 0, GCornerNone);
+        graphics_fill_rect(ctx, GRect(bz.origin.x, bz.origin.y, bz.size.w, 1),
+                           0, GCornerNone);
+        graphics_fill_rect(ctx, GRect(bz.origin.x, bz.origin.y + bz.size.h - 1,
+                                      bz.size.w, 1), 0, GCornerNone);
       }
       graphics_context_set_text_color(ctx, theme_accent());
     }

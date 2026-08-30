@@ -51,7 +51,7 @@
     #define R_PITCH 19
     #define R_CELL_W 25
     #define R_COL_INSET 12
-    #define R_GRID_SHIFT 6
+    #define R_GRID_SHIFT 14
     // 260px round: the circle is wide enough for the rectangular-style
     // banner between the time and the grid, so the month reads normally
     // instead of as a stacked column.
@@ -225,9 +225,13 @@ static void prv_layout_round(Layout *l, GRect ub) {
   // time and the grid, so the month reads normally (and gains the full set
   // of banner date formats) instead of as a stacked column.
   l->banner_column = false;
-  int16_t grid_bottom = y + spec->height + R_GAP + R_BANNER_H + R_BANNER_GAP
-      + R_HEADER_H + 2 + R_PITCH * 6 + R_GRID_SHIFT;
-  int16_t grid_y = grid_bottom - grid_h;
+  // Unlike the bottom-aligned rect layout, the grid block is TOP-anchored
+  // here: the banner sits at the same height every month, and short months
+  // simply end higher — which also keeps the status crescents beside the
+  // grid in the circle's wide band instead of sinking into the narrow
+  // bottom where they would clip.
+  int16_t grid_y = y + spec->height + R_GAP + R_BANNER_H + R_BANNER_GAP
+      + R_HEADER_H + 2 + R_GRID_SHIFT;
   l->header_zone = GRect(l->grid_x, grid_y - 2 - R_HEADER_H, R_CELL_W * 7, R_HEADER_H);
   l->grid_zone = GRect(l->grid_x, grid_y, R_CELL_W * 7, grid_h);
   // Full bleed: the bar (or its rules) runs edge to edge and is clipped by
@@ -252,9 +256,10 @@ static void prv_layout_round(Layout *l, GRect ub) {
                          grid_h);
 #if defined(R_BANNER_H)
   // The month no longer occupies the left crescent, so status items use
-  // both sides.
+  // both sides; both columns get the full 6-row band.
   int16_t left_x = ub.origin.x + R_COL_INSET;
-  l->status_zone_left = GRect(left_x, grid_y, l->grid_x - 2 - left_x, grid_h);
+  l->status_zone.size.h = R_PITCH * 6;
+  l->status_zone_left = GRect(left_x, grid_y, l->grid_x - 2 - left_x, R_PITCH * 6);
   l->status_two_columns = true;
 #endif
 }
