@@ -232,7 +232,7 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
   graphics_context_set_antialiased(ctx, false);
 
   // ---- Month banner / month column ------------------------------------
-  if (g_layout.banner_visible && g_layout.side_columns) {
+  if (g_layout.banner_visible && g_layout.banner_column) {
     // Round: the month as ONE inverted rounded bar with the abbreviation
     // stacked inside — the round-native echo of the rectangular banner.
     const char *abbr = MONTH_ABBR[g_now.tm_mon];

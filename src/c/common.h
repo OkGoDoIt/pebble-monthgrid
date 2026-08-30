@@ -185,10 +185,12 @@ typedef struct {
   // empty leading cells of the first grid row (costs no extra height).
   bool banner_inline;
   bool header_visible;
-  // Round layout: banner_zone is a vertical month column in the left
-  // crescent and status_zone a vertical metric column in the right one;
-  // the weekday header uses single letters.
+  // Round layout: status_zone is a vertical metric column in the right
+  // crescent and the weekday header uses single letters.
   bool side_columns;
+  // Round layout only: true = month drawn as a vertical column in the left
+  // crescent (chalk), false = ordinary horizontal bar (gabbro has room).
+  bool banner_column;
   int16_t row_pitch;
   int16_t cell_w;
   int16_t grid_x;           // left edge of the 7 * cell_w block

@@ -45,13 +45,18 @@
 // month (stacked letters) and the status metrics live in the side crescents.
 #if defined(PBL_ROUND)
   #if PBL_DISPLAY_WIDTH >= 200   // gabbro 260x260
-    #define R_TIME_TOP 24
+    #define R_TIME_TOP 22
     #define R_HEADER_H 12
-    #define R_GAP 6
+    #define R_GAP 4
     #define R_PITCH 19
     #define R_CELL_W 25
     #define R_COL_INSET 12
-    #define R_GRID_SHIFT 12
+    #define R_GRID_SHIFT 6
+    // 260px round: the circle is wide enough for the rectangular-style
+    // banner between the time and the grid, so the month reads normally
+    // instead of as a stacked column.
+    #define R_BANNER_H 20
+    #define R_BANNER_GAP 3
   #else                          // chalk 180x180
     #define R_TIME_TOP 22
     #define R_HEADER_H 9
@@ -215,6 +220,21 @@ static void prv_layout_round(Layout *l, GRect ub) {
   l->time_zone = GRect(ub.origin.x, y, ub.size.w, spec->height);
   // R_GRID_SHIFT presses the calendar block toward the lower bezel so the
   // face doesn't read as vertically centered.
+#if defined(R_BANNER_H)
+  // 260px round: wide enough for the ordinary horizontal banner between the
+  // time and the grid, so the month reads normally (and gains the full set
+  // of banner date formats) instead of as a stacked column.
+  l->banner_column = false;
+  int16_t grid_bottom = y + spec->height + R_GAP + R_BANNER_H + R_BANNER_GAP
+      + R_HEADER_H + 2 + R_PITCH * 6 + R_GRID_SHIFT;
+  int16_t grid_y = grid_bottom - grid_h;
+  l->header_zone = GRect(l->grid_x, grid_y - 2 - R_HEADER_H, R_CELL_W * 7, R_HEADER_H);
+  l->grid_zone = GRect(l->grid_x, grid_y, R_CELL_W * 7, grid_h);
+  l->banner_zone = GRect(l->grid_x,
+                         l->header_zone.origin.y - R_BANNER_GAP - R_BANNER_H,
+                         R_CELL_W * 7, R_BANNER_H);
+#else
+  l->banner_column = true;
   int16_t grid_bottom = y + spec->height + R_GAP + R_HEADER_H + 2 + R_PITCH * 6
       + R_GRID_SHIFT;
   int16_t grid_y = grid_bottom - grid_h;
@@ -223,6 +243,7 @@ static void prv_layout_round(Layout *l, GRect ub) {
 
   int16_t col_left = ub.origin.x + R_COL_INSET;
   l->banner_zone = GRect(col_left, grid_y, l->grid_x - 2 - col_left, grid_h);
+#endif
   int16_t grid_right = l->grid_x + R_CELL_W * 7;
   l->status_zone = GRect(grid_right + 2, grid_y,
                          ub.origin.x + ub.size.w - R_COL_INSET - (grid_right + 2),
