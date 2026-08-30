@@ -123,6 +123,14 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
       g_settings.show_adjacent = prv_tuple_int(t) ? 1 : 0; settings_changed = true;
     } else if (t->key == MESSAGE_KEY_DOTS_ENABLED) {
       g_settings.dots_enabled = prv_tuple_int(t) ? 1 : 0; settings_changed = true;
+    } else if (t->key == MESSAGE_KEY_BANNER_STYLE) {
+      g_settings.banner_style = prv_tuple_int(t); settings_changed = true;
+    } else if (t->key == MESSAGE_KEY_CUSTOM_BG) {
+      g_settings.custom_bg = GColorFromHEX(prv_tuple_int(t)).argb; settings_changed = true;
+    } else if (t->key == MESSAGE_KEY_CUSTOM_FG) {
+      g_settings.custom_fg = GColorFromHEX(prv_tuple_int(t)).argb; settings_changed = true;
+    } else if (t->key == MESSAGE_KEY_CUSTOM_ACCENT) {
+      g_settings.custom_accent = GColorFromHEX(prv_tuple_int(t)).argb; settings_changed = true;
     } else if (t->key == MESSAGE_KEY_BANNER_CONTENT) {
       g_settings.banner_content = prv_tuple_int(t); settings_changed = true;
     } else if (t->key == MESSAGE_KEY_DOTS_STYLE) {

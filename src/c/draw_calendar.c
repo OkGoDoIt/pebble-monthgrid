@@ -244,9 +244,20 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
     GRect bar = GRect(col.origin.x + (col.size.w - MONTH_TILE) / 2,
                       col.origin.y + (col.size.h - bar_h) / 2,
                       MONTH_TILE, bar_h);
-    graphics_context_set_fill_color(ctx, theme_accent());
-    graphics_fill_rect(ctx, bar, 3, GCornersAll);
-    graphics_context_set_text_color(ctx, theme_on_accent());
+    if (g_settings.banner_style == BANNER_STYLE_FILLED) {
+      graphics_context_set_fill_color(ctx, theme_accent());
+      graphics_fill_rect(ctx, bar, 3, GCornersAll);
+      graphics_context_set_text_color(ctx, theme_on_accent());
+    } else {
+      if (g_settings.banner_style == BANNER_STYLE_RULED) {
+        graphics_context_set_fill_color(ctx, theme_accent());
+        graphics_fill_rect(ctx, GRect(bar.origin.x, bar.origin.y, bar.size.w, 1),
+                           0, GCornerNone);
+        graphics_fill_rect(ctx, GRect(bar.origin.x, bar.origin.y + bar.size.h - 1,
+                                      bar.size.w, 1), 0, GCornerNone);
+      }
+      graphics_context_set_text_color(ctx, theme_accent());
+    }
     char letter[2] = { 0, 0 };
     for (int i = 0; i < n; i++) {
       letter[0] = abbr[i];
@@ -260,9 +271,22 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
     char banner_buf[40];
     prv_banner_text(banner_buf, sizeof(banner_buf), g_font_banner,
                     g_layout.banner_zone.size.w - 6);
-    graphics_context_set_fill_color(ctx, theme_accent());
-    graphics_fill_rect(ctx, g_layout.banner_zone, 0, GCornerNone);
-    graphics_context_set_text_color(ctx, theme_on_accent());
+    GRect bz = g_layout.banner_zone;
+    if (g_settings.banner_style == BANNER_STYLE_FILLED) {
+      graphics_context_set_fill_color(ctx, theme_accent());
+      graphics_fill_rect(ctx, bz, 0, GCornerNone);
+      graphics_context_set_text_color(ctx, theme_on_accent());
+    } else {
+      if (g_settings.banner_style == BANNER_STYLE_RULED) {
+        // A 1px rule above and below the text, spanning the grid width.
+        graphics_context_set_fill_color(ctx, theme_accent());
+        graphics_fill_rect(ctx, GRect(g_layout.grid_x, bz.origin.y,
+                                      g_layout.cell_w * 7, 1), 0, GCornerNone);
+        graphics_fill_rect(ctx, GRect(g_layout.grid_x, bz.origin.y + bz.size.h - 1,
+                                      g_layout.cell_w * 7, 1), 0, GCornerNone);
+      }
+      graphics_context_set_text_color(ctx, theme_accent());
+    }
     GRect text_box = g_layout.banner_zone;
     text_box.origin.y -= (PBL_DISPLAY_WIDTH >= 200 ? 3 : 2);
     text_box.size.h += 6;
@@ -302,8 +326,17 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
                         g_layout.grid_zone.origin.y,
                         (int16_t) (ilead * g_layout.cell_w - 3),
                         (int16_t) (g_layout.row_pitch - 1));
-      graphics_context_set_fill_color(ctx, theme_accent());
-      graphics_fill_rect(ctx, bar, 2, GCornersAll);
+      bool inline_filled = (g_settings.banner_style == BANNER_STYLE_FILLED);
+      if (inline_filled) {
+        graphics_context_set_fill_color(ctx, theme_accent());
+        graphics_fill_rect(ctx, bar, 2, GCornersAll);
+      } else if (g_settings.banner_style == BANNER_STYLE_RULED) {
+        graphics_context_set_fill_color(ctx, theme_accent());
+        graphics_fill_rect(ctx, GRect(bar.origin.x, bar.origin.y, bar.size.w, 1),
+                           0, GCornerNone);
+        graphics_fill_rect(ctx, GRect(bar.origin.x, bar.origin.y + bar.size.h - 1,
+                                      bar.size.w, 1), 0, GCornerNone);
+      }
       char inbuf[16];
       strftime(inbuf, sizeof(inbuf), "%B", &g_now);
       for (char *ip = inbuf; *ip; ip++) {
@@ -313,7 +346,8 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
         strncpy(inbuf, MONTH_ABBR[g_now.tm_mon], sizeof(inbuf) - 1);
         inbuf[sizeof(inbuf) - 1] = 0;
       }
-      graphics_context_set_text_color(ctx, theme_on_accent());
+      graphics_context_set_text_color(ctx, inline_filled ? theme_on_accent()
+                                                        : theme_accent());
       graphics_draw_text(ctx, inbuf, g_font_small_bold,
                          GRect(bar.origin.x,
                                bar.origin.y + (bar.size.h - SMALL_DIGIT_H) / 2

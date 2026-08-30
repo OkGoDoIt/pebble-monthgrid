@@ -72,9 +72,25 @@ function clayCustomFn() {
     }
   }
 
+  // The three custom-color pickers only appear when the Custom theme is
+  // selected, so the page stays short for everyone else.
+  function refreshTheme() {
+    var themeItem = clayConfig.getItemByMessageKey('THEME');
+    if (!themeItem) { return; }
+    var custom = (parseInt(themeItem.get(), 10) || 0) === 10;
+    ['CUSTOM_BG', 'CUSTOM_FG', 'CUSTOM_ACCENT'].forEach(function(key) {
+      var item = clayConfig.getItemByMessageKey(key);
+      if (!item) { return; }
+      if (custom) { item.show(); } else { item.hide(); }
+    });
+  }
+
   clayConfig.on(clayConfig.EVENTS.AFTER_BUILD, function() {
     slotItems().forEach(function(item) { item.on('change', refresh); });
     refresh();
+    var themeItem = clayConfig.getItemByMessageKey('THEME');
+    if (themeItem) { themeItem.on('change', refreshTheme); }
+    refreshTheme();
 
     // Pin the submit button to the bottom of the viewport so settings can
     // be saved from anywhere on the page.
@@ -312,28 +328,56 @@ Pebble.addEventListener('appmessage', function(e) {
   if (p.DOTS_REQUEST) { pushDots(p.DOTS_REQUEST); }
 });
 
-// The settings page shows the outcome of the last calendar refresh, so a
-// bad URL / network problem / parse failure is visible without needing
-// developer logs.
-function dotsStatusText() {
+// The settings page explains the calendar sync state: a quiet one-liner when
+// things are fine, and a prominent callout (matching the "!" the watch shows)
+// when the last refresh failed.
+function dotsStatusItems() {
   var entries = loadDotsStatus();
   if (!entries.length) {
-    return 'Diagnostics: no calendar refresh has run yet in this session.';
+    return [{
+      type: 'text',
+      defaultValue: 'Calendar sync: nothing fetched yet in this session. Markers appear ' +
+          'a few seconds after the watchface starts.',
+    }];
   }
   var newest = 0;
-  var parts = [];
+  var failures = [];
+  var lines = [];
   for (var i = 0; i < entries.length; i++) {
     if (entries[i].ts > newest) { newest = entries[i].ts; }
-    parts.push('Calendar ' + entries[i].cal + ': ' + entries[i].detail);
+    lines.push('Calendar ' + entries[i].cal + ': ' + entries[i].detail);
+    if (!entries[i].ok) { failures.push(entries[i]); }
   }
   var mins = Math.max(0, Math.round((Date.now() - newest) / 60000));
-  return 'Diagnostics (last refresh ' + mins + ' min ago) — ' + parts.join(' · ');
+  var ago = mins < 1 ? 'just now' : (mins + ' min ago');
+
+  if (!failures.length) {
+    return [{
+      type: 'text',
+      defaultValue: 'Calendar sync OK (' + ago + '). ' + lines.join(' · '),
+    }];
+  }
+
+  var which = failures.map(function(f) { return 'Calendar ' + f.cal + ' — ' + f.detail; });
+  return [
+    { type: 'heading', defaultValue: '\u26A0 Calendar sync problem' },
+    {
+      type: 'text',
+      defaultValue: 'Your watch is showing a “!” next to the month because the last ' +
+          'calendar refresh failed (' + ago + '): ' + which.join('; ') + '. ' +
+          'The markers on screen are from the last successful refresh, so they may be ' +
+          'out of date — nothing was erased.',
+    },
+    {
+      type: 'text',
+      defaultValue: 'What to try: check the URL below is the full “Secret address in iCal ' +
+          'format” (it should start with https:// and end in .ics), and that your phone ' +
+          'has a connection. MonthGrid retries automatically every few hours and whenever ' +
+          'the watchface restarts; the “!” clears itself once a refresh succeeds.',
+    },
+  ];
 }
 
-// Runs INSIDE the config page (Clay stringifies it, so it must be
-// self-contained: no closures over module scope, no require).
-// Two jobs: grow/shrink the status-item list as rows are filled or set to
-// Remove, and keep the Save button reachable without scrolling.
 Pebble.addEventListener('showConfiguration', function() {
   // Rebuild the page with the current diagnostics injected under the
   // markers toggle.
@@ -343,7 +387,8 @@ Pebble.addEventListener('showConfiguration', function() {
     if (!items) { continue; }
     for (var i = 0; i < items.length; i++) {
       if (items[i].messageKey === 'DOTS_ENABLED') {
-        items.splice(i + 1, 0, { type: 'text', defaultValue: dotsStatusText() });
+        var status = dotsStatusItems();
+        items.splice.apply(items, [i + 1, 0].concat(status));
         s = config.length;
         break;
       }

@@ -13,15 +13,31 @@ typedef enum {
   THEME_ICE = 3,       // white on black, cyan accent
   THEME_CRIMSON = 4,   // white on black, red accent
   THEME_MIDNIGHT = 5,  // white on oxford blue, gold accent
-  THEME_COUNT = 6,
+  THEME_TERMINAL = 6,  // green phosphor on black
+  THEME_SUNSET = 7,    // white on black, orange accent
+  THEME_VIOLET = 8,    // white on black, violet accent
+  THEME_NEWSPRINT = 9, // black on white, deep red accent
+  THEME_BUILTIN_COUNT = 10,
+  THEME_CUSTOM = 10,   // colors picked by the user
+  THEME_COUNT = 11,
 } ThemeOpt;
+
+typedef enum {
+  BANNER_STYLE_FILLED = 0,  // solid accent bar, reversed text (default)
+  BANNER_STYLE_PLAIN = 1,   // accent text on the background, no bar
+  BANNER_STYLE_RULED = 2,   // 1px rules above and below the text
+  BANNER_STYLE_COUNT = 3,
+} BannerStyleOpt;
 
 // Colors as GColor8 .argb values. accent fills the banner bar and today's
 // box; on_accent is legible text on the accent; dim is for adjacent days.
 typedef struct {
   uint8_t bg, fg, accent, on_accent, dim;
 } ThemeSpec;
-extern const ThemeSpec g_themes[THEME_COUNT];
+extern const ThemeSpec g_themes[THEME_BUILTIN_COUNT];
+// Resolved theme for the current settings (handles the custom palette and
+// the black-and-white fallbacks).
+const ThemeSpec *theme_spec(void);
 
 typedef enum {
   TIME_FMT_SYSTEM = 0,
@@ -121,6 +137,8 @@ typedef struct __attribute__((__packed__)) {
   uint8_t dots_enabled;     // calendar event dots
   uint8_t dots_style;       // DotsStyleOpt
   uint8_t banner_content;   // BannerContentOpt (rect banner only)
+  uint8_t banner_style;     // BannerStyleOpt
+  uint8_t custom_bg, custom_fg, custom_accent;   // GColor8 .argb, THEME_CUSTOM
   uint8_t vibe_disconnect;
   uint8_t temp_fahrenheit;  // 1 = °F (default), 0 = °C
   uint8_t dist_miles;       // 1 = miles (default), 0 = km
@@ -210,15 +228,6 @@ extern GFont g_font_banner;       // month banner (GOTHIC_14_BOLD / _18_BOLD)
   #define SMALL_TOP_PAD 5
 #endif
 
-// Theme access. B&W platforms map every color theme onto Classic/Paper.
-static inline const ThemeSpec *theme_spec(void) {
-#if defined(PBL_BW)
-  uint8_t t = (g_settings.theme <= THEME_PAPER) ? g_settings.theme : THEME_CLASSIC;
-#else
-  uint8_t t = (g_settings.theme < THEME_COUNT) ? g_settings.theme : THEME_CLASSIC;
-#endif
-  return &g_themes[t];
-}
 static inline GColor theme_bg(void) { return (GColor) { .argb = theme_spec()->bg }; }
 static inline GColor theme_fg(void) { return (GColor) { .argb = theme_spec()->fg }; }
 static inline GColor theme_accent(void) { return (GColor) { .argb = theme_spec()->accent }; }
