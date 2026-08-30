@@ -5,7 +5,21 @@ prioritized status line, and a full month grid with today highlighted — a from
 re-implementation (and extension) of the abandoned *CalendaWatch*, built on the current
 official Pebble SDK.
 
-![basalt](screenshots/matrix/basalt_default12h.png)
+<p align="center">
+  <img src="screenshots/storefront/emery/2_events_dots.png" alt="Pebble Time 2" />
+</p>
+
+Every Pebble, its own look — one scene per model:
+
+| Pebble Time 2 (emery) | Pebble Time (basalt) | Pebble Round 2 (gabbro) | Pebble Time Round (chalk) |
+|:---:|:---:|:---:|:---:|
+| ![emery](screenshots/storefront/emery/2_events_dots.png) | ![basalt](screenshots/storefront/basalt/1_ice_overview.png) | ![gabbro](screenshots/storefront/gabbro/4_events_lines.png) | ![chalk](screenshots/storefront/chalk/5_timeline_peek.png) |
+| Event dots, ruled banner, adjacent months, Digital font | Ice theme, full-date banner, heart rate & weather | Newsprint theme, custom marker colors, seconds | Midnight theme, Pixel font, round crescent layout |
+
+| Pebble 2 HR (diorite) | Pebble 2 Duo (flint) | Pebble Classic (aplite) |
+|:---:|:---:|:---:|
+| ![diorite](screenshots/storefront/diorite/3_international.png) | ![flint](screenshots/storefront/flint/5_timeline_peek.png) | ![aplite](screenshots/storefront/aplite/1_ice_overview.png) |
+| Paper theme, 24-hour, Monday start, metric units | Compressed under a Timeline Peek | Classic look with week number on the original Pebble |
 
 ## Features
 
