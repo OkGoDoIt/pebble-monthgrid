@@ -8,7 +8,7 @@ const ThemeSpec g_themes[THEME_BUILTIN_COUNT] = {
     GColorDarkGrayARGB8 },                                        // Classic
   { GColorWhiteARGB8, GColorBlackARGB8, GColorBlackARGB8, GColorWhiteARGB8,
     GColorLightGrayARGB8 },                                       // Paper
-  { GColorBlackARGB8, GColorChromeYellowARGB8, GColorChromeYellowARGB8,
+  { GColorBlackARGB8, GColorChromeYellowARGB8, GColorOrangeARGB8,
     GColorBlackARGB8, GColorWindsorTanARGB8 },                    // Amber
   { GColorBlackARGB8, GColorWhiteARGB8, GColorVividCeruleanARGB8,
     GColorBlackARGB8, GColorDarkGrayARGB8 },                      // Ice
@@ -16,8 +16,8 @@ const ThemeSpec g_themes[THEME_BUILTIN_COUNT] = {
     GColorDarkGrayARGB8 },                                        // Crimson
   { GColorOxfordBlueARGB8, GColorWhiteARGB8, GColorChromeYellowARGB8,
     GColorBlackARGB8, GColorLibertyARGB8 },                       // Midnight
-  { GColorBlackARGB8, GColorGreenARGB8, GColorGreenARGB8, GColorBlackARGB8,
-    GColorDarkGreenARGB8 },                                       // Terminal
+  { GColorBlackARGB8, GColorGreenARGB8, GColorIslamicGreenARGB8,
+    GColorMintGreenARGB8, GColorDarkGreenARGB8 },                 // Terminal
   { GColorBlackARGB8, GColorWhiteARGB8, GColorOrangeARGB8, GColorBlackARGB8,
     GColorDarkGrayARGB8 },                                        // Sunset
   { GColorBlackARGB8, GColorWhiteARGB8, GColorVividVioletARGB8,
