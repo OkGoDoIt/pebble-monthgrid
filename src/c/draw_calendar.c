@@ -28,7 +28,9 @@
 // Digit ink + 1px gap + at least 1px of marker must fit the row pitch.
 #define MIN_PITCH_FOR_DOTS (SMALL_DIGIT_H + 2)
 
+#if !(defined(PBL_ROUND) && PBL_DISPLAY_WIDTH < 200)
 static const char *const WEEKDAY_LABELS[7] = { "SU", "MO", "TU", "WE", "TH", "FR", "SA" };
+#endif
 static const char *const WEEKDAY_LETTERS[7] = { "S", "M", "T", "W", "T", "F", "S" };
 static const char *const MONTH_ABBR[12] = {
   "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
@@ -363,8 +365,13 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
     graphics_context_set_text_color(ctx, fg);
     for (int i = 0; i < 7; i++) {
       int day_i = (start_wday + i) % 7;
-      const char *label = g_layout.side_columns ? WEEKDAY_LETTERS[day_i]
-                                                : WEEKDAY_LABELS[day_i];
+#if defined(PBL_ROUND) && PBL_DISPLAY_WIDTH < 200
+      // 16px cells on the small round watch only fit one letter.
+      const char *label = WEEKDAY_LETTERS[day_i];
+#else
+      const char *label = (g_settings.header_label == HEADER_LABEL_ONE)
+          ? WEEKDAY_LETTERS[day_i] : WEEKDAY_LABELS[day_i];
+#endif
       GRect box = GRect(g_layout.header_zone.origin.x + i * g_layout.cell_w,
                         g_layout.header_zone.origin.y - HEADER_TOP_PAD,
                         g_layout.cell_w,

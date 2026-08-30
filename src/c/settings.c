@@ -56,7 +56,8 @@ void settings_set_defaults(Settings *s) {
   *s = (Settings) {
     .version = SETTINGS_VERSION,
     .theme = THEME_CLASSIC,
-    .banner_style = (BannerStyleOpt) 2,
+    .banner_style = BANNER_STYLE_FILLED,
+    .header_label = HEADER_LABEL_TWO,
     .custom_bg = GColorBlackARGB8,
     .custom_fg = GColorWhiteARGB8,
     .custom_accent = GColorVividCeruleanARGB8,
@@ -66,7 +67,7 @@ void settings_set_defaults(Settings *s) {
     .start_day = START_SUNDAY,
     .show_seconds = 0,
     .show_adjacent = 0,
-    .dots_enabled = 1,
+    .dots_enabled = 0,
     .dots_style = DOTS_STYLE_BAR,
     .banner_content = BANNER_MONTH,
     .vibe_disconnect = 0,
@@ -81,6 +82,7 @@ void settings_set_defaults(Settings *s) {
 void settings_sanitize(Settings *s) {
   if (s->theme >= THEME_COUNT) { s->theme = THEME_CLASSIC; }
   if (s->banner_style >= BANNER_STYLE_COUNT) { s->banner_style = BANNER_STYLE_FILLED; }
+  if (s->header_label >= HEADER_LABEL_COUNT) { s->header_label = HEADER_LABEL_TWO; }
   if (s->time_format > TIME_FMT_24H) { s->time_format = TIME_FMT_SYSTEM; }
   if (s->time_size > TIME_SIZE_SMALL) { s->time_size = TIME_SIZE_LARGE; }
   if (s->time_font >= TIME_FONT_COUNT) { s->time_font = TIME_FONT_ROBOTO; }

@@ -85,6 +85,17 @@ module.exports = [
       },
       {
         type: 'select',
+        messageKey: 'HEADER_LABEL',
+        label: 'Weekday labels',
+        description: 'Pebble Time Round always uses one letter — its columns are too narrow for two.',
+        defaultValue: 0,
+        options: [
+          { label: 'Two letters (SU MO TU)', value: 0 },
+          { label: 'One letter (S M T)', value: 1 },
+        ],
+      },
+      {
+        type: 'select',
         messageKey: 'TIME_FORMAT',
         label: 'Time format',
         defaultValue: 0,

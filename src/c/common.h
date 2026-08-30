@@ -23,6 +23,12 @@ typedef enum {
 } ThemeOpt;
 
 typedef enum {
+  HEADER_LABEL_TWO = 0,   // SU MO TU … (default)
+  HEADER_LABEL_ONE = 1,   // S M T … (forced on the 180px round watch)
+  HEADER_LABEL_COUNT = 2,
+} HeaderLabelOpt;
+
+typedef enum {
   BANNER_STYLE_FILLED = 0,  // solid accent bar, reversed text (default)
   BANNER_STYLE_PLAIN = 1,   // accent text on the background, no bar
   BANNER_STYLE_RULED = 2,   // 1px rules above and below the text
@@ -138,6 +144,7 @@ typedef struct __attribute__((__packed__)) {
   uint8_t dots_style;       // DotsStyleOpt
   uint8_t banner_content;   // BannerContentOpt (rect banner only)
   uint8_t banner_style;     // BannerStyleOpt
+  uint8_t header_label;     // HeaderLabelOpt
   uint8_t custom_bg, custom_fg, custom_accent;   // GColor8 .argb, THEME_CUSTOM
   uint8_t vibe_disconnect;
   uint8_t temp_fahrenheit;  // 1 = °F (default), 0 = °C

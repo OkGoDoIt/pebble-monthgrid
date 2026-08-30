@@ -52,6 +52,7 @@
       "DOTS_ENABLED",
       "BANNER_CONTENT",
       "BANNER_STYLE",
+      "HEADER_LABEL",
       "CUSTOM_BG",
       "CUSTOM_FG",
       "CUSTOM_ACCENT",
