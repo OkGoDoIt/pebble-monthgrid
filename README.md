@@ -54,6 +54,8 @@ If you test it on any other Pebble watch models, please let me know if you find 
   background, text and accent yourself. B&W watches use Classic/Paper.
 - **Month banner styles** — filled bar (default), plain text, or ruled with a 1px line
   above and below.
+- **Grid borders** — optional thin table lines around the calendar cells, like the
+  classic calendar faces. Pick your own border color on color watches.
 - Sunday / Monday / Saturday week start
 - Vibrate on disconnect
 
@@ -113,6 +115,14 @@ last weeks with dimmed days from the neighboring months.
 | Monday start | Saturday start | One-letter header | Adjacent months |
 |:---:|:---:|:---:|:---:|
 | ![](screenshots/settings/start_monday.png) | ![](screenshots/settings/start_saturday.png) | ![](screenshots/settings/hdr_one.png) | ![](screenshots/settings/adj_on.png) |
+
+Optional grid borders draw thin table lines around the cells (off by default).
+The color is customizable on color watches; black-and-white watches use the text
+color.
+
+| Borders on | Custom border color | On a light theme | With adjacent months |
+|:---:|:---:|:---:|:---:|
+| ![](screenshots/settings/grid_on.png) | ![](screenshots/settings/grid_color.png) | ![](screenshots/settings/grid_paper.png) | ![](screenshots/settings/grid_adj.png) |
 
 ### Status line
 
