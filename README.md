@@ -1,15 +1,13 @@
 # MonthGrid
-
-**Your month at a glance.** A retro calendar watchface for Pebble: big time on top, a
-prioritized status line, and a full month grid with today highlighted — a from-scratch
-re-implementation (and extension) of the abandoned *CalendaWatch*, built on the current
-official Pebble SDK.
+**The watchface I've wanted ever since my old Pebble Steel**
+A month calendar watchface for Pebble watches: time on top, a
+customizable status line, and a full month grid — inspired by the old ["Calendar Watchface"](https://apps.repebble.com/52c5db770a89c8b9ef000082) by Willian Heaton, But updated and modernized and extended for new 2026 Pebble watches.
 
 <p align="center">
   <img src="screenshots/storefront/emery/1_ice_overview.png" alt="Pebble Time 2" />
 </p>
 
-Every Pebble, its own look — one scene per model:
+Tested on my Pebble Time 2 but built to be compatible with all Pebble watches:
 
 | Pebble Time 2 (emery) | Pebble Time (basalt) | Pebble Round 2 (gabbro) | Pebble Time Round (chalk) |
 |:---:|:---:|:---:|:---:|
@@ -21,59 +19,52 @@ Every Pebble, its own look — one scene per model:
 | ![diorite](screenshots/storefront/diorite/3_international.png) | ![flint](screenshots/storefront/flint/5_timeline_peek.png) | ![aplite](screenshots/storefront/aplite/1_ice_overview.png) |
 | Paper theme, 24-hour, Monday start, metric units | Compressed under a Timeline Peek | Classic look with week number on the original Pebble |
 
+If you test it on any other Pebble watch models, please let me know if you find any issues!
+
 ## Features
 
-- **Full month calendar** with today inverted; optional dimmed previous/next-month days
-  filling the whole grid.
+- **Full month calendar** with today highlighted; optional dimmed previous/next-month days filling the whole grid.
 - **Banner options** — the inverted bar shows the month name (default) or full dates:
   month+day, weekday+month+day, with or without the year. Ordering follows your region
   (US: `AUGUST 25`; elsewhere: `25 AUGUST`), names are localized, and long combinations
   automatically shorten (`WEDNESDAY, SEPTEMBER 30` → `WED, SEP 30`) so nothing clips.
 - **Big time display** with five selectable font styles — Roboto (default), Digital
   (LECO), Pixel (Silkscreen), Bitham bold / light — in three sizes.
-  12-hour mode **never shows a leading zero**. Optional seconds (off by default; the
-  face ticks once a minute unless enabled).
-- **Prioritized status line** — add as many items as you like (up to 8) in priority
-  order; the settings page grows a new row as you fill the last one and closes gaps
-  when you set a row to Remove. As many as fit on the watch are shown. Items with nothing to report are hidden automatically. Choose from:
-  - Battery (icon + %, charge bolt while plugged)
+  12-hour mode doesn't show a leading zero. Optional seconds (off by default; the
+  face ticks once a minute to save battery unless enabled).
+- **Status line** — add items in priority order. As many as fit on the watch are shown. Items with nothing to report are hidden automatically. Choose from:
+  - Battery (icon + %)
   - Weather (condition icon + temperature, °F/°C)
   - Steps, Distance walked (mi/km), Heart rate, Active minutes, Calories, Sleep
-  - Week number (ISO), Next alarm, Disconnected alert
-- **Weather** via [Open-Meteo](https://open-meteo.com/) (the pattern recommended by the
-  official Pebble docs — no API key, no account). Cached on the watch, refreshed every
-  30 minutes, shown only while fresh (<3 h).
+  - Week number (ISO)
+  - Next alarm
+  - Disconnected alert
+- **Weather** via [Open-Meteo](https://open-meteo.com/)
 - **Calendar event markers** — up to three iCal/ICS subscriptions (e.g. Google
   Calendar's *Secret address in iCal format*) mark days with events. Two styles: a
   1px underline that splits into per-calendar color sections, or small squares —
-  color-coded per calendar on color watches, sized per display density. The squares
-  show up to three markers per day based on how many events you have, prioritising
-  one marker per calendar before doubling up. The URLs stay
-  on your phone; the watch only ever receives a per-day bitmask.
+  color-coded per calendar on color watches.
 - **Timeline Quick View aware** — when the system overlay appears, the face compresses
   (smaller time, then status, banner, header yield) instead of cropping the grid.
 - **Round-native layout** on Pebble Time Round and Pebble Round 2: time on the top arc,
-  single-letter weekday header, grid across the wide middle of the circle, month stacked
-  in the left crescent, status metrics stacked in the right crescent.
-- **Ten color themes plus Custom** — Classic (white-on-black, default), Paper, Amber
+  grid across the wide middle of the circle, status metrics stacked in the right crescent. Layout adapts to available space.
+- **Color themes** — Classic (white-on-black, default), Paper, Amber
   terminal, Ice, Crimson, Midnight, Terminal green, Sunset, Violet and Newsprint, all
   high-contrast and legible with the backlight off. Custom lets you pick the
-  background, text and accent yourself (those pickers only appear when Custom is
-  selected). B&W watches use Classic/Paper.
+  background, text and accent yourself. B&W watches use Classic/Paper.
 - **Month banner styles** — filled bar (default), plain text, or ruled with a 1px line
   above and below.
-- Sunday / Monday / Saturday week start, vibrate-on-disconnect.
+- Sunday / Monday / Saturday week start
+- Vibrate on disconnect
 
 ## Settings
 
-Everything is configured from the phone (Settings → MonthGrid). Settings apply as
-soon as you hit Save — the Save button stays pinned to the bottom of the page, so
-it's always one tap away. All examples below are on Pebble Time 2.
+Everything is configured from the phone (Settings → MonthGrid). All examples below are on Pebble Time 2.
 
 ### Color themes
 
 Ten built-in themes plus **Custom**. The accent colors the month banner and today's
-box; text stays high-contrast so every theme reads with the backlight off.
+box; text stays high-contrast so every theme is readable with the backlight off.
 Black-and-white watches automatically use Classic (or Paper for light themes).
 
 | Classic (default) | Paper | Amber | Ice | Crimson | Midnight |
@@ -89,8 +80,7 @@ remaining colors are derived automatically for contrast.
 
 ### Month banner
 
-**Style** — a solid accent bar (default), plain text, or thin rules above and below
-(a rounded outline on round watches). **Content** — from just the month name up to
+**Style** — a solid accent bar (default), plain text, or thin rules above and below. **Content** — from just the month name up to
 full dates, ordered for your region and automatically shortened when space is tight.
 
 | Filled bar (default) | Plain text | Ruled |
@@ -104,7 +94,7 @@ full dates, ordered for your region and automatically shortened when space is ti
 ### Time display
 
 Five fonts, three sizes, optional seconds, and 12/24-hour (or follow the watch).
-12-hour mode never shows a leading zero.
+12-hour mode doesn't show a leading zero.
 
 | Roboto (default) | Digital | Pixel | Bitham bold | Bitham light |
 |:---:|:---:|:---:|:---:|:---:|
@@ -126,14 +116,12 @@ last weeks with dimmed days from the neighboring months.
 
 ### Status line
 
-Add items in priority order — the settings page grows a new row as you fill the
-last one, and a row set to "Remove" closes up the list (up to 8). As many as fit
-are shown; items with nothing to report (no weather yet, no heart-rate sensor,
-steps still at zero) hide instead of showing clutter. Choose from battery, weather,
+Add items in priority order. As many as fit
+are shown; items with nothing to report (no upcoming alarm, connection fine, etc) hide instead of showing clutter. Choose from battery, weather,
 steps, distance (mi/km), heart rate, active minutes, calories, sleep, ISO week
 number, next alarm, and a disconnected alert.
 
-| Battery + weather (default) | Battery, weather, steps + more queued |
+| Battery + weather (default) | Battery, weather, steps |
 |:---:|:---:|
 | ![](screenshots/settings/th_classic.png) | ![](screenshots/settings/status_five.png) |
 
@@ -143,9 +131,8 @@ Paste up to three iCal/ICS subscription URLs (e.g. Google Calendar's *Secret
 address in iCal format*) and days with events get a marker under the date, color
 coded per calendar. Two styles: a thin underline that splits into per-calendar
 segments, or up to three small squares reflecting how many events the day holds.
-The URLs never leave your phone — the watch only receives a per-day summary — and
-the settings page shows a plain-language diagnostic (with a "!" on the watch) if a
-calendar ever fails to refresh.
+The settings page shows a diagnostic message (with a "!" on the watch) if a
+calendar fails to refresh.
 
 | Underline (default) | Squares |
 |:---:|:---:|
@@ -161,6 +148,8 @@ calendar ever fails to refresh.
 All seven: `aplite`, `basalt`, `chalk`, `diorite`, `emery` (Pebble Time 2), `flint`
 (Pebble 2 Duo), `gabbro` (Pebble Round 2). Health metrics need a health-capable watch;
 heart rate needs a watch with an HRM (detected at runtime, hidden otherwise).
+
+I have only run this on the Pebble Time 2 (emery) hardware.  Please let me know if you find any issues with other watches!
 
 ## Building
 
@@ -189,7 +178,7 @@ The sideloadable bundle is `build/monthgrid.pbw`.
 
 ## Tests
 
-The ICS recurrence engine (the trickiest part of the phone-side JS) has a Node test
+The ICS recurrence engine has a Node test
 suite — plain CommonJS, no dependencies:
 
 ```sh
@@ -202,7 +191,7 @@ The phone JS runtime has no timezone database, so `TZID`/floating event times ar
 treated as phone-local (UTC times are converted properly). The RRULE subset covers
 FREQ=DAILY/WEEKLY/MONTHLY/YEARLY with INTERVAL, COUNT, UNTIL, BYDAY (weekly),
 BYMONTHDAY (single), and EXDATE; events with ordinal BYDAY (e.g. "2nd Tuesday"),
-BYSETPOS, and other exotica mark only their first instance rather than guessing.
+BYSETPOS, and other exotica mark only their first instance.
 
 ## Bundled fonts
 
