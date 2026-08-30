@@ -250,11 +250,11 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
       graphics_context_set_text_color(ctx, theme_on_accent());
     } else {
       if (g_settings.banner_style == BANNER_STYLE_RULED) {
-        graphics_context_set_fill_color(ctx, theme_accent());
-        graphics_fill_rect(ctx, GRect(bar.origin.x, bar.origin.y, bar.size.w, 1),
-                           0, GCornerNone);
-        graphics_fill_rect(ctx, GRect(bar.origin.x, bar.origin.y + bar.size.h - 1,
-                                      bar.size.w, 1), 0, GCornerNone);
+        // A rounded outline around the letter stack — the vertical column's
+        // analogue of the filled bar (horizontal rules read as stray marks
+        // against a tall, narrow shape).
+        graphics_context_set_stroke_color(ctx, theme_accent());
+        graphics_draw_round_rect(ctx, bar, 3);
       }
       graphics_context_set_text_color(ctx, theme_accent());
     }
