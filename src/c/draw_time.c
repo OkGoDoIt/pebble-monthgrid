@@ -88,13 +88,16 @@ void draw_time_update_proc(Layer *layer, GContext *ctx) {
   if (side_w > 0 && side_x > side_x_max) { side_x = side_x_max; }
   int16_t ampm_top, sec_top;
 #if defined(PBL_ROUND)
-  // On round screens the top arc is narrow; center the side column on the
-  // zone's vertical middle where the chord is widest.
-  {
-    int16_t total = (ampm_buf[0] && sec_buf[0]) ? 2 * SMALL_DIGIT_H + 3 : SMALL_DIGIT_H;
-    int16_t base = zone.origin.y + (zone.size.h - total) / 2;
+  // On round screens the top arc is narrow. A two-line AM/PM + seconds
+  // stack centers on the zone's vertical middle; a single label sits on
+  // the digits' baseline instead, tucking into the wider part of the
+  // curve rather than poking into the narrowing top arc.
+  if (ampm_buf[0] && sec_buf[0]) {
+    int16_t base = zone.origin.y + (zone.size.h - (2 * SMALL_DIGIT_H + 3)) / 2;
     ampm_top = base;
-    sec_top = ampm_buf[0] ? base + SMALL_DIGIT_H + 3 : base;
+    sec_top = base + SMALL_DIGIT_H + 3;
+  } else {
+    ampm_top = sec_top = zone.origin.y + zone.size.h - SMALL_DIGIT_H;
   }
 #else
   ampm_top = zone.origin.y + 1;
