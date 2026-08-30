@@ -299,7 +299,7 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
   // A small "!" when event markers are on but the phone's last calendar
   // refresh failed (cached markers stay up; this says they may be stale).
   if (g_settings.dots_enabled && g_dots.status != 0) {
-    if (g_layout.side_columns) {
+    if (g_layout.side_columns && g_layout.banner_column) {
       GRect col = g_layout.banner_zone;
       graphics_context_set_text_color(ctx, fg);
       graphics_draw_text(ctx, "!", g_font_small_bold,
@@ -308,11 +308,15 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
                                col.size.w, SMALL_DIGIT_H + SMALL_TOP_PAD + TEXT_BOX_SLACK),
                          GTextOverflowModeFill, GTextAlignmentCenter, NULL);
     } else if (g_layout.banner_visible) {
+      // Right edge of the banner; on a round display the bar is full-bleed,
+      // so inset far enough to stay inside the circle's chord.
       GRect bz = g_layout.banner_zone;
-      graphics_context_set_text_color(ctx, theme_on_accent());
+      int16_t inset = PBL_IF_ROUND_ELSE(24, 5);
+      graphics_context_set_text_color(ctx, g_settings.banner_style == BANNER_STYLE_FILLED
+                                           ? theme_on_accent() : theme_accent());
       graphics_draw_text(ctx, "!", g_font_banner,
                          GRect(bz.origin.x, bz.origin.y - (PBL_DISPLAY_WIDTH >= 200 ? 3 : 2),
-                               bz.size.w - 5, bz.size.h + 6),
+                               bz.size.w - inset, bz.size.h + 6),
                          GTextOverflowModeFill, GTextAlignmentRight, NULL);
     }
   }

@@ -226,11 +226,10 @@ static void prv_draw_horizontal(GContext *ctx, const GRect zone) {
   }
 }
 
-static void prv_draw_column(GContext *ctx, const GRect zone) {
+static void prv_draw_column(GContext *ctx, const GRect zone,
+                            StatusItem **picked, int n_all) {
   const GColor fg = theme_fg();
   const GColor bg = theme_bg();
-  StatusItem items[NUM_METRIC_SLOTS];
-  int n_all = prv_collect_items(items, true);
 
   // Vertical fit: entries stack while there is room; entries wider than the
   // crescent are skipped (they would clip against the bezel).
@@ -242,7 +241,7 @@ static void prv_draw_column(GContext *ctx, const GRect zone) {
   const int16_t pair_gap = 1;
   const int16_t entry_gap = (PBL_DISPLAY_WIDTH >= 200) ? 13 : 9;
   for (int i = 0; i < n_all; i++) {
-    StatusItem *item = &items[i];
+    StatusItem *item = picked[i];
     if (item->text_w > zone.size.w && item->icon_w == 0) { continue; }
     if (item->text_w > zone.size.w) { item->text[0] = '\0'; item->text_w = 0; }
     int16_t h = (item->icon_w ? ICON_S : 0)
@@ -280,9 +279,27 @@ void draw_status_update_proc(Layer *layer, GContext *ctx) {
   (void) layer;
   if (!g_layout.status_visible) { return; }
   graphics_context_set_antialiased(ctx, false);
-  if (g_layout.side_columns) {
-    prv_draw_column(ctx, g_layout.status_zone);
-  } else {
+  if (!g_layout.side_columns) {
     prv_draw_horizontal(ctx, g_layout.status_zone);
+    return;
   }
+
+  StatusItem items[NUM_METRIC_SLOTS];
+  int n_all = prv_collect_items(items, true);
+  if (!g_layout.status_two_columns) {
+    StatusItem *all[NUM_METRIC_SLOTS];
+    for (int i = 0; i < n_all; i++) { all[i] = &items[i]; }
+    prv_draw_column(ctx, g_layout.status_zone, all, n_all);
+    return;
+  }
+
+  // Two crescents: priority order alternates left, right, left, right...
+  StatusItem *left[NUM_METRIC_SLOTS];
+  StatusItem *right[NUM_METRIC_SLOTS];
+  int nl = 0, nr = 0;
+  for (int i = 0; i < n_all; i++) {
+    if (i % 2 == 0) { left[nl++] = &items[i]; } else { right[nr++] = &items[i]; }
+  }
+  prv_draw_column(ctx, g_layout.status_zone_left, left, nl);
+  prv_draw_column(ctx, g_layout.status_zone, right, nr);
 }

@@ -183,6 +183,10 @@ typedef struct {
   GRect bounds;             // unobstructed bounds used for this layout
   GRect time_zone;
   GRect status_zone;
+  // Round watches with a horizontal banner have two free crescents: items
+  // alternate left, right, left, right in priority order.
+  GRect status_zone_left;
+  bool status_two_columns;
   GRect banner_zone;
   GRect header_zone;
   GRect grid_zone;          // holds rows_max * row_pitch

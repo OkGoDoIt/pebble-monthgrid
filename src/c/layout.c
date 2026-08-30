@@ -230,9 +230,11 @@ static void prv_layout_round(Layout *l, GRect ub) {
   int16_t grid_y = grid_bottom - grid_h;
   l->header_zone = GRect(l->grid_x, grid_y - 2 - R_HEADER_H, R_CELL_W * 7, R_HEADER_H);
   l->grid_zone = GRect(l->grid_x, grid_y, R_CELL_W * 7, grid_h);
-  l->banner_zone = GRect(l->grid_x,
+  // Full bleed: the bar (or its rules) runs edge to edge and is clipped by
+  // the round display, rather than stopping at the calendar's width.
+  l->banner_zone = GRect(ub.origin.x,
                          l->header_zone.origin.y - R_BANNER_GAP - R_BANNER_H,
-                         R_CELL_W * 7, R_BANNER_H);
+                         ub.size.w, R_BANNER_H);
 #else
   l->banner_column = true;
   int16_t grid_bottom = y + spec->height + R_GAP + R_HEADER_H + 2 + R_PITCH * 6
@@ -248,6 +250,13 @@ static void prv_layout_round(Layout *l, GRect ub) {
   l->status_zone = GRect(grid_right + 2, grid_y,
                          ub.origin.x + ub.size.w - R_COL_INSET - (grid_right + 2),
                          grid_h);
+#if defined(R_BANNER_H)
+  // The month no longer occupies the left crescent, so status items use
+  // both sides.
+  int16_t left_x = ub.origin.x + R_COL_INSET;
+  l->status_zone_left = GRect(left_x, grid_y, l->grid_x - 2 - left_x, grid_h);
+  l->status_two_columns = true;
+#endif
 }
 #endif
 
