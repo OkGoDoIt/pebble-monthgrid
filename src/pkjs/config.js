@@ -23,7 +23,7 @@ module.exports = [
   },
   {
     type: 'text',
-    defaultValue: 'Your month at a glance.',
+    defaultValue: 'A full month calendar watchface.',
   },
   {
     type: 'section',
