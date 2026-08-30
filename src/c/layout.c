@@ -370,29 +370,41 @@ void layout_compute(Layer *root_layer) {
   l->cell_w = GRID_W_MAX / 7;
   l->grid_x = ub.origin.x + (ub.size.w - l->cell_w * 7) / 2;
 
-  // Anchor the time to the top and the grid block (grid + header + banner)
-  // to the bottom; the status line floats vertically centered in whatever
-  // space remains between the time and the banner, so slack becomes even
-  // breathing room instead of one lopsided gap.
-  l->time_zone = GRect(ub.origin.x, ub.origin.y + TOP_INSET, ub.size.w, spec->height);
+  // Whatever height the visible elements don't need is spread EVENLY over
+  // the flexible seams — screen top -> time, time -> status, and
+  // status -> calendar block — so a short month breathes uniformly instead
+  // of pinning the time to the top edge and pooling all the slack above
+  // the banner. Nothing is positioned by row count: the slack simply falls
+  // out of however tall the grid is, so 4/5/6-row months, hidden elements
+  // and Quick View compression all share one rule. The banner + header +
+  // grid remain one tight, bottom-anchored unit.
+  int16_t block_h = (int16_t) (pitch * rows)
+      + (l->header_visible ? HEADER_H : 0)
+      + (l->banner_visible ? BANNER_H + SECTION_GAP : 0);
+  int16_t stack_min = spec->height + (l->status_visible ? STATUS_H : 0) + block_h;
+  int nseams = 2 + (l->status_visible ? 1 : 0);
+  int16_t slack = ub.size.h - BOTTOM_INSET - stack_min;
+  if (slack < 0) { slack = 0; }
+  int16_t gap = slack / nseams;
 
-  int16_t y = ub.origin.y + ub.size.h - BOTTOM_INSET - pitch * rows;
-  l->grid_zone = GRect(l->grid_x, y, l->cell_w * 7, pitch * rows);
-  if (l->header_visible) {
-    y -= HEADER_H;
-    l->header_zone = GRect(l->grid_x, y, l->cell_w * 7, HEADER_H);
-  }
-  if (l->banner_visible) {
-    y -= SECTION_GAP + BANNER_H;
-    l->banner_zone = GRect(ub.origin.x, y, ub.size.w, BANNER_H);
-  }
+  int16_t y = ub.origin.y + gap + (slack % nseams);
+  l->time_zone = GRect(ub.origin.x, y, ub.size.w, spec->height);
+  y += spec->height;
   if (l->status_visible) {
-    int16_t time_bottom = l->time_zone.origin.y + l->time_zone.size.h;
-    int16_t gap = y - time_bottom;
-    if (gap < STATUS_H) { gap = STATUS_H; }
-    l->status_zone = GRect(ub.origin.x, time_bottom + (gap - STATUS_H) / 2,
-                           ub.size.w, STATUS_H);
+    y += gap;
+    l->status_zone = GRect(ub.origin.x, y, ub.size.w, STATUS_H);
+    y += STATUS_H;
   }
+  y += gap;
+  if (l->banner_visible) {
+    l->banner_zone = GRect(ub.origin.x, y, ub.size.w, BANNER_H);
+    y += BANNER_H + SECTION_GAP;
+  }
+  if (l->header_visible) {
+    l->header_zone = GRect(l->grid_x, y, l->cell_w * 7, HEADER_H);
+    y += HEADER_H;
+  }
+  l->grid_zone = GRect(l->grid_x, y, l->cell_w * 7, pitch * rows);
 
   (void) full;
 }
