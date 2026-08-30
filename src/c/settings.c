@@ -56,7 +56,7 @@ void settings_set_defaults(Settings *s) {
   *s = (Settings) {
     .version = SETTINGS_VERSION,
     .theme = THEME_CLASSIC,
-    .banner_style = BANNER_STYLE_FILLED,
+    .banner_style = (BannerStyleOpt) 2,
     .custom_bg = GColorBlackARGB8,
     .custom_fg = GColorWhiteARGB8,
     .custom_accent = GColorVividCeruleanARGB8,
