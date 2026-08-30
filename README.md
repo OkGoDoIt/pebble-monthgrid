@@ -3,6 +3,8 @@
 A month calendar watchface for Pebble watches: time on top, a
 customizable status line, and a full month grid — inspired by the old ["Calendar Watchface"](https://apps.repebble.com/52c5db770a89c8b9ef000082) by Willian Heaton, But updated and modernized and extended for new 2026 Pebble watches.
 
+**Get it:** [Pebble Appstore](https://apps.repebble.com/865c44435a054e288357979f) · [Rebble Appstore](https://apps.rebble.io/en_US/application/6a94c275784eb40009a8abdd) · or sideload the `.pbw` from the [latest release](https://github.com/OkGoDoIt/pebble-monthgrid/releases/latest)
+
 <p align="center">
   <img src="screenshots/storefront/emery/1_ice_overview.png" alt="Pebble Time 2" />
 </p>
