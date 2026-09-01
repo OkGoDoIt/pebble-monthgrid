@@ -105,8 +105,54 @@ static void prv_icon_weather(GContext *ctx, GPoint o, int s, WeatherCond cond,
   }
 }
 
+// Charging bolt, hand-tuned pixel art so it stays crisp at watch sizes. Each
+// row is a bitmask of columns (bit 0 = leftmost). Two down-left diagonals
+// joined by a full-width jog — a silhouette nothing else in the status line
+// shares, so "charging" reads at a glance instead of hiding in a 2px stub.
+static const uint8_t s_bolt_large[13] = {
+  0x70, 0x38, 0x1C, 0x0E, 0x07, 0x7F, 0x70, 0x38, 0x1C, 0x0E, 0x07, 0x03, 0x01,
+};
+static const uint8_t s_bolt_small[9] = {
+  0x1C, 0x0E, 0x07, 0x1F, 0x1C, 0x0E, 0x07, 0x03, 0x01,
+};
+
+#define BOLT_LARGE_W 7
+#define BOLT_SMALL_W 5
+
+static int prv_bolt_width(int s) {
+  return (s >= 12) ? BOLT_LARGE_W : BOLT_SMALL_W;
+}
+
+static void prv_draw_bolt(GContext *ctx, GPoint o, int s, GColor fg) {
+  const bool large = (s >= 12);
+  const uint8_t *rows = large ? s_bolt_large : s_bolt_small;
+  const int n_rows = large ? 13 : 9;
+  const int w = large ? BOLT_LARGE_W : BOLT_SMALL_W;
+  // Vertically center when the icon box is taller than the glyph.
+  const int y0 = o.y + (s - n_rows) / 2;
+  graphics_context_set_fill_color(ctx, fg);
+  for (int r = 0; r < n_rows; r++) {
+    uint8_t bits = rows[r];
+    int c = 0;
+    while (c < w) {
+      if (!(bits & (1 << c))) { c++; continue; }
+      int run = 0;
+      while (c + run < w && (bits & (1 << (c + run)))) { run++; }
+      graphics_fill_rect(ctx, GRect(o.x + c, y0 + r, run, 1), 0, GCornerNone);
+      c += run;
+    }
+  }
+}
+
 static void prv_icon_battery(GContext *ctx, GPoint o, int s, GColor fg) {
   BatteryChargeState st = battery_state_service_peek();
+  if (st.is_plugged) {
+    // Charging swaps the whole icon for the bolt: a nearly-square zigzag
+    // beside a wide flat battery outline is unmistakable, where a bolt drawn
+    // on top of the outline was not.
+    prv_draw_bolt(ctx, o, s, fg);
+    return;
+  }
   int body_w = (s * 13) / 10;
   int body_h = s / 2 + 1;
   int y = o.y + (s - body_h) / 2;
@@ -119,12 +165,6 @@ static void prv_icon_battery(GContext *ctx, GPoint o, int s, GColor fg) {
   int fill_w = (inner_w * st.charge_percent) / 100;
   if (fill_w > 0) {
     graphics_fill_rect(ctx, GRect(o.x + 2, y + 2, fill_w, body_h - 4), 0, GCornerNone);
-  }
-  if (st.is_plugged) {
-    // Small bolt poking above the body.
-    int bx = o.x + body_w / 2;
-    graphics_draw_line(ctx, GPoint(bx + 1, y - 2), GPoint(bx - 1, y + 1));
-    graphics_draw_line(ctx, GPoint(bx - 1, y + 1), GPoint(bx + 1, y + 3));
   }
 }
 
@@ -205,6 +245,9 @@ static void prv_icon_disconnected(GContext *ctx, GPoint o, int s, GColor fg) {
 int status_icon_width(uint8_t metric, int s) {
   switch (metric) {
     case METRIC_BATTERY:
+      if (battery_state_service_peek().is_plugged) {
+        return prv_bolt_width(s) + 4;  // bolt + gap
+      }
       return (s * 13) / 10 + 4;  // body + terminal + gap
     case METRIC_WEATHER:
       return (g_weather.cond == COND_UNKNOWN) ? 0 : s + 2;
