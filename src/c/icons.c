@@ -259,8 +259,9 @@ static void prv_icon_steps(GContext *ctx, GPoint o, int s, GColor fg) {
   prv_blit(ctx, GPoint(x0 + dx, y0 + dy), foot, fh, fw);
 }
 
-// Running figure -- used for DISTANCE WALKED, where a moving body is the
-// obvious read. Active minutes gets the stopwatch below instead.
+// Running figure, for ACTIVE MINUTES: a moving body is the plainest read of
+// "time spent active". Distance stays text-only -- "7.3mi" already says what
+// it is, and an icon there only competes with this one.
 static const uint16_t s_run_large[13] = {
   0x030, 0x030, 0x000, 0x07C, 0x05E, 0x030, 0x078,
   0x05C, 0x0CE, 0x086, 0x183, 0x103, 0x001,
@@ -269,27 +270,11 @@ static const uint16_t s_run_small[9] = {
   0x18, 0x18, 0x00, 0x1E, 0x0F, 0x0C, 0x0E, 0x12, 0x21,
 };
 
-static void prv_icon_runner(GContext *ctx, GPoint o, int s, GColor fg) {
+static void prv_icon_active(GContext *ctx, GPoint o, int s, GColor fg) {
   const bool large = (s >= 12);
   graphics_context_set_fill_color(ctx, fg);
   prv_blit(ctx, o, large ? s_run_large : s_run_small, large ? 13 : 9,
            large ? 9 : 6);
-}
-
-// Active minutes: a dumbbell. A stopwatch is the obvious metaphor for a
-// duration, but on a watch face a small round dial reads as "timer" -- or as
-// the alarm clock two rows down -- rather than as exercise.
-static const uint16_t s_dumb_large[8] = {
-  0x202, 0x707, 0x707, 0x7FF, 0x7FF, 0x707, 0x707, 0x202,
-};
-static const uint16_t s_dumb_small[6] = { 0x42, 0xE7, 0xFF, 0xFF, 0xE7, 0x42 };
-
-static void prv_icon_dumbbell(GContext *ctx, GPoint o, int s, GColor fg) {
-  const bool large = (s >= 12);
-  const int w = large ? 11 : 8, h = large ? 8 : 6;
-  graphics_context_set_fill_color(ctx, fg);
-  prv_blit(ctx, GPoint(o.x + (s - w) / 2, o.y + (s - h) / 2),
-           large ? s_dumb_large : s_dumb_small, h, w);
 }
 
 static void prv_icon_alarm(GContext *ctx, GPoint o, int s, GColor fg, GColor bg) {
@@ -356,7 +341,6 @@ int status_icon_width(uint8_t metric, int s) {
     case METRIC_WEATHER:
       return (g_weather.cond == COND_UNKNOWN) ? 0 : s + 2;
     case METRIC_HEART_RATE:
-    case METRIC_DISTANCE:
     case METRIC_CALORIES:
     case METRIC_CALORIES_TOTAL:
     case METRIC_SLEEP:
@@ -366,7 +350,7 @@ int status_icon_width(uint8_t metric, int s) {
     case METRIC_CONNECTION:
       return s + 2;
     default:
-      return 0;  // week number: text only
+      return 0;  // distance, week number: text only
   }
 }
 
@@ -385,8 +369,7 @@ void status_icon_draw(GContext *ctx, uint8_t metric, GPoint origin, int s,
                               prv_icon_flame(ctx, origin, s, fg); break;
     case METRIC_SLEEP:        prv_icon_moon(ctx, origin, s, fg, bg); break;
     case METRIC_STEPS:        prv_icon_steps(ctx, origin, s, fg); break;
-    case METRIC_ACTIVE_MIN:   prv_icon_dumbbell(ctx, origin, s, fg); break;
-    case METRIC_DISTANCE:     prv_icon_runner(ctx, origin, s, fg); break;
+    case METRIC_ACTIVE_MIN:   prv_icon_active(ctx, origin, s, fg); break;
     case METRIC_NEXT_ALARM:   prv_icon_alarm(ctx, origin, s, fg, bg); break;
     case METRIC_CONNECTION:   prv_icon_disconnected(ctx, origin, s, fg, bg); break;
     default: break;
