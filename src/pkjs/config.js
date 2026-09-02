@@ -14,6 +14,7 @@ var METRIC_OPTIONS = [
   { label: 'Week number', value: 9 },
   { label: 'Disconnected alert', value: 10 },
   { label: 'Next alarm', value: 11 },
+  { label: 'Calories (total, incl. resting)', value: 12 },
 ];
 
 module.exports = [

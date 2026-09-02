@@ -253,6 +253,7 @@ int status_icon_width(uint8_t metric, int s) {
       return (g_weather.cond == COND_UNKNOWN) ? 0 : s + 2;
     case METRIC_HEART_RATE:
     case METRIC_CALORIES:
+    case METRIC_CALORIES_TOTAL:
     case METRIC_SLEEP:
     case METRIC_STEPS:
     case METRIC_ACTIVE_MIN:
@@ -274,7 +275,9 @@ void status_icon_draw(GContext *ctx, uint8_t metric, GPoint origin, int s,
       }
       break;
     case METRIC_HEART_RATE:   prv_icon_heart(ctx, origin, s, fg); break;
-    case METRIC_CALORIES:     prv_icon_flame(ctx, origin, s, fg); break;
+    case METRIC_CALORIES:
+    case METRIC_CALORIES_TOTAL:
+                              prv_icon_flame(ctx, origin, s, fg); break;
     case METRIC_SLEEP:        prv_icon_moon(ctx, origin, s, fg, bg); break;
     case METRIC_STEPS:        prv_icon_steps(ctx, origin, s, fg); break;
     case METRIC_ACTIVE_MIN:   prv_icon_active(ctx, origin, s, fg); break;

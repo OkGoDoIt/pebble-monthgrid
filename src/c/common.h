@@ -85,7 +85,10 @@ typedef enum {
   METRIC_WEEK_NUM = 9,
   METRIC_CONNECTION = 10,
   METRIC_NEXT_ALARM = 11,
-  METRIC_TYPE_COUNT = 12,
+  // Appended, never inserted: these values are persisted in settings, so
+  // renumbering would silently change what existing users' slots mean.
+  METRIC_CALORIES_TOTAL = 12,
+  METRIC_TYPE_COUNT = 13,
 } MetricType;
 
 typedef enum {

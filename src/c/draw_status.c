@@ -41,10 +41,25 @@ static void prv_format_count(char *buf, size_t len, int32_t v) {
   if (v < 1000) {
     snprintf(buf, len, "%d", (int) v);
   } else if (v < 10000) {
-    snprintf(buf, len, "%d.%dk", (int) (v / 1000), (int) ((v % 1000) / 100));
+    // Round to the nearest tenth of a k rather than truncating, so 6792
+    // reads 6.8k and not 6.7k.
+    int32_t tenths = (v + 50) / 100;
+    snprintf(buf, len, "%d.%dk", (int) (tenths / 10), (int) (tenths % 10));
   } else {
-    snprintf(buf, len, "%dk", (int) (v / 1000));
+    snprintf(buf, len, "%dk", (int) ((v + 500) / 1000));
   }
+}
+
+// Meters -> tenths of the display unit, matching the firmware health app's
+// health_util_convert_fraction_to_whole_and_decimal_part() exactly (round,
+// don't truncate) so the face and the Health app never disagree.
+// METERS_PER_MILE is 1609 in the firmware, not 16093 -- see units.h.
+#define METERS_PER_MILE 1609
+#define METERS_PER_KM   1000
+
+static int32_t prv_distance_tenths(int32_t meters, bool miles) {
+  const int32_t denom = miles ? METERS_PER_MILE : METERS_PER_KM;
+  return (meters * 100 + denom * 5) / (denom * 10);
 }
 #endif
 
@@ -84,9 +99,11 @@ static bool prv_metric_text(uint8_t metric, char *buf, size_t len, bool compact)
       if (!prv_health_ok(HealthMetricWalkedDistanceMeters)) { return false; }
       int32_t m = health_service_sum_today(HealthMetricWalkedDistanceMeters);
       const char *unit = g_settings.dist_miles ? "mi" : "km";
-      int32_t tenths = g_settings.dist_miles ? (m * 10) / 16093 : m / 100;
+      int32_t tenths = prv_distance_tenths(m, g_settings.dist_miles);
       if (tenths < 1) { return false; }   // under 0.1 mi/km: not meaningful
-      if (tenths >= 100) {
+      // Keep the tenth until 100 units; dropping it at 10 lost real precision
+      // on long days (10.4mi displayed as "10mi").
+      if (tenths >= 1000) {
         snprintf(buf, len, "%d%s", (int) (tenths / 10), unit);
       } else {
         snprintf(buf, len, "%d.%d%s", (int) (tenths / 10), (int) (tenths % 10), unit);
@@ -112,6 +129,15 @@ static bool prv_metric_text(uint8_t metric, char *buf, size_t len, bool compact)
     case METRIC_CALORIES: {
       if (!prv_health_ok(HealthMetricActiveKCalories)) { return false; }
       prv_format_count(buf, len, health_service_sum_today(HealthMetricActiveKCalories));
+      return true;
+    }
+    // Active + resting, which is what the on-watch Health app's calorie figure
+    // shows (see health/data.c) and what phone health apps report.
+    case METRIC_CALORIES_TOTAL: {
+      if (!prv_health_ok(HealthMetricActiveKCalories)
+          || !prv_health_ok(HealthMetricRestingKCalories)) { return false; }
+      prv_format_count(buf, len, health_service_sum_today(HealthMetricActiveKCalories)
+                                 + health_service_sum_today(HealthMetricRestingKCalories));
       return true;
     }
     case METRIC_SLEEP: {
