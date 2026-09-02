@@ -247,8 +247,9 @@ static void prv_icon_steps(GContext *ctx, GPoint o, int s, GColor fg) {
   const bool large = (s >= 12);
   const uint16_t *foot = large ? s_foot_large : s_foot_small;
   const int fh = large ? 8 : 5, fw = large ? 5 : 3;
-  // Second foot offset down and across, so the pair reads as a stride.
-  const int dx = large ? 6 : 4, dy = large ? 4 : 4;
+  // Feet level and side by side. Staggering them diagonally made the pair
+  // read as two keys on a ring rather than as a stride.
+  const int dx = large ? 7 : 5, dy = 0;
   graphics_context_set_fill_color(ctx, fg);
   const int x0 = o.x + (s - (fw + dx)) / 2;
   const int y0 = o.y + (s - (fh + dy)) / 2;
@@ -273,18 +274,20 @@ static void prv_icon_runner(GContext *ctx, GPoint o, int s, GColor fg) {
            large ? 9 : 6);
 }
 
-// Active minutes is a duration, so: a stopwatch. Deliberately an OUTLINE ring
-// with a crown, against the alarm's filled disc with feet -- at 13px the
-// silhouette is the only thing telling two round clocks apart.
-static void prv_icon_stopwatch(GContext *ctx, GPoint o, int s, GColor fg) {
-  const int r = (s * 36) / 100;
-  const int cx = o.x + s / 2, cy = o.y + s - r - 1;
+// Active minutes: a dumbbell. A stopwatch is the obvious metaphor for a
+// duration, but on a watch face a small round dial reads as "timer" -- or as
+// the alarm clock two rows down -- rather than as exercise.
+static const uint16_t s_dumb_large[8] = {
+  0x202, 0x707, 0x707, 0x7FF, 0x7FF, 0x707, 0x707, 0x202,
+};
+static const uint16_t s_dumb_small[6] = { 0x42, 0xE7, 0xFF, 0xFF, 0xE7, 0x42 };
+
+static void prv_icon_dumbbell(GContext *ctx, GPoint o, int s, GColor fg) {
+  const bool large = (s >= 12);
+  const int w = large ? 11 : 8, h = large ? 8 : 6;
   graphics_context_set_fill_color(ctx, fg);
-  graphics_context_set_stroke_color(ctx, fg);
-  graphics_fill_rect(ctx, GRect(cx - 1, o.y, 3, (s * 22) / 100), 0, GCornerNone);
-  graphics_draw_circle(ctx, GPoint(cx, cy), r);
-  graphics_draw_circle(ctx, GPoint(cx, cy), r - 1);      // 2px ring, reads bolder
-  graphics_draw_line(ctx, GPoint(cx, cy), GPoint(cx, cy - r + 2));
+  prv_blit(ctx, GPoint(o.x + (s - w) / 2, o.y + (s - h) / 2),
+           large ? s_dumb_large : s_dumb_small, h, w);
 }
 
 static void prv_icon_alarm(GContext *ctx, GPoint o, int s, GColor fg, GColor bg) {
@@ -380,7 +383,7 @@ void status_icon_draw(GContext *ctx, uint8_t metric, GPoint origin, int s,
                               prv_icon_flame(ctx, origin, s, fg); break;
     case METRIC_SLEEP:        prv_icon_moon(ctx, origin, s, fg, bg); break;
     case METRIC_STEPS:        prv_icon_steps(ctx, origin, s, fg); break;
-    case METRIC_ACTIVE_MIN:   prv_icon_stopwatch(ctx, origin, s, fg); break;
+    case METRIC_ACTIVE_MIN:   prv_icon_dumbbell(ctx, origin, s, fg); break;
     case METRIC_DISTANCE:     prv_icon_runner(ctx, origin, s, fg); break;
     case METRIC_NEXT_ALARM:   prv_icon_alarm(ctx, origin, s, fg, bg); break;
     case METRIC_CONNECTION:   prv_icon_disconnected(ctx, origin, s, fg, bg); break;
