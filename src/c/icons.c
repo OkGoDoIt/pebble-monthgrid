@@ -109,10 +109,10 @@ static void prv_icon_weather(GContext *ctx, GPoint o, int s, WeatherCond cond,
 // row is a bitmask of columns (bit 0 = leftmost). Two down-left diagonals
 // joined by a full-width jog — a silhouette nothing else in the status line
 // shares, so "charging" reads at a glance instead of hiding in a 2px stub.
-static const uint8_t s_bolt_large[13] = {
+static const uint16_t s_bolt_large[13] = {
   0x70, 0x38, 0x1C, 0x0E, 0x07, 0x7F, 0x70, 0x38, 0x1C, 0x0E, 0x07, 0x03, 0x01,
 };
-static const uint8_t s_bolt_small[9] = {
+static const uint16_t s_bolt_small[9] = {
   0x1C, 0x0E, 0x07, 0x1F, 0x1C, 0x0E, 0x07, 0x03, 0x01,
 };
 
@@ -123,25 +123,30 @@ static int prv_bolt_width(int s) {
   return (s >= 12) ? BOLT_LARGE_W : BOLT_SMALL_W;
 }
 
-static void prv_draw_bolt(GContext *ctx, GPoint o, int s, GColor fg) {
-  const bool large = (s >= 12);
-  const uint8_t *rows = large ? s_bolt_large : s_bolt_small;
-  const int n_rows = large ? 13 : 9;
-  const int w = large ? BOLT_LARGE_W : BOLT_SMALL_W;
-  // Vertically center when the icon box is taller than the glyph.
-  const int y0 = o.y + (s - n_rows) / 2;
-  graphics_context_set_fill_color(ctx, fg);
+// Blit a row-bitmask glyph (bit 0 = leftmost column) at `o`, filling runs of
+// set bits as rects. Shared by every hand-drawn pixel-art icon below.
+static void prv_blit(GContext *ctx, GPoint o, const uint16_t *rows, int n_rows, int w) {
   for (int r = 0; r < n_rows; r++) {
-    uint8_t bits = rows[r];
+    uint16_t bits = rows[r];
     int c = 0;
     while (c < w) {
       if (!(bits & (1 << c))) { c++; continue; }
       int run = 0;
       while (c + run < w && (bits & (1 << (c + run)))) { run++; }
-      graphics_fill_rect(ctx, GRect(o.x + c, y0 + r, run, 1), 0, GCornerNone);
+      graphics_fill_rect(ctx, GRect(o.x + c, o.y + r, run, 1), 0, GCornerNone);
       c += run;
     }
   }
+}
+
+static void prv_draw_bolt(GContext *ctx, GPoint o, int s, GColor fg) {
+  const bool large = (s >= 12);
+  const uint16_t *rows = large ? s_bolt_large : s_bolt_small;
+  const int n_rows = large ? 13 : 9;
+  const int w = large ? BOLT_LARGE_W : BOLT_SMALL_W;
+  graphics_context_set_fill_color(ctx, fg);
+  // Vertically center when the icon box is taller than the glyph.
+  prv_blit(ctx, GPoint(o.x, o.y + (s - n_rows) / 2), rows, n_rows, w);
 }
 
 static void prv_icon_battery(GContext *ctx, GPoint o, int s, GColor fg) {
@@ -178,12 +183,20 @@ static void prv_icon_heart(GContext *ctx, GPoint o, int s, GColor fg) {
                          (s * 4) / 10, false);
 }
 
+// Teardrop flame: narrow tip leaning left, broad rounded base. The old
+// circle-plus-triangle read as an anonymous blob at 13px.
+static const uint16_t s_flame_large[13] = {
+  0x08, 0x0C, 0x0C, 0x0E, 0x1E, 0x3E, 0x3F, 0x7F, 0x7F, 0x7F, 0x7F, 0x3E, 0x1C,
+};
+static const uint16_t s_flame_small[9] = {
+  0x04, 0x04, 0x06, 0x0E, 0x0E, 0x1F, 0x1F, 0x1F, 0x0E,
+};
+
 static void prv_icon_flame(GContext *ctx, GPoint o, int s, GColor fg) {
+  const bool large = (s >= 12);
   graphics_context_set_fill_color(ctx, fg);
-  graphics_context_set_stroke_color(ctx, fg);
-  graphics_fill_circle(ctx, GPoint(o.x + s / 2, o.y + (s * 65) / 100), s / 4);
-  prv_fill_triangle_rows(ctx, GPoint(o.x + (s * 55) / 100, o.y + s / 10),
-                         o.y + (s * 65) / 100, s / 4, true);
+  prv_blit(ctx, o, large ? s_flame_large : s_flame_small, large ? 13 : 9,
+           large ? 7 : 5);
 }
 
 static void prv_icon_moon(GContext *ctx, GPoint o, int s, GColor fg, GColor bg) {
@@ -193,26 +206,39 @@ static void prv_icon_moon(GContext *ctx, GPoint o, int s, GColor fg, GColor bg) 
   graphics_fill_circle(ctx, GPoint(o.x + (s * 7) / 10, o.y + (s * 4) / 10), (s * 34) / 100);
 }
 
+// One foot: a sole that tapers to the heel, with the heel pad detached --
+// the detached pad is what makes it read as a footprint rather than a blob.
+static const uint16_t s_foot_large[7] = { 0x6, 0xF, 0xF, 0xF, 0x6, 0x0, 0x6 };
+static const uint16_t s_foot_small[5] = { 0x2, 0x7, 0x7, 0x0, 0x2 };
+
 static void prv_icon_steps(GContext *ctx, GPoint o, int s, GColor fg) {
+  const bool large = (s >= 12);
+  const uint16_t *foot = large ? s_foot_large : s_foot_small;
+  const int fh = large ? 7 : 5, fw = large ? 4 : 3;
+  // Second foot offset down and across, so the pair reads as a stride.
+  const int dx = large ? 6 : 4, dy = large ? 5 : 4;
   graphics_context_set_fill_color(ctx, fg);
-  int w = (s * 3) / 10 + 1;
-  int h = (s * 45) / 100;
-  graphics_fill_rect(ctx, GRect(o.x + s / 8, o.y + s / 10, w, h), w / 2, GCornersAll);
-  graphics_fill_rect(ctx, GRect(o.x + (s * 55) / 100, o.y + (s * 45) / 100, w, h),
-                     w / 2, GCornersAll);
+  const int x0 = o.x + (s - (fw + dx)) / 2;
+  const int y0 = o.y + (s - (fh + dy)) / 2;
+  prv_blit(ctx, GPoint(x0, y0), foot, fh, fw);
+  prv_blit(ctx, GPoint(x0 + dx, y0 + dy), foot, fh, fw);
 }
 
+// Running figure: head, forward-leaning torso with a thrown arm, split legs.
+// A play triangle said nothing about activity.
+static const uint16_t s_run_large[13] = {
+  0x030, 0x030, 0x000, 0x07C, 0x05E, 0x030, 0x078,
+  0x05C, 0x0CE, 0x086, 0x183, 0x103, 0x001,
+};
+static const uint16_t s_run_small[9] = {
+  0x18, 0x18, 0x00, 0x1E, 0x0F, 0x0C, 0x0E, 0x12, 0x21,
+};
+
 static void prv_icon_active(GContext *ctx, GPoint o, int s, GColor fg) {
-  graphics_context_set_stroke_color(ctx, fg);
-  // Right-pointing play triangle, filled by vertical columns.
-  int h = (s * 7) / 10;
-  int x0 = o.x + s / 6;
-  int y0 = o.y + (s - h) / 2;
-  int w = (s * 6) / 10;
-  for (int i = 0; i <= w; i++) {
-    int shrink = (h * i) / (2 * w);
-    graphics_draw_line(ctx, GPoint(x0 + i, y0 + shrink), GPoint(x0 + i, y0 + h - shrink));
-  }
+  const bool large = (s >= 12);
+  graphics_context_set_fill_color(ctx, fg);
+  prv_blit(ctx, o, large ? s_run_large : s_run_small, large ? 13 : 9,
+           large ? 9 : 6);
 }
 
 static void prv_icon_alarm(GContext *ctx, GPoint o, int s, GColor fg, GColor bg) {
@@ -233,13 +259,31 @@ static void prv_icon_alarm(GContext *ctx, GPoint o, int s, GColor fg, GColor bg)
                      GPoint(o.x + (s * 2) / 3, o.y + (s * 7) / 10));
 }
 
-static void prv_icon_disconnected(GContext *ctx, GPoint o, int s, GColor fg) {
+static void prv_icon_disconnected(GContext *ctx, GPoint o, int s, GColor fg, GColor bg) {
+  // The Bluetooth rune, drawn as the single polyline it actually is, then
+  // struck through. A phone-with-an-X named the wrong thing: what is lost is
+  // the Bluetooth link, and the rune is the symbol people already know.
+  const int w = (s * 55) / 100;          // rune is tall and narrow
+  const int x = o.x + (s - w) / 2;
+  const int cx = x + w / 2, rx = x + w - 1;
+  const int t = o.y, b = o.y + s - 1;
+  const int q1 = o.y + s / 3, q2 = o.y + (s * 2) / 3;
+  const GPoint pts[6] = {
+    GPoint(x, q1), GPoint(rx, q2), GPoint(cx, b),
+    GPoint(cx, t), GPoint(rx, q1), GPoint(x, q2),
+  };
   graphics_context_set_stroke_color(ctx, fg);
-  // Phone outline with a cross through it.
-  int w = s / 2;
-  graphics_draw_rect(ctx, GRect(o.x + s / 4, o.y + s / 10, w, s - s / 5));
-  graphics_draw_line(ctx, GPoint(o.x, o.y), GPoint(o.x + s - 1, o.y + s - 1));
-  graphics_draw_line(ctx, GPoint(o.x + s - 1, o.y), GPoint(o.x, o.y + s - 1));
+  for (int i = 0; i < 5; i++) { graphics_draw_line(ctx, pts[i], pts[i + 1]); }
+
+  // Strike-through with a 1px background moat either side, so the slash stays
+  // legible against the rune's own diagonals instead of merging with them.
+  const GPoint s0 = GPoint(o.x + s - 1, o.y + 1), s1 = GPoint(o.x, o.y + s - 2);
+  graphics_context_set_stroke_color(ctx, bg);
+  for (int d = -1; d <= 1; d++) {
+    graphics_draw_line(ctx, GPoint(s0.x + d, s0.y), GPoint(s1.x + d, s1.y));
+  }
+  graphics_context_set_stroke_color(ctx, fg);
+  graphics_draw_line(ctx, s0, s1);
 }
 
 int status_icon_width(uint8_t metric, int s) {
@@ -282,7 +326,7 @@ void status_icon_draw(GContext *ctx, uint8_t metric, GPoint origin, int s,
     case METRIC_STEPS:        prv_icon_steps(ctx, origin, s, fg); break;
     case METRIC_ACTIVE_MIN:   prv_icon_active(ctx, origin, s, fg); break;
     case METRIC_NEXT_ALARM:   prv_icon_alarm(ctx, origin, s, fg, bg); break;
-    case METRIC_CONNECTION:   prv_icon_disconnected(ctx, origin, s, fg); break;
+    case METRIC_CONNECTION:   prv_icon_disconnected(ctx, origin, s, fg, bg); break;
     default: break;
   }
 }
