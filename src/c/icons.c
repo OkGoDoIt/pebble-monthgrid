@@ -185,10 +185,11 @@ static void prv_icon_heart(GContext *ctx, GPoint o, int s, GColor fg) {
 
 // Teardrop flame: narrow tip leaning left, broad rounded base. The old
 // circle-plus-triangle read as an anonymous blob at 13px.
-// Two tongues, not one smooth tip: a single-peaked teardrop reads as a water
-// drop at this size no matter how it is shaded. The split is the fire.
+// Two tongues of UNEQUAL height with a notch between them. Every symmetric
+// variant -- smooth teardrop, twin horns, hollow core -- read as a droplet,
+// an insect or a ring at 13px. The uneven split is what reads as fire.
 static const uint16_t s_flame_large[13] = {
-  0x08, 0x0C, 0x1C, 0x2E, 0x6E, 0x7E, 0x3F, 0x7F, 0x7F, 0x7F, 0x3F, 0x3E, 0x1C,
+  0x08, 0x0C, 0x2C, 0x2E, 0x6E, 0x7E, 0x3F, 0x7F, 0x7F, 0x7F, 0x3F, 0x3E, 0x1C,
 };
 static const uint16_t s_flame_small[9] = {
   0x04, 0x06, 0x16, 0x1E, 0x1F, 0x1F, 0x1F, 0x1F, 0x0E,
@@ -208,10 +209,11 @@ static void prv_icon_moon(GContext *ctx, GPoint o, int s, GColor fg, GColor bg) 
   graphics_fill_circle(ctx, GPoint(o.x + (s * 7) / 10, o.y + (s * 4) / 10), (s * 34) / 100);
 }
 
-// One foot: a sole that tapers to the heel, with the heel pad detached --
-// the detached pad is what makes it read as a footprint rather than a blob.
-static const uint16_t s_foot_large[8] = { 0x0E, 0x1F, 0x1F, 0x1F, 0x0E, 0x00, 0x0E, 0x0E };
-static const uint16_t s_foot_small[5] = { 0x7, 0x7, 0x7, 0x0, 0x7 };
+// One foot: a broad sole narrowing through the arch to the heel, drawn as a
+// single connected shape. A detached heel pad reads as two specks at 13px --
+// the eye needs the arch to join them into one foot.
+static const uint16_t s_foot_large[8] = { 0x0E, 0x1F, 0x1F, 0x1F, 0x0E, 0x0C, 0x0E, 0x0E };
+static const uint16_t s_foot_small[5] = { 0x7, 0x7, 0x7, 0x2, 0x7 };
 
 static void prv_icon_steps(GContext *ctx, GPoint o, int s, GColor fg) {
   const bool large = (s >= 12);
