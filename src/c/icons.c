@@ -186,16 +186,21 @@ static void prv_icon_battery(GContext *ctx, GPoint o, int s, GColor fg) {
   int body_w = (s * 13) / 10;
   int body_h = s / 2 + 1;
   int y = o.y + (s - body_h) / 2;
-#if defined(PBL_COLOR)
-  fg = prv_battery_color(st.charge_percent);
-#endif
   graphics_context_set_stroke_color(ctx, fg);
   graphics_context_set_fill_color(ctx, fg);
   graphics_draw_rect(ctx, GRect(o.x, y, body_w, body_h));
   graphics_fill_rect(ctx, GRect(o.x + body_w, y + body_h / 3, 2, body_h - (2 * body_h) / 3),
                      0, GCornerNone);
-  int inner_w = body_w - 4;
-  int fill_w = (inner_w * st.charge_percent) / 100;
+  // Three fixed states, not a linear gauge: the exact percentage is already
+  // spelled out in the text beside the icon, so the bar's job is to be read
+  // without reading -- full, half, or nearly empty.
+  const int inner_w = body_w - 4;
+  int fill_w = inner_w;
+  if (st.charge_percent < 20)      { fill_w = inner_w / 3; }
+  else if (st.charge_percent < 50) { fill_w = inner_w / 2; }
+#if defined(PBL_COLOR)
+  graphics_context_set_fill_color(ctx, prv_battery_color(st.charge_percent));
+#endif
   if (fill_w > 0) {
     graphics_fill_rect(ctx, GRect(o.x + 2, y + 2, fill_w, body_h - 4), 0, GCornerNone);
   }
@@ -237,19 +242,17 @@ static void prv_icon_moon(GContext *ctx, GPoint o, int s, GColor fg, GColor bg) 
   graphics_fill_circle(ctx, GPoint(o.x + (s * 7) / 10, o.y + (s * 4) / 10), (s * 34) / 100);
 }
 
-// One foot: a broad sole narrowing through the arch to the heel, drawn as a
-// single connected shape. A detached heel pad reads as two specks at 13px --
-// the eye needs the arch to join them into one foot.
-static const uint16_t s_foot_large[8] = { 0x0E, 0x1F, 0x1F, 0x1F, 0x0E, 0x0C, 0x0E, 0x0E };
-static const uint16_t s_foot_small[5] = { 0x7, 0x7, 0x7, 0x2, 0x7 };
+// One foot: a small sole with the heel pad set off below it.
+static const uint16_t s_foot_large[7] = { 0x6, 0xF, 0xF, 0xF, 0x6, 0x0, 0x6 };
+static const uint16_t s_foot_small[5] = { 0x2, 0x7, 0x7, 0x0, 0x2 };
 
 static void prv_icon_steps(GContext *ctx, GPoint o, int s, GColor fg) {
   const bool large = (s >= 12);
   const uint16_t *foot = large ? s_foot_large : s_foot_small;
-  const int fh = large ? 8 : 5, fw = large ? 5 : 3;
-  // Feet level and side by side. Staggering them diagonally made the pair
-  // read as two keys on a ring rather than as a stride.
-  const int dx = large ? 7 : 5, dy = 0;
+  const int fh = large ? 7 : 5, fw = large ? 4 : 3;
+  // Staggered: the second foot sits down and across, so the pair reads as a
+  // stride rather than as a standing pair.
+  const int dx = large ? 6 : 4, dy = large ? 5 : 4;
   graphics_context_set_fill_color(ctx, fg);
   const int x0 = o.x + (s - (fw + dx)) / 2;
   const int y0 = o.y + (s - (fh + dy)) / 2;
