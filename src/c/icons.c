@@ -185,11 +185,13 @@ static void prv_icon_heart(GContext *ctx, GPoint o, int s, GColor fg) {
 
 // Teardrop flame: narrow tip leaning left, broad rounded base. The old
 // circle-plus-triangle read as an anonymous blob at 13px.
+// Two tongues, not one smooth tip: a single-peaked teardrop reads as a water
+// drop at this size no matter how it is shaded. The split is the fire.
 static const uint16_t s_flame_large[13] = {
-  0x04, 0x04, 0x06, 0x0E, 0x3C, 0x3E, 0x3F, 0x7F, 0x7F, 0x7F, 0x3F, 0x3E, 0x1C,
+  0x08, 0x0C, 0x1C, 0x2E, 0x6E, 0x7E, 0x3F, 0x7F, 0x7F, 0x7F, 0x3F, 0x3E, 0x1C,
 };
 static const uint16_t s_flame_small[9] = {
-  0x04, 0x06, 0x0E, 0x0E, 0x1F, 0x1F, 0x1F, 0x1F, 0x0E,
+  0x04, 0x06, 0x16, 0x1E, 0x1F, 0x1F, 0x1F, 0x1F, 0x0E,
 };
 
 static void prv_icon_flame(GContext *ctx, GPoint o, int s, GColor fg) {
@@ -224,8 +226,8 @@ static void prv_icon_steps(GContext *ctx, GPoint o, int s, GColor fg) {
   prv_blit(ctx, GPoint(x0 + dx, y0 + dy), foot, fh, fw);
 }
 
-// Running figure: head, forward-leaning torso with a thrown arm, split legs.
-// A play triangle said nothing about activity.
+// Running figure -- used for DISTANCE WALKED, where a moving body is the
+// obvious read. Active minutes gets the stopwatch below instead.
 static const uint16_t s_run_large[13] = {
   0x030, 0x030, 0x000, 0x07C, 0x05E, 0x030, 0x078,
   0x05C, 0x0CE, 0x086, 0x183, 0x103, 0x001,
@@ -234,11 +236,25 @@ static const uint16_t s_run_small[9] = {
   0x18, 0x18, 0x00, 0x1E, 0x0F, 0x0C, 0x0E, 0x12, 0x21,
 };
 
-static void prv_icon_active(GContext *ctx, GPoint o, int s, GColor fg) {
+static void prv_icon_runner(GContext *ctx, GPoint o, int s, GColor fg) {
   const bool large = (s >= 12);
   graphics_context_set_fill_color(ctx, fg);
   prv_blit(ctx, o, large ? s_run_large : s_run_small, large ? 13 : 9,
            large ? 9 : 6);
+}
+
+// Active minutes is a duration, so: a stopwatch. Deliberately an OUTLINE ring
+// with a crown, against the alarm's filled disc with feet -- at 13px the
+// silhouette is the only thing telling two round clocks apart.
+static void prv_icon_stopwatch(GContext *ctx, GPoint o, int s, GColor fg) {
+  const int r = (s * 36) / 100;
+  const int cx = o.x + s / 2, cy = o.y + s - r - 1;
+  graphics_context_set_fill_color(ctx, fg);
+  graphics_context_set_stroke_color(ctx, fg);
+  graphics_fill_rect(ctx, GRect(cx - 1, o.y, 3, (s * 22) / 100), 0, GCornerNone);
+  graphics_draw_circle(ctx, GPoint(cx, cy), r);
+  graphics_draw_circle(ctx, GPoint(cx, cy), r - 1);      // 2px ring, reads bolder
+  graphics_draw_line(ctx, GPoint(cx, cy), GPoint(cx, cy - r + 2));
 }
 
 static void prv_icon_alarm(GContext *ctx, GPoint o, int s, GColor fg, GColor bg) {
@@ -301,6 +317,7 @@ int status_icon_width(uint8_t metric, int s) {
     case METRIC_WEATHER:
       return (g_weather.cond == COND_UNKNOWN) ? 0 : s + 2;
     case METRIC_HEART_RATE:
+    case METRIC_DISTANCE:
     case METRIC_CALORIES:
     case METRIC_CALORIES_TOTAL:
     case METRIC_SLEEP:
@@ -310,7 +327,7 @@ int status_icon_width(uint8_t metric, int s) {
     case METRIC_CONNECTION:
       return s + 2;
     default:
-      return 0;  // distance, week number: text only
+      return 0;  // week number: text only
   }
 }
 
@@ -329,7 +346,8 @@ void status_icon_draw(GContext *ctx, uint8_t metric, GPoint origin, int s,
                               prv_icon_flame(ctx, origin, s, fg); break;
     case METRIC_SLEEP:        prv_icon_moon(ctx, origin, s, fg, bg); break;
     case METRIC_STEPS:        prv_icon_steps(ctx, origin, s, fg); break;
-    case METRIC_ACTIVE_MIN:   prv_icon_active(ctx, origin, s, fg); break;
+    case METRIC_ACTIVE_MIN:   prv_icon_stopwatch(ctx, origin, s, fg); break;
+    case METRIC_DISTANCE:     prv_icon_runner(ctx, origin, s, fg); break;
     case METRIC_NEXT_ALARM:   prv_icon_alarm(ctx, origin, s, fg, bg); break;
     case METRIC_CONNECTION:   prv_icon_disconnected(ctx, origin, s, fg, bg); break;
     default: break;
