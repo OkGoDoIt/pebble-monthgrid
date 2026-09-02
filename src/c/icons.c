@@ -186,10 +186,10 @@ static void prv_icon_heart(GContext *ctx, GPoint o, int s, GColor fg) {
 // Teardrop flame: narrow tip leaning left, broad rounded base. The old
 // circle-plus-triangle read as an anonymous blob at 13px.
 static const uint16_t s_flame_large[13] = {
-  0x08, 0x0C, 0x0C, 0x0E, 0x1E, 0x3E, 0x3F, 0x7F, 0x7F, 0x7F, 0x7F, 0x3E, 0x1C,
+  0x04, 0x04, 0x06, 0x0E, 0x3C, 0x3E, 0x3F, 0x7F, 0x7F, 0x7F, 0x3F, 0x3E, 0x1C,
 };
 static const uint16_t s_flame_small[9] = {
-  0x04, 0x04, 0x06, 0x0E, 0x0E, 0x1F, 0x1F, 0x1F, 0x0E,
+  0x04, 0x06, 0x0E, 0x0E, 0x1F, 0x1F, 0x1F, 0x1F, 0x0E,
 };
 
 static void prv_icon_flame(GContext *ctx, GPoint o, int s, GColor fg) {
@@ -208,15 +208,15 @@ static void prv_icon_moon(GContext *ctx, GPoint o, int s, GColor fg, GColor bg) 
 
 // One foot: a sole that tapers to the heel, with the heel pad detached --
 // the detached pad is what makes it read as a footprint rather than a blob.
-static const uint16_t s_foot_large[7] = { 0x6, 0xF, 0xF, 0xF, 0x6, 0x0, 0x6 };
-static const uint16_t s_foot_small[5] = { 0x2, 0x7, 0x7, 0x0, 0x2 };
+static const uint16_t s_foot_large[8] = { 0x0E, 0x1F, 0x1F, 0x1F, 0x0E, 0x00, 0x0E, 0x0E };
+static const uint16_t s_foot_small[5] = { 0x7, 0x7, 0x7, 0x0, 0x7 };
 
 static void prv_icon_steps(GContext *ctx, GPoint o, int s, GColor fg) {
   const bool large = (s >= 12);
   const uint16_t *foot = large ? s_foot_large : s_foot_small;
-  const int fh = large ? 7 : 5, fw = large ? 4 : 3;
+  const int fh = large ? 8 : 5, fw = large ? 5 : 3;
   // Second foot offset down and across, so the pair reads as a stride.
-  const int dx = large ? 6 : 4, dy = large ? 5 : 4;
+  const int dx = large ? 6 : 4, dy = large ? 4 : 4;
   graphics_context_set_fill_color(ctx, fg);
   const int x0 = o.x + (s - (fw + dx)) / 2;
   const int y0 = o.y + (s - (fh + dy)) / 2;
@@ -263,7 +263,7 @@ static void prv_icon_disconnected(GContext *ctx, GPoint o, int s, GColor fg, GCo
   // The Bluetooth rune, drawn as the single polyline it actually is, then
   // struck through. A phone-with-an-X named the wrong thing: what is lost is
   // the Bluetooth link, and the rune is the symbol people already know.
-  const int w = (s * 55) / 100;          // rune is tall and narrow
+  const int w = (s * 70) / 100;          // rune is tall and narrow
   const int x = o.x + (s - w) / 2;
   const int cx = x + w / 2, rx = x + w - 1;
   const int t = o.y, b = o.y + s - 1;
@@ -273,7 +273,12 @@ static void prv_icon_disconnected(GContext *ctx, GPoint o, int s, GColor fg, GCo
     GPoint(cx, t), GPoint(rx, q1), GPoint(x, q2),
   };
   graphics_context_set_stroke_color(ctx, fg);
-  for (int i = 0; i < 5; i++) { graphics_draw_line(ctx, pts[i], pts[i + 1]); }
+  // 2px strokes: a 1px rune loses too much of itself to the slash's moat.
+  for (int i = 0; i < 5; i++) {
+    graphics_draw_line(ctx, pts[i], pts[i + 1]);
+    graphics_draw_line(ctx, GPoint(pts[i].x + 1, pts[i].y),
+                       GPoint(pts[i + 1].x + 1, pts[i + 1].y));
+  }
 
   // Strike-through with a 1px background moat either side, so the slash stays
   // legible against the rune's own diagonals instead of merging with them.
