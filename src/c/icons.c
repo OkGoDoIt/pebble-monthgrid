@@ -191,19 +191,18 @@ static void prv_icon_battery(GContext *ctx, GPoint o, int s, GColor fg) {
   graphics_draw_rect(ctx, GRect(o.x, y, body_w, body_h));
   graphics_fill_rect(ctx, GRect(o.x + body_w, y + body_h / 3, 2, body_h - (2 * body_h) / 3),
                      0, GCornerNone);
-  // Three fixed states, not a linear gauge: the exact percentage is already
-  // spelled out in the text beside the icon, so the bar's job is to be read
-  // without reading -- full, half, or nearly empty.
+  // Proportional bar, but floored at a third of the width. Below that the
+  // remaining sliver is too few pixels to carry a colour, and the colour is
+  // the whole point of the warning -- so an empty battery still shows a
+  // third-width red block rather than fading to nothing.
   const int inner_w = body_w - 4;
-  int fill_w = inner_w;
-  if (st.charge_percent < 20)      { fill_w = inner_w / 3; }
-  else if (st.charge_percent < 50) { fill_w = inner_w / 2; }
+  const int min_w = inner_w / 3;
+  int fill_w = (inner_w * st.charge_percent) / 100;
+  if (fill_w < min_w) { fill_w = min_w; }
 #if defined(PBL_COLOR)
   graphics_context_set_fill_color(ctx, prv_battery_color(st.charge_percent));
 #endif
-  if (fill_w > 0) {
-    graphics_fill_rect(ctx, GRect(o.x + 2, y + 2, fill_w, body_h - 4), 0, GCornerNone);
-  }
+  graphics_fill_rect(ctx, GRect(o.x + 2, y + 2, fill_w, body_h - 4), 0, GCornerNone);
 }
 
 static void prv_icon_heart(GContext *ctx, GPoint o, int s, GColor fg) {
