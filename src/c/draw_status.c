@@ -38,13 +38,19 @@ static bool prv_health_ok(HealthMetric metric) {
 }
 
 static void prv_format_count(char *buf, size_t len, int32_t v) {
-  if (v < 10000) {
-    // "1986" and "2.0k" are both four characters, so the compact form bought
-    // no width below 10k while losing precision against the Health app.
+  // Widths measured with graphics_text_layout_get_content_size in the real
+  // status font (GOTHIC_18 / GOTHIC_14). A digit is 7px/6px but "." is only
+  // 3px and "k" 6px, so "2.0k" (23px/21px) genuinely beats "1986" (28px/24px)
+  // -- the compact form is not just a character-count wash.
+  if (v < 1000) {
     snprintf(buf, len, "%d", (int) v);
+  } else if (v < 10000) {
+    // Round to the nearest tenth of a k rather than truncating, so 6792
+    // reads 6.8k and not 6.7k.
+    int32_t tenths = (v + 50) / 100;
+    snprintf(buf, len, "%d.%dk", (int) (tenths / 10), (int) (tenths % 10));
   } else {
-    // Above 10k the short form is a genuine saving (3 chars vs 5); round
-    // rather than truncate so 12893 reads 13k, not 12k.
+    // 20px vs 35px here -- a much bigger saving than the band above.
     snprintf(buf, len, "%dk", (int) ((v + 500) / 1000));
   }
 }
