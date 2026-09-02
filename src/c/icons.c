@@ -149,9 +149,34 @@ static void prv_draw_bolt(GContext *ctx, GPoint o, int s, GColor fg) {
   prv_blit(ctx, GPoint(o.x, o.y + (s - n_rows) / 2), rows, n_rows, w);
 }
 
+// Semantic colour, used sparingly: battery level and the disconnect slash are
+// the only two places where the colour IS the message. Everything else stays
+// theme foreground. Black-and-white watches fall back to fg and lose nothing
+// but the hue -- the shapes already carry the meaning.
+#if defined(PBL_COLOR)
+static bool prv_bg_is_dark(void) {
+  GColor bg = theme_bg();
+  return (bg.r + bg.g + bg.b) <= 4;   // 2 bits per channel, 0..3
+}
+
+static GColor prv_battery_color(int pct) {
+  const bool dark = prv_bg_is_dark();
+  if (pct <= 20) { return dark ? GColorRed : GColorDarkCandyAppleRed; }
+  if (pct <= 50) { return dark ? GColorYellow : GColorOrange; }
+  return dark ? GColorGreen : GColorIslamicGreen;
+}
+
+static GColor prv_alert_color(void) {
+  return prv_bg_is_dark() ? GColorRed : GColorDarkCandyAppleRed;
+}
+#endif
+
 static void prv_icon_battery(GContext *ctx, GPoint o, int s, GColor fg) {
   BatteryChargeState st = battery_state_service_peek();
   if (st.is_plugged) {
+#if defined(PBL_COLOR)
+    fg = prv_bg_is_dark() ? GColorGreen : GColorIslamicGreen;
+#endif
     // Charging swaps the whole icon for the bolt: a nearly-square zigzag
     // beside a wide flat battery outline is unmistakable, where a bolt drawn
     // on top of the outline was not.
@@ -161,6 +186,9 @@ static void prv_icon_battery(GContext *ctx, GPoint o, int s, GColor fg) {
   int body_w = (s * 13) / 10;
   int body_h = s / 2 + 1;
   int y = o.y + (s - body_h) / 2;
+#if defined(PBL_COLOR)
+  fg = prv_battery_color(st.charge_percent);
+#endif
   graphics_context_set_stroke_color(ctx, fg);
   graphics_context_set_fill_color(ctx, fg);
   graphics_draw_rect(ctx, GRect(o.x, y, body_w, body_h));
@@ -305,7 +333,11 @@ static void prv_icon_disconnected(GContext *ctx, GPoint o, int s, GColor fg, GCo
   for (int d = -1; d <= 1; d++) {
     graphics_draw_line(ctx, GPoint(s0.x + d, s0.y), GPoint(s1.x + d, s1.y));
   }
+#if defined(PBL_COLOR)
+  graphics_context_set_stroke_color(ctx, prv_alert_color());
+#else
   graphics_context_set_stroke_color(ctx, fg);
+#endif
   graphics_draw_line(ctx, s0, s1);
 }
 
