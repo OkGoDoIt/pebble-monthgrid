@@ -48,7 +48,12 @@ static void prv_format_count(char *buf, size_t len, int32_t v) {
     // Round to the nearest tenth of a k rather than truncating, so 6792
     // reads 6.8k and not 6.7k.
     int32_t tenths = (v + 50) / 100;
-    snprintf(buf, len, "%d.%dk", (int) (tenths / 10), (int) (tenths % 10));
+    if (tenths % 10 == 0) {
+      // A trailing ".0" carries no information and costs 10px, so 1986 -> 2k.
+      snprintf(buf, len, "%dk", (int) (tenths / 10));
+    } else {
+      snprintf(buf, len, "%d.%dk", (int) (tenths / 10), (int) (tenths % 10));
+    }
   } else {
     // 20px vs 35px here -- a much bigger saving than the band above.
     snprintf(buf, len, "%dk", (int) ((v + 500) / 1000));
@@ -107,8 +112,9 @@ static bool prv_metric_text(uint8_t metric, char *buf, size_t len, bool compact)
       int32_t tenths = prv_distance_tenths(m, g_settings.dist_miles);
       if (tenths < 1) { return false; }   // under 0.1 mi/km: not meaningful
       // Keep the tenth until 100 units; dropping it at 10 lost real precision
-      // on long days (10.4mi displayed as "10mi").
-      if (tenths >= 1000) {
+      // on long days (10.4mi displayed as "10mi"). A zero tenth carries no
+      // information though, so 7.0mi renders as 7mi.
+      if (tenths >= 1000 || tenths % 10 == 0) {
         snprintf(buf, len, "%d%s", (int) (tenths / 10), unit);
       } else {
         snprintf(buf, len, "%d.%d%s", (int) (tenths / 10), (int) (tenths % 10), unit);
