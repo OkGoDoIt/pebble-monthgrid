@@ -38,14 +38,13 @@ static bool prv_health_ok(HealthMetric metric) {
 }
 
 static void prv_format_count(char *buf, size_t len, int32_t v) {
-  if (v < 1000) {
+  if (v < 10000) {
+    // "1986" and "2.0k" are both four characters, so the compact form bought
+    // no width below 10k while losing precision against the Health app.
     snprintf(buf, len, "%d", (int) v);
-  } else if (v < 10000) {
-    // Round to the nearest tenth of a k rather than truncating, so 6792
-    // reads 6.8k and not 6.7k.
-    int32_t tenths = (v + 50) / 100;
-    snprintf(buf, len, "%d.%dk", (int) (tenths / 10), (int) (tenths % 10));
   } else {
+    // Above 10k the short form is a genuine saving (3 chars vs 5); round
+    // rather than truncate so 12893 reads 13k, not 12k.
     snprintf(buf, len, "%dk", (int) ((v + 500) / 1000));
   }
 }
