@@ -7,6 +7,7 @@ var clayConfig = require('./config');
 var messageKeys = require('message_keys');
 var weather = require('./weather');
 var ics = require('./ics');
+var plugins = require('./plugins');
 
 function clayCustomFn() {
   var clayConfig = this;
@@ -153,15 +154,52 @@ function sendWithRetry(dict, what) {
 // Weather
 // ---------------------------------------------------------------------------
 
+// Everything the watch gets from the phone's own data (weather, plugins)
+// goes through one outbox, which sends a value only when it changed.
+var outbox = new plugins.Outbox(function(dict, ok, fail) {
+  Pebble.sendAppMessage(dict, ok, fail);
+});
+
+// Open-Meteo: the fallback whenever the Pebble app's weather can't be read.
+// Forced through the outbox: it answers a request, and the watch takes any
+// answer as proof its weather is fresh.
 function pushWeather() {
   weather.fetch(function(result) {
     if (!result) { return; }
-    sendWithRetry({
+    outbox.offer('weather', {
       WEATHER_TEMP_C: result.temp_c,
       WEATHER_TEMP_DC: result.temp_dc,
       WEATHER_COND: result.cond,
-    }, 'weather');
+    }, true);
   });
+}
+
+// The status-line items the user has picked (defaults: battery, weather).
+function selectedMetrics() {
+  var settings = claySettings();
+  var out = [];
+  for (var i = 1; i <= 8; i++) {
+    var v = settings['METRIC' + i];
+    if (v === undefined || v === null || v === '') {
+      v = (i === 1) ? 1 : (i === 2) ? 2 : 0;
+    }
+    v = parseInt(v, 10) || 0;
+    if (v) { out.push(v); }
+  }
+  return out;
+}
+
+var bridge = new plugins.Bridge({
+  outbox: outbox,
+  selectedMetrics: selectedMetrics,
+  fallbackWeather: pushWeather,
+});
+
+// Subscribe to whatever the Pebble app can provide, then fetch the weather
+// ourselves only if no subscription is going to.
+function syncSources() {
+  if (plugins.available()) { bridge.sync(); }
+  if (!bridge.handlesWeather()) { pushWeather(); }
 }
 
 // ---------------------------------------------------------------------------
@@ -328,14 +366,14 @@ Pebble.addEventListener('ready', function() {
     console.log('monthgrid: re-sending pending settings');
     try { sendSettings(JSON.parse(pending)); } catch (e) {}
   }
-  pushWeather();
+  syncSources();
   pushDots();
   setInterval(function() { pushDots(); }, DOTS_REFRESH_MS);
 });
 
 Pebble.addEventListener('appmessage', function(e) {
   var p = e.payload || {};
-  if (p.WEATHER_REQUEST) { pushWeather(); }
+  if (p.WEATHER_REQUEST && !bridge.answerWeatherRequest()) { pushWeather(); }
   if (p.DOTS_REQUEST) { pushDots(p.DOTS_REQUEST); }
 });
 
@@ -436,6 +474,6 @@ Pebble.addEventListener('webviewclosed', function(e) {
   delete dict[messageKeys.CAL3_URL];
   sendSettings(dict);
   // Refresh data under the new settings.
-  pushWeather();
+  syncSources();
   pushDots();
 });
