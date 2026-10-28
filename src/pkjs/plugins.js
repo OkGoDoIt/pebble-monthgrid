@@ -286,12 +286,15 @@ Outbox.prototype.pump = function() {
 //   outbox             an Outbox
 //   selectedMetrics()  the status-line metric values the user has chosen
 //   fallbackWeather()  fetch weather the old way (Open-Meteo)
+//   onUnits(units)     the Pebble app's units changed ({ fahrenheit, miles })
 function Bridge(options) {
   this.outbox = options.outbox;
   this.selectedMetrics = options.selectedMetrics;
   this.fallbackWeather = options.fallbackWeather;
+  this.onUnits = options.onUnits || function() {};
   this.subs = {};
   this.weather = { state: 'off', at: 0, timer: null };
+  this.units = null;
 }
 
 Bridge.prototype.subscribe = function(name, request, onData, onError) {
@@ -332,7 +335,56 @@ Bridge.prototype.wants = function(metric) {
 // Bring subscriptions in line with the user's settings. Safe to call again:
 // a subscription that is still wanted is left alone.
 Bridge.prototype.sync = function() {
+  this.syncUnits();
   this.syncWeather();
+};
+
+// --- units (A2) -------------------------------------------------------------
+
+// preferences/units (1.16+, no permission needed): the units the user picked
+// in the Pebble app. While it answers, the face follows it and the settings
+// page stops asking.
+Bridge.prototype.syncUnits = function() {
+  if (this.subs.units) { return; }
+  this.subscribe('units', {
+    category: 'preferences',
+    item: 'units',
+    properties: ['temperature', 'distance'],
+  }, this.onUnitsData, this.onUnitsError);
+};
+
+Bridge.prototype.onUnitsData = function(envelope) {
+  var instance = envelope.instances && envelope.instances[0];
+  var p = (instance && instance.properties) || {};
+  var temp = textOf(p.temperature);
+  var dist = textOf(p.distance);
+  var units = {};
+  var dict = {};
+  if (temp && /F/i.test(temp)) { units.fahrenheit = true; }
+  else if (temp && /C/i.test(temp)) { units.fahrenheit = false; }
+  if (dist === 'mi') { units.miles = true; }
+  else if (dist === 'km') { units.miles = false; }
+  if (units.fahrenheit === undefined || units.miles === undefined) {
+    // Half an answer is no answer: the settings page keeps both fields.
+    this.onUnitsError('NO_DATA');
+    return;
+  }
+  dict.TEMP_UNIT = units.fahrenheit ? 1 : 0;
+  dict.DIST_UNIT = units.miles ? 1 : 0;
+  this.units = units;
+  if (this.outbox.offer('units', dict)) { this.onUnits(units); }
+};
+
+Bridge.prototype.onUnitsError = function(code) {
+  // Errors other than "not there" are passing; keep what we had.
+  if (code === 'PLUGIN_UNAVAILABLE' || code === 'PERMISSION_DENIED' || code === 'NO_DATA') {
+    this.units = null;
+  }
+};
+
+// True while the Pebble app decides the units (the settings page hides them).
+Bridge.prototype.unitsFromApp = function() {
+  return this.units !== null;
 };
 
 // --- weather (A1) -----------------------------------------------------------

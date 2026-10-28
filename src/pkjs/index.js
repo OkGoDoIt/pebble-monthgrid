@@ -189,11 +189,31 @@ function selectedMetrics() {
   return out;
 }
 
+// Units from the Pebble app also update the stored settings, so the settings
+// page shows the truth if the Pebble app ever stops providing them.
+function rememberUnits(units) {
+  var settings = claySettings();
+  settings.TEMP_UNIT = units.fahrenheit ? '1' : '0';
+  settings.DIST_UNIT = units.miles ? '1' : '0';
+  try { localStorage.setItem('clay-settings', JSON.stringify(settings)); } catch (e) {}
+}
+
 var bridge = new plugins.Bridge({
   outbox: outbox,
   selectedMetrics: selectedMetrics,
   fallbackWeather: pushWeather,
+  onUnits: rememberUnits,
 });
+
+// Settings-page items the Pebble app now decides, by messageKey.
+function decidedByApp() {
+  var out = {};
+  if (bridge.unitsFromApp()) {
+    out.TEMP_UNIT = true;
+    out.DIST_UNIT = true;
+  }
+  return out;
+}
 
 // Subscribe to whatever the Pebble app can provide, then fetch the weather
 // ourselves only if no subscription is going to.
@@ -429,8 +449,15 @@ function dotsStatusItems() {
 
 Pebble.addEventListener('showConfiguration', function() {
   // Rebuild the page with the current diagnostics injected under the
-  // markers toggle.
+  // markers toggle, and without what the Pebble app now decides.
   var config = JSON.parse(JSON.stringify(clayConfig));
+  var hidden = decidedByApp();
+  config.forEach(function(section) {
+    if (!section.items) { return; }
+    section.items = section.items.filter(function(item) {
+      return !hidden[item.messageKey];
+    });
+  });
   for (var s = 0; s < config.length; s++) {
     var items = config[s].items;
     if (!items) { continue; }
@@ -468,6 +495,9 @@ Pebble.addEventListener('webviewclosed', function(e) {
     console.log('monthgrid: bad config response: ' + err);
     return;
   }
+  // Clay just rewrote the stored settings from the page, which no longer
+  // carries the units the Pebble app decides; put them back.
+  if (bridge.unitsFromApp()) { rememberUnits(bridge.units); }
   // Phone-only keys: never send calendar URLs to the watch.
   delete dict[messageKeys.CAL1_URL];
   delete dict[messageKeys.CAL2_URL];

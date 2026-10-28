@@ -466,6 +466,98 @@ test('an undelivered change is retried, then not repeated once delivered', funct
   assert.deepStrictEqual(take(WEATHER_KEYS), []);
 });
 
+// --- A2: units ---------------------------------------------------------------
+
+function unitsEnvelope(temperature, distance) {
+  return {
+    pluginUuid: '00000000-0000-0000-0001-000000000009',
+    instances: [{
+      instanceId: 'units',
+      properties: {
+        locale: text('en-US'), temperature: text(temperature), distance: text(distance),
+        wind_speed: text('mph'), pressure: text('inHg'), precipitation: text('in'),
+        clock: text('12h'),
+      },
+    }],
+  };
+}
+
+// The settings page Clay would open, as the config array it was built from.
+function openedConfig() {
+  fire('showConfiguration');
+  assert.ok(env.openedUrl, 'a settings page was opened');
+  return decodeURIComponent(env.openedUrl.replace(/^data:text\/html;charset=utf-8,/, ''));
+}
+
+// A settings-page item in Clay's serialized config (not its stored values).
+function field(key) { return new RegExp('messageKey:\\s*"' + key + '"'); }
+
+var UNIT_KEYS = /^(TEMP_UNIT|DIST_UNIT)$/;
+
+test('preferences/units sets the units, once per change', function() {
+  setup({ plugins: [] });
+  resetTake();
+  ready();
+  var s = sub('preferences', 'units');
+  assert.ok(s, 'subscribed to preferences/units');
+  s.data(unitsEnvelope('°C', 'km'));
+  advance(100);
+  assert.deepStrictEqual(take(UNIT_KEYS), [{ TEMP_UNIT: 0, DIST_UNIT: 0 }]);
+  s.data(unitsEnvelope('°C', 'km'));
+  advance(100);
+  assert.deepStrictEqual(take(UNIT_KEYS), []);
+  s.data(unitsEnvelope('°F', 'mi'));
+  advance(100);
+  assert.deepStrictEqual(take(UNIT_KEYS), [{ TEMP_UNIT: 1, DIST_UNIT: 1 }]);
+  // Stored, so the settings page tells the truth if the plugin goes away.
+  var stored = JSON.parse(env.store['clay-settings']);
+  assert.strictEqual(stored.TEMP_UNIT, '1');
+  assert.strictEqual(stored.DIST_UNIT, '1');
+});
+
+test('the settings page drops the unit fields while the Pebble app decides them', function() {
+  setup({ plugins: [] });
+  ready();
+  var before = openedConfig();
+  assert.ok(field('TEMP_UNIT').test(before) && field('DIST_UNIT').test(before),
+            'fields shown before units are known');
+  sub('preferences', 'units').data(unitsEnvelope('°F', 'mi'));
+  advance(100);
+  var after = openedConfig();
+  assert.ok(!field('TEMP_UNIT').test(after) && !field('DIST_UNIT').test(after), 'fields hidden');
+  assert.ok(field('METRIC1').test(after), 'the rest of the page is intact');
+});
+
+test('saving the settings page keeps the Pebble app\'s units and sends none', function() {
+  setup({ plugins: [] });
+  ready();
+  sub('preferences', 'units').data(unitsEnvelope('°C', 'km'));
+  advance(100);
+  resetTake();
+  // What Clay's page returns: only the fields it showed.
+  fire('webviewclosed', { response: encodeURIComponent(JSON.stringify({
+    METRIC1: { value: '1' }, METRIC2: { value: '2' }, THEME: { value: '3' },
+  })) });
+  advance(100);
+  var sent = take();
+  var keys = messageKeys();
+  sent.forEach(function(d) {
+    assert.ok(!(keys.TEMP_UNIT in d) && !('TEMP_UNIT' in d), 'no TEMP_UNIT sent');
+  });
+  var stored = JSON.parse(env.store['clay-settings']);
+  assert.strictEqual(stored.TEMP_UNIT, '0');
+  assert.strictEqual(stored.THEME, '3');
+});
+
+test('1.15 (no preferences source): units stay on the settings page', function() {
+  setup({ plugins: [] });
+  ready();
+  sub('preferences', 'units').error('PLUGIN_UNAVAILABLE');
+  advance(100);
+  assert.ok(field('TEMP_UNIT').test(openedConfig()));
+  assert.deepStrictEqual(take(UNIT_KEYS), []);
+});
+
 // ---------------------------------------------------------------------------
 
 var failures = 0;
