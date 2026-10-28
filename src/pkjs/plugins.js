@@ -401,10 +401,11 @@ Bridge.prototype.sync = function() {
   this.syncUnits();
   this.syncWeather();
   this.syncEvent();
+  this.syncPhone();
 };
 
 // The groups that answer the watch's PLUGIN_REQUEST.
-var PLUGIN_GROUPS = ['event'];
+var PLUGIN_GROUPS = ['event', 'phone'];
 
 // The watch asks when it has heard nothing for a while: re-send everything
 // we have, so it knows the phone is still here.
@@ -598,6 +599,38 @@ Bridge.prototype.scheduleEventPick = function(atMs) {
   }, Math.max(1000, atMs - nowMs() + 1000));
 };
 
+// --- phone battery (A4) ------------------------------------------------------
+
+var METRIC_PHONE_BATTERY = 14;
+
+Bridge.prototype.syncPhone = function() {
+  if (!this.wants(METRIC_PHONE_BATTERY)) {
+    this.unsubscribe('phone');
+    return;
+  }
+  if (this.subs.phone) { return; }
+  this.subscribe('phone', {
+    category: 'phone',
+    item: 'phone_state',
+    properties: ['battery_level'],
+  }, this.onPhone, this.onPhoneError);
+};
+
+Bridge.prototype.onPhone = function(envelope) {
+  var instance = envelope.instances && envelope.instances[0];
+  var level = instance && instance.properties && instance.properties.battery_level;
+  var n = numberOf(level);
+  var pct = n ? n.value : parseFloat(textOf(level));
+  pct = isFinite(pct) ? Math.max(0, Math.min(100, Math.round(pct))) : -1;
+  this.outbox.offer('phone', { PHONE_BATTERY: pct });
+};
+
+Bridge.prototype.onPhoneError = function(code) {
+  if (code === 'PLUGIN_UNAVAILABLE' || code === 'PERMISSION_DENIED') {
+    this.outbox.offer('phone', { PHONE_BATTERY: -1 });
+  }
+};
+
 // --- settings page -------------------------------------------------------------
 
 // Is category/item served by an installed plugin (built-ins included)?
@@ -634,6 +667,7 @@ Bridge.prototype.metricOptions = function(chosen) {
     }
   }
   add(METRIC_NEXT_EVENT, 'Next calendar event', served('calendar', 'event'));
+  add(METRIC_PHONE_BATTERY, 'Phone battery', served('phone', 'phone_state'));
   return out;
 };
 

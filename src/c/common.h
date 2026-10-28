@@ -90,7 +90,8 @@ typedef enum {
   METRIC_CALORIES_TOTAL = 12,
   // From the Pebble app's plugins, read by the phone; hidden without data.
   METRIC_NEXT_EVENT = 13,
-  METRIC_TYPE_COUNT = 14,
+  METRIC_PHONE_BATTERY = 14,
+  METRIC_TYPE_COUNT = 15,
 } MetricType;
 
 typedef enum {
@@ -191,6 +192,7 @@ typedef struct __attribute__((__packed__)) {
   int32_t event_start;      // epoch seconds
   int32_t event_end;        // epoch seconds, 0 = unknown
   uint8_t event_all_day;
+  int8_t phone_battery;     // percent, -1 = unknown
 } PluginCache;
 
 // monthkey = year * 16 + month(1..12); fits uint16_t until year 4095.

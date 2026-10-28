@@ -678,6 +678,61 @@ test('settings page offers Next calendar event only where it can work', function
   assert.ok(/Next calendar event/.test(openedConfig()));
 });
 
+// --- A4: phone battery -------------------------------------------------------
+
+function phoneEnvelope(level, wifi) {
+  return {
+    pluginUuid: '00000000-0000-0000-0001-000000000001',
+    instances: [{
+      instanceId: 'phone',
+      properties: {
+        battery_level: { numericValue: { value: level, unit: '%', min: 0, max: 100 },
+                         shortText: { text: level + '%' } },
+        cell: text('5G'),
+        wifi: { boolean: { value: !!wifi }, shortText: { text: wifi ? 'Wi-Fi' : 'Off' } },
+        mobile_data: { boolean: { value: !wifi }, shortText: { text: wifi ? 'Off' : 'Mobile' } },
+      },
+    }],
+  };
+}
+
+var PHONE_KEYS = /^PHONE_/;
+var PHONE_PLUGIN = [{
+  uuid: '00000000-0000-0000-0001-000000000001', name: 'Phone',
+  sources: [{ category: 'phone', items: ['phone_state'], properties: {} }], actions: [],
+}];
+
+test('phone battery: sent when the level changes, not when the network does', function() {
+  setup({ plugins: PHONE_PLUGIN, settings: { METRIC1: '14' } });
+  resetTake();
+  ready();
+  var s = sub('phone', 'phone_state');
+  assert.ok(s, 'subscribed to phone/phone_state');
+  s.data(phoneEnvelope(82, true));
+  advance(100);
+  assert.deepStrictEqual(take(PHONE_KEYS), [{ PHONE_BATTERY: 82 }]);
+  s.data(phoneEnvelope(82, false));
+  s.data(phoneEnvelope(82, true));
+  advance(100);
+  assert.deepStrictEqual(take(PHONE_KEYS), []);
+  s.data(phoneEnvelope(81, true));
+  advance(100);
+  assert.deepStrictEqual(take(PHONE_KEYS), [{ PHONE_BATTERY: 81 }]);
+  fromWatch({ PLUGIN_REQUEST: 1 });
+  advance(100);
+  assert.deepStrictEqual(take(PHONE_KEYS), [{ PHONE_BATTERY: 81 }]);
+  s.data({ instances: [] });
+  advance(100);
+  assert.deepStrictEqual(take(PHONE_KEYS), [{ PHONE_BATTERY: -1 }]);
+});
+
+test('phone battery: offered on the settings page when phone_state is served', function() {
+  setup({ plugins: PHONE_PLUGIN });
+  ready();
+  assert.ok(/Phone battery/.test(openedConfig()));
+  assert.strictEqual(sub('phone', 'phone_state'), null, 'not subscribed until chosen');
+});
+
 // ---------------------------------------------------------------------------
 
 var failures = 0;

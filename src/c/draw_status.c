@@ -29,6 +29,13 @@ typedef struct {
   int16_t text_w;
 } StatusItem;
 
+// Live readings from the phone stop showing once it has been silent for an
+// hour (it answers the watch's requests every half hour while it's there).
+static bool prv_plugin_stale(void) {
+  return g_plugin.received_at == 0
+      || time(NULL) - g_plugin.received_at > PLUGIN_STALE_SECONDS;
+}
+
 static bool prv_use_24h(void) {
   return (g_settings.time_format == TIME_FMT_24H)
       || (g_settings.time_format == TIME_FMT_SYSTEM && clock_is_24h_style());
@@ -255,6 +262,11 @@ static bool prv_metric_text(uint8_t metric, char *buf, size_t len, bool compact)
       if (!alarm_service_peek_next(&when)) { return false; }
       return prv_format_clock(buf, len, when, compact);
     }
+    // The watch can't read the phone's battery; the phone tells it.
+    case METRIC_PHONE_BATTERY:
+      if (g_plugin.phone_battery < 0 || prv_plugin_stale()) { return false; }
+      snprintf(buf, len, "%d%%", (int) g_plugin.phone_battery);
+      return true;
     // The full "name time" text is assembled in prv_collect_items, which can
     // measure it; the narrow round column shows the time alone.
     case METRIC_NEXT_EVENT: {

@@ -37,7 +37,7 @@ static bool prv_metric_selected(uint8_t metric) {
 static bool prv_plugin_metric_selected(void) {
   for (int i = 0; i < NUM_METRIC_SLOTS; i++) {
     uint8_t m = g_settings.metrics[i];
-    if (m == METRIC_NEXT_EVENT) { return true; }
+    if (m == METRIC_NEXT_EVENT || m == METRIC_PHONE_BATTERY) { return true; }
   }
   return false;
 }
@@ -210,6 +210,10 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
       g_plugin.event_end = prv_tuple_int(t); plugin_changed = true;
     } else if (t->key == MESSAGE_KEY_EVENT_ALL_DAY) {
       g_plugin.event_all_day = prv_tuple_int(t) ? 1 : 0; plugin_changed = true;
+    } else if (t->key == MESSAGE_KEY_PHONE_BATTERY) {
+      int32_t pct = prv_tuple_int(t);
+      g_plugin.phone_battery = (pct < 0 || pct > 100) ? -1 : (int8_t) pct;
+      plugin_changed = true;
     } else if (t->key == MESSAGE_KEY_DOTS_MONTH) {
       dots_month = prv_tuple_int(t);
     } else if (t->key == MESSAGE_KEY_DOTS_STATUS) {
@@ -369,9 +373,14 @@ static void prv_window_unload(Window *window) {
 // App lifecycle
 // ---------------------------------------------------------------------------
 
+static void prv_plugin_reset(void) {
+  memset(&g_plugin, 0, sizeof(g_plugin));
+  g_plugin.phone_battery = -1;
+}
+
 static void prv_load_caches(void) {
   memset(&g_weather, 0, sizeof(g_weather));
-  memset(&g_plugin, 0, sizeof(g_plugin));
+  prv_plugin_reset();
   memset(&g_dots, 0, sizeof(g_dots));
   WeatherCache w;
   bool w_read = persist_read_data(PERSIST_KEY_WEATHER, &w, sizeof(w)) == (int) sizeof(w);
@@ -389,7 +398,7 @@ static void prv_load_caches(void) {
   if (persist_read_data(PERSIST_KEY_PLUGIN, &g_plugin, sizeof(g_plugin))
           != (int) sizeof(g_plugin)
       || g_plugin.version != PLUGIN_VERSION) {
-    memset(&g_plugin, 0, sizeof(g_plugin));
+    prv_plugin_reset();
   }
   DotsCache d;
   if (persist_read_data(PERSIST_KEY_DOTS, &d, sizeof(d)) == (int) sizeof(d)
