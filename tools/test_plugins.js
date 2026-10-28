@@ -893,6 +893,133 @@ test('a source that never answers stops showing whatever it showed last', functi
   assert.deepStrictEqual(take(PHONE_KEYS), [{ PHONE_BATTERY: -1 }]);
 });
 
+// --- A8: forecast plumbing ---------------------------------------------------
+
+var FC_KEYS = /^FC_/;
+var MIDNIGHT = RealDate.UTC(2026, 9, 28) / 1000;   // the fake clock's day starts here
+
+function numericSeries(start, step, values, unit) {
+  return { series: {
+    start: start, stepSec: step,
+    numericValue: { values: values, unit: unit },
+    shortText: { values: values.map(function(v) { return v === null ? null : v + unit; }) },
+  } };
+}
+
+function hours(from) {
+  var out = [];
+  for (var h = 0; h < 48; h++) { out.push(from + h); }
+  return out;
+}
+
+test('forecast: today\'s range and the next three hours, sent when they change', function() {
+  setup({ plugins: [] });
+  resetTake();
+  ready();
+  var s = sub('weather', 'location');
+  ['daily_high', 'daily_low', 'hourly_temperature'].forEach(function(p) {
+    assert.ok(s.request.properties.indexOf(p) !== -1, 'asks for ' + p);
+  });
+  var extra = {
+    high: temp(75, '°F'), low: temp(50, '°F'),
+    precipitation: { numericValue: { value: 30, unit: '%', min: 0, max: 100 }, shortText: { text: '30%' } },
+    hourly_temperature: numericSeries(MIDNIGHT, 3600, hours(40), '°F'),
+    daily_high: numericSeries(MIDNIGHT, 86400, [75, 77, 71], '°F'),
+    daily_low: numericSeries(MIDNIGHT, 86400, [50, 52, 49], '°F'),
+  };
+  s.data(weatherEnvelope(60, '°F', 'sun', extra));
+  advance(100);
+  // 16:30 now: the next hours are 17:00, 18:00 and 19:00 (values 57, 58, 59 °F).
+  assert.deepStrictEqual(take(FC_KEYS), [{
+    FC_HIGH_DC: 239, FC_LOW_DC: 100, FC_PRECIP: 30,
+    FC_HOUR1_DC: 139, FC_HOUR2_DC: 144, FC_HOUR3_DC: 150,
+    FC_HOURS_START: MIDNIGHT + 17 * 3600,
+  }]);
+  s.data(weatherEnvelope(60, '°F', 'sun', extra));
+  advance(100);
+  assert.deepStrictEqual(take(FC_KEYS), []);
+  // An hour on, the same envelope moves the window by one.
+  advance(3600 * 1000);
+  s.data(weatherEnvelope(60, '°F', 'sun', extra));
+  advance(100);
+  var got = take(FC_KEYS);
+  assert.strictEqual(got.length, 1);
+  assert.strictEqual(got[0].FC_HOURS_START, MIDNIGHT + 18 * 3600);
+  assert.strictEqual(got[0].FC_HOUR1_DC, 144);
+  // The watch's weather request re-sends the forecast with the weather.
+  fromWatch({ WEATHER_REQUEST: 1 });
+  advance(100);
+  assert.strictEqual(take(FC_KEYS).length, 1);
+});
+
+test('forecast: a 1.15 envelope (no series) sends what it has, hours empty', function() {
+  setup({ plugins: [] });
+  resetTake();
+  ready();
+  sub('weather', 'location').data(weatherEnvelope(20, '°C', 'cloudy', {
+    high: temp(23, '°C'), low: temp(12, '°C'),
+  }));
+  advance(100);
+  assert.deepStrictEqual(take(FC_KEYS), [{
+    FC_HIGH_DC: 230, FC_LOW_DC: 120, FC_PRECIP: 255,
+    FC_HOUR1_DC: -32768, FC_HOUR2_DC: -32768, FC_HOUR3_DC: -32768, FC_HOURS_START: 0,
+  }]);
+});
+
+test('forecast: high and low from the daily series when the plain ones are missing', function() {
+  setup();
+  var t = require(path.join(PKJS, 'plugins.js'))._test;
+  var d = t.forecastDict(weatherEnvelope(20, '°C', 'sun', {
+    daily_high: numericSeries(MIDNIGHT - 86400, 86400, [19, 24, 26], '°C'),
+    daily_low: numericSeries(MIDNIGHT - 86400, 86400, [9, 11, null], '°C'),
+  }), MIDNIGHT + 3600 * 10);
+  assert.strictEqual(d.FC_HIGH_DC, 240);
+  assert.strictEqual(d.FC_LOW_DC, 110);
+});
+
+test('a full update stays inside the watch\'s 512-byte inbox', function() {
+  setup({ plugins: [], settings: {
+    METRIC1: '2', METRIC2: '13', METRIC3: '14', METRIC4: '15', METRIC5: '16', METRIC6: '17',
+    METRIC7: '18', METRIC8: '19',
+  } });
+  resetTake();
+  ready();
+  var t = nowSec();
+  sub('preferences', 'units').data(unitsEnvelope('°F', 'mi'));
+  sub('calendar', 'event').data(calendarEnvelope([
+    { name: 'A very long meeting title that goes on', start: t + 600, end: t + 4200 },
+  ]));
+  sub('phone', 'phone_state').data(phoneEnvelope(100, true));
+  var slots = [0, 1, 2, 3, 4].map(function(i) {
+    return { category: 'demo', item: 'thing', index: i, property: 'value' };
+  });
+  sub('preferences', 'complications').data(complicationsEnvelope(slots));
+  advance(0);
+  var instances = [0, 1, 2, 3, 4].map(function(i) {
+    return { instanceId: String(i), properties: {
+      name: text('Long instance name ' + i), value: text('Fifteen chars!' + i + ' and more'),
+    } };
+  });
+  sub('demo', 'thing').data({ instances: instances });
+  sub('weather', 'location').data(weatherEnvelope(-12, '°F', 'heavy_snow', {
+    hourly_temperature: numericSeries(MIDNIGHT, 3600, hours(-20), '°F'),
+    high: temp(-1, '°F'), low: temp(-25, '°F'),
+  }));
+  advance(1000);
+  var plugins = require(path.join(PKJS, 'plugins.js'));
+  var all = take();
+  assert.ok(all.length >= 1);
+  all.forEach(function(d) {
+    // 1 byte of header plus 7 per tuple and its value (ints as int32).
+    var bytes = plugins._test.dictBytes(d) + 1;
+    assert.ok(bytes <= 512, 'message of ' + bytes + ' bytes');
+  });
+  var keys = {};
+  all.forEach(function(d) { Object.keys(d).forEach(function(k) { keys[k] = true; }); });
+  ['WEATHER_TEMP_DC', 'TEMP_UNIT', 'EVENT_NAME', 'PHONE_BATTERY', 'READING5_TEXT', 'FC_HOUR3_DC']
+      .forEach(function(k) { assert.ok(keys[k], k + ' delivered'); });
+});
+
 // ---------------------------------------------------------------------------
 
 var failures = 0;

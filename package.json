@@ -89,7 +89,14 @@
       "READING2_LABEL",
       "READING3_LABEL",
       "READING4_LABEL",
-      "READING5_LABEL"
+      "READING5_LABEL",
+      "FC_HIGH_DC",
+      "FC_LOW_DC",
+      "FC_PRECIP",
+      "FC_HOUR1_DC",
+      "FC_HOUR2_DC",
+      "FC_HOUR3_DC",
+      "FC_HOURS_START"
     ],
     "resources": {
       "media": [

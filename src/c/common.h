@@ -139,8 +139,10 @@ typedef enum {
 #define PERSIST_KEY_WEATHER 2
 #define PERSIST_KEY_DOTS 3
 #define PERSIST_KEY_PLUGIN 4
+#define PERSIST_KEY_FORECAST 5
 
 #define PLUGIN_VERSION 1
+#define FORECAST_VERSION 1
 
 // Weather older than this is treated as "no data" (metric hidden).
 #define WEATHER_STALE_SECONDS (3 * 3600)
@@ -209,6 +211,21 @@ typedef struct __attribute__((__packed__)) {
   char reading_label[NUM_READINGS][READING_LABEL_LEN];
 } PluginCache;
 
+#define FORECAST_HOURS 3
+#define TEMP_NONE INT16_MIN       // no reading in a forecast slot
+#define PRECIP_NONE 255
+
+// Today's range and the next few hours, from the weather plugin's series
+// (Pebble app 1.16+). Received and kept, not drawn yet.
+typedef struct __attribute__((__packed__)) {
+  uint8_t version;
+  int32_t received_at;
+  int16_t high_dc, low_dc;            // tenths of °C, TEMP_NONE = unknown
+  uint8_t precip;                     // chance of precipitation %, PRECIP_NONE
+  int16_t hour_dc[FORECAST_HOURS];    // tenths of °C, TEMP_NONE = unknown
+  int32_t hours_start;                // epoch seconds of hour_dc[0], 0 = none
+} ForecastCache;
+
 // monthkey = year * 16 + month(1..12); fits uint16_t until year 4095.
 typedef struct __attribute__((__packed__)) {
   uint8_t version;
@@ -266,6 +283,7 @@ typedef struct {
 extern Settings g_settings;
 extern WeatherCache g_weather;
 extern PluginCache g_plugin;
+extern ForecastCache g_forecast;
 extern DotsCache g_dots;
 extern Layout g_layout;
 extern struct tm g_now;

@@ -7,6 +7,7 @@
 Settings g_settings;
 WeatherCache g_weather;
 PluginCache g_plugin;
+ForecastCache g_forecast;
 DotsCache g_dots;
 Layout g_layout;
 struct tm g_now;
@@ -147,11 +148,37 @@ static bool prv_read_reading(const Tuple *t) {
   return false;
 }
 
+// FC_* keys: true when t was one of them.
+static bool prv_read_forecast(const Tuple *t) {
+  const uint32_t hour_keys[FORECAST_HOURS] = {
+    MESSAGE_KEY_FC_HOUR1_DC, MESSAGE_KEY_FC_HOUR2_DC, MESSAGE_KEY_FC_HOUR3_DC,
+  };
+  if (t->key == MESSAGE_KEY_FC_HIGH_DC) {
+    g_forecast.high_dc = (int16_t) prv_tuple_int(t);
+  } else if (t->key == MESSAGE_KEY_FC_LOW_DC) {
+    g_forecast.low_dc = (int16_t) prv_tuple_int(t);
+  } else if (t->key == MESSAGE_KEY_FC_PRECIP) {
+    g_forecast.precip = (uint8_t) prv_tuple_int(t);
+  } else if (t->key == MESSAGE_KEY_FC_HOURS_START) {
+    g_forecast.hours_start = prv_tuple_int(t);
+  } else {
+    for (int i = 0; i < FORECAST_HOURS; i++) {
+      if (t->key == hour_keys[i]) {
+        g_forecast.hour_dc[i] = (int16_t) prv_tuple_int(t);
+        return true;
+      }
+    }
+    return false;
+  }
+  return true;
+}
+
 static void prv_inbox_received(DictionaryIterator *iter, void *context) {
   (void) context;
   bool settings_changed = false;
   bool weather_changed = false;
   bool plugin_changed = false;
+  bool forecast_changed = false;
   // Whole degrees and tenths can arrive in the same message, in any order;
   // the tenths win.
   int32_t temp_c = INT32_MIN, temp_dc = INT32_MIN;
@@ -243,6 +270,8 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
       plugin_changed = true;
     } else if (prv_read_reading(t)) {
       plugin_changed = true;
+    } else if (prv_read_forecast(t)) {
+      forecast_changed = true;
     } else if (t->key == MESSAGE_KEY_DOTS_MONTH) {
       dots_month = prv_tuple_int(t);
     } else if (t->key == MESSAGE_KEY_DOTS_STATUS) {
@@ -269,6 +298,11 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
                        && g_dots.monthkey != prv_current_monthkey())
                           ? prv_current_monthkey() : 0,
                       prv_plugin_metric_selected() && prv_plugin_data_old());
+  }
+  if (forecast_changed) {
+    g_forecast.version = FORECAST_VERSION;
+    g_forecast.received_at = time(NULL);
+    persist_write_data(PERSIST_KEY_FORECAST, &g_forecast, sizeof(g_forecast));
   }
   if (plugin_changed) {
     // Any of it arriving means the phone is answering; it sends the rest
@@ -407,9 +441,22 @@ static void prv_plugin_reset(void) {
   g_plugin.phone_battery = -1;
 }
 
+static void prv_forecast_reset(void) {
+  memset(&g_forecast, 0, sizeof(g_forecast));
+  g_forecast.high_dc = g_forecast.low_dc = TEMP_NONE;
+  g_forecast.precip = PRECIP_NONE;
+  for (int i = 0; i < FORECAST_HOURS; i++) { g_forecast.hour_dc[i] = TEMP_NONE; }
+}
+
 static void prv_load_caches(void) {
   memset(&g_weather, 0, sizeof(g_weather));
   prv_plugin_reset();
+  prv_forecast_reset();
+  if (persist_read_data(PERSIST_KEY_FORECAST, &g_forecast, sizeof(g_forecast))
+          != (int) sizeof(g_forecast)
+      || g_forecast.version != FORECAST_VERSION) {
+    prv_forecast_reset();
+  }
   memset(&g_dots, 0, sizeof(g_dots));
   WeatherCache w;
   bool w_read = persist_read_data(PERSIST_KEY_WEATHER, &w, sizeof(w)) == (int) sizeof(w);

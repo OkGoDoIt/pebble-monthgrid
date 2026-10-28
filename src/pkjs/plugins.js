@@ -194,6 +194,64 @@ function eventDict(ev) {
   };
 }
 
+// --- forecast -----------------------------------------------------------------
+
+var TEMP_NONE = -32768;     // TEMP_NONE on the watch
+var PRECIP_NONE = 255;
+var FORECAST_HOURS = 3;
+
+// One point of a series, as a payload of the shape it was drawn from.
+function seriesPoint(series, shape, i) {
+  var s = series && series[shape];
+  if (!s || !s.values || i < 0 || i >= s.values.length) { return null; }
+  var v = s.values[i];
+  if (v === null || v === undefined) { return null; }
+  if (shape === 'numericValue') { return { numericValue: { value: v, unit: s.unit } }; }
+  return { shortText: { text: v } };
+}
+
+// Where now falls in a series (start at local midnight, stepSec apart).
+function seriesIndex(series, nowSec) {
+  if (!series || typeof series.start !== 'number' || !series.stepSec) { return -1; }
+  return Math.floor((nowSec - series.start) / series.stepSec);
+}
+
+function seriesTemp(property, i) {
+  var series = property && property.series;
+  var t = tempTenthsC(seriesPoint(series, 'numericValue', i) || seriesPoint(series, 'shortText', i));
+  return t === null ? TEMP_NONE : t;
+}
+
+// Today's high and low, the chance of precipitation, and the next three
+// hours: the plumbing for a forecast the face doesn't draw yet. On 1.15
+// (no series) only what the plain properties give.
+function forecastDict(envelope, nowSec) {
+  var instance = envelope && envelope.instances && envelope.instances[0];
+  var p = (instance && instance.properties) || {};
+  var high = tempTenthsC(p.high), low = tempTenthsC(p.low);
+  var daily = p.daily_high && p.daily_high.series;
+  var today = seriesIndex(daily, nowSec);
+  if (high === null) { high = seriesTemp(p.daily_high, today); }
+  if (low === null) { low = seriesTemp(p.daily_low, seriesIndex(p.daily_low && p.daily_low.series, nowSec)); }
+  var precip = numberOf(p.precipitation);
+  var dict = {
+    FC_HIGH_DC: high,
+    FC_LOW_DC: low,
+    FC_PRECIP: precip ? Math.max(0, Math.min(100, Math.round(precip.value))) : PRECIP_NONE,
+    FC_HOURS_START: 0,
+  };
+  var hourly = p.hourly_temperature && p.hourly_temperature.series;
+  var next = seriesIndex(hourly, nowSec) + 1;   // the next whole hour
+  var any = false;
+  for (var h = 0; h < FORECAST_HOURS; h++) {
+    var t = hourly ? seriesTemp(p.hourly_temperature, next + h) : TEMP_NONE;
+    dict['FC_HOUR' + (h + 1) + '_DC'] = t;
+    if (t !== TEMP_NONE) { any = true; }
+  }
+  if (any) { dict.FC_HOURS_START = hourly.start + next * hourly.stepSec; }
+  return dict;
+}
+
 // ---------------------------------------------------------------------------
 // Outbox: send only what changed, one message at a time
 // ---------------------------------------------------------------------------
@@ -501,7 +559,7 @@ Bridge.prototype.syncWeather = function() {
     item: 'location',
     // No plugin uuid: whichever weather plugin the user prefers answers.
     properties: ['name', 'temperature', 'condition_code', 'condition', 'high', 'low',
-                 'precipitation'],
+                 'precipitation', 'daily_high', 'daily_low', 'hourly_temperature'],
   }, this.onWeather, this.onWeatherError);
   if (!ok) {
     this.setWeatherState('failed');
@@ -524,6 +582,7 @@ Bridge.prototype.onWeather = function(envelope) {
   this.weather.at = nowMs();
   this.setWeatherState('live');
   this.outbox.offer('weather', dict);
+  this.outbox.offer('forecast', forecastDict(envelope, Math.floor(nowMs() / 1000)));
 };
 
 Bridge.prototype.onWeatherError = function(code) {
@@ -551,7 +610,7 @@ Bridge.prototype.weatherLive = function() {
 // the request is handled here, false when the caller should fetch.
 Bridge.prototype.answerWeatherRequest = function() {
   if (this.weatherLive()) {
-    this.outbox.resend(['weather']);
+    this.outbox.resend(['weather', 'forecast']);
     return true;
   }
   // Subscribed and about to answer (or fall back by itself): nothing to do.
@@ -871,6 +930,7 @@ module.exports = {
     weatherDict: weatherDict,
     pickNextEvent: pickNextEvent,
     readingText: readingText,
+    forecastDict: forecastDict,
     plainText: plainText,
     truncateUtf8: truncateUtf8,
     utf8Length: utf8Length,
