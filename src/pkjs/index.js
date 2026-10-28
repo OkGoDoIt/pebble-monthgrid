@@ -158,6 +158,7 @@ function pushWeather() {
     if (!result) { return; }
     sendWithRetry({
       WEATHER_TEMP_C: result.temp_c,
+      WEATHER_TEMP_DC: result.temp_dc,
       WEATHER_COND: result.cond,
     }, 'weather');
   });

@@ -51,7 +51,7 @@ function locate(cb) {
   );
 }
 
-// cb({ temp_c, cond }) on success; cb(null) on failure.
+// cb({ temp_c, temp_dc, cond }) on success; cb(null) on failure.
 function fetch(cb) {
   locate(function(coords) {
     if (!coords) {
@@ -66,8 +66,10 @@ function fetch(cb) {
     xhr.onload = function() {
       try {
         var json = JSON.parse(xhr.responseText);
+        var t = json.current.temperature_2m;
         cb({
-          temp_c: Math.round(json.current.temperature_2m),
+          temp_c: Math.round(t),
+          temp_dc: Math.round(t * 10),
           cond: mapWmoCode(json.current.weather_code),
         });
       } catch (e) {

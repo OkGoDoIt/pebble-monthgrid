@@ -64,3 +64,16 @@ int iso_week_number(const struct tm *t) {
   }
   return week;
 }
+
+// Integer division rounding half away from zero.
+static int prv_div_round(int num, int den) {
+  return (num >= 0) ? (num + den / 2) / den : -((-num + den / 2) / den);
+}
+
+// Tenths of a degree Celsius -> whole degrees in the user's unit.
+int temp_dc_display(int temp_dc) {
+  if (g_settings.temp_fahrenheit) {
+    return prv_div_round(temp_dc * 9 + 1600, 50);   // (C * 9/5 + 32), from tenths
+  }
+  return prv_div_round(temp_dc, 10);
+}

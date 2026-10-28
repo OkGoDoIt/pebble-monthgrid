@@ -102,6 +102,9 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
   (void) context;
   bool settings_changed = false;
   bool weather_changed = false;
+  // Whole degrees and tenths can arrive in the same message, in any order;
+  // the tenths win.
+  int32_t temp_c = INT32_MIN, temp_dc = INT32_MIN;
   int32_t dots_month = -1;
   uint8_t dots_days[31];
   bool dots_data_seen = false;
@@ -170,7 +173,9 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
     } else if (t->key == MESSAGE_KEY_CAL3_COLOR) {
       g_settings.cal_colors[2] = GColorFromHEX(prv_tuple_int(t)).argb; settings_changed = true;
     } else if (t->key == MESSAGE_KEY_WEATHER_TEMP_C) {
-      g_weather.temp_c = prv_tuple_int(t); weather_changed = true;
+      temp_c = prv_tuple_int(t); weather_changed = true;
+    } else if (t->key == MESSAGE_KEY_WEATHER_TEMP_DC) {
+      temp_dc = prv_tuple_int(t); weather_changed = true;
     } else if (t->key == MESSAGE_KEY_WEATHER_COND) {
       g_weather.cond = prv_tuple_int(t); weather_changed = true;
     } else if (t->key == MESSAGE_KEY_DOTS_MONTH) {
@@ -200,6 +205,11 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
                           ? prv_current_monthkey() : 0);
   }
   if (weather_changed) {
+    if (temp_dc != INT32_MIN) {
+      g_weather.temp_dc = (int16_t) temp_dc;
+    } else if (temp_c != INT32_MIN) {
+      g_weather.temp_dc = (int16_t) (temp_c * 10);
+    }
     g_weather.version = WEATHER_VERSION;
     g_weather.fetched_at = time(NULL);
     persist_write_data(PERSIST_KEY_WEATHER, &g_weather, sizeof(g_weather));
@@ -323,9 +333,15 @@ static void prv_load_caches(void) {
   memset(&g_weather, 0, sizeof(g_weather));
   memset(&g_dots, 0, sizeof(g_dots));
   WeatherCache w;
-  if (persist_read_data(PERSIST_KEY_WEATHER, &w, sizeof(w)) == (int) sizeof(w)
-      && w.version == WEATHER_VERSION) {
+  bool w_read = persist_read_data(PERSIST_KEY_WEATHER, &w, sizeof(w)) == (int) sizeof(w);
+  if (w_read && w.version == WEATHER_VERSION) {
     g_weather = w;
+  } else if (w_read && w.version == 1) {
+    // Version 1 held whole degrees in the same layout; keep the fix rather
+    // than hiding the weather until the next fetch.
+    g_weather = w;
+    g_weather.version = WEATHER_VERSION;
+    g_weather.temp_dc = (int16_t) (w.temp_dc * 10);
   }
   DotsCache d;
   if (persist_read_data(PERSIST_KEY_DOTS, &d, sizeof(d)) == (int) sizeof(d)

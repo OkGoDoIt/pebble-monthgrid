@@ -122,7 +122,7 @@ typedef enum {
 #define NUM_CALENDARS 3
 
 #define SETTINGS_VERSION 1
-#define WEATHER_VERSION 1
+#define WEATHER_VERSION 2
 #define DOTS_VERSION 2
 
 #define PERSIST_KEY_SETTINGS 1
@@ -158,9 +158,12 @@ typedef struct __attribute__((__packed__)) {
   uint8_t grid_color;       // GColor8 .argb for the borders (color platforms)
 } Settings;
 
+// Tenths of a degree Celsius, so a whole-degree Fahrenheit reading from the
+// phone survives the round trip: whole degrees C lose up to 0.9 °F and the
+// face then disagrees with the source by one.
 typedef struct __attribute__((__packed__)) {
   uint8_t version;
-  int16_t temp_c;
+  int16_t temp_dc;          // tenths of a degree Celsius
   uint8_t cond;             // WeatherCond
   int32_t fetched_at;       // time_t of the fix
 } WeatherCache;
@@ -287,6 +290,7 @@ void status_icon_draw(GContext *ctx, uint8_t metric, GPoint origin, int s,
 // util shared by drawing code
 int days_in_month(int year, int month0);   // month0: 0..11, year: full year
 int iso_week_number(const struct tm *t);
+int temp_dc_display(int temp_dc);         // tenths of °C -> whole degrees, user's unit
 int start_wday_setting(void);              // 0=Sun per the user's start-day setting
 int month_rows_for(const struct tm *t, int start_wday);  // 4..6
 int month_lead_for(const struct tm *t, int start_wday);  // 0..6

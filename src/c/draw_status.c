@@ -88,9 +88,8 @@ static bool prv_metric_text(uint8_t metric, char *buf, size_t len, bool compact)
       if (g_weather.fetched_at == 0) { return false; }
       time_t now = time(NULL);
       if (now - g_weather.fetched_at > WEATHER_STALE_SECONDS) { return false; }
-      int t = g_weather.temp_c;
+      int t = temp_dc_display(g_weather.temp_dc);
       if (g_settings.temp_fahrenheit) {
-        t = (t * 9 + (t >= 0 ? 2 : -2)) / 5 + 32;  // rounded C -> F
         snprintf(buf, len, compact ? "%d°" : "%d°F", t);
       } else {
         snprintf(buf, len, compact ? "%d°" : "%d°C", t);

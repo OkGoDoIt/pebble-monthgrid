@@ -72,7 +72,8 @@
       "DOTS_DATA",
       "DOTS_STATUS",
       "GRID_LINES",
-      "GRID_COLOR"
+      "GRID_COLOR",
+      "WEATHER_TEMP_DC"
     ],
     "resources": {
       "media": [
