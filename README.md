@@ -41,7 +41,10 @@ If you test it on any other Pebble watch models, please let me know if you find 
   - Week number (ISO)
   - Next alarm
   - Disconnected alert
-- **Weather** via [Open-Meteo](https://open-meteo.com/)
+  - With the Pebble app's plugins: next calendar event, phone battery, and your
+    own readings 1–5 (see [Pebble app plugins](#pebble-app-plugins-preview))
+- **Weather** from the Pebble app's own weather when its plugins are on, otherwise
+  via [Open-Meteo](https://open-meteo.com/)
 - **Calendar event markers** — up to three iCal/ICS subscriptions (e.g. Google
   Calendar's *Secret address in iCal format*) mark days with events. Two styles: a
   1px underline that splits into per-calendar color sections, or small squares —
@@ -131,7 +134,9 @@ color.
 Add items in priority order. As many as fit
 are shown; items with nothing to report (no upcoming alarm, connection fine, etc) hide instead of showing clutter. Choose from battery, weather,
 steps, distance (mi/km), heart rate, active minutes, calories, sleep, ISO week
-number, next alarm, and a disconnected alert.
+number, next alarm, and a disconnected alert. With the Pebble app's plugins
+switched on, three more kinds of item appear: the next calendar event, the
+phone's battery, and Readings 1–5 (see below).
 
 | Battery + weather (default) | Battery, weather, steps |
 |:---:|:---:|
@@ -152,8 +157,55 @@ calendar fails to refresh.
 
 ### And the rest
 
-- **Temperature / distance units** — °F or °C, miles or kilometers.
+- **Temperature / distance units** — °F or °C, miles or kilometers. When the
+  Pebble app provides your units (plugins on, app 1.16+), the face follows them
+  and these two settings disappear from the page.
 - **Vibrate on disconnect** — a short pulse when the phone link drops.
+
+## Pebble app plugins (preview)
+
+The official Pebble app can share what it already knows (weather, your
+calendar, the phone's state, your favorite readings) through *plugins*, a
+preview feature that is off by default. Switch it on in the Pebble app
+(1.16: **Settings → Plugins → Plugins / permissions preview**; earlier builds
+keep it under the debug options), and MonthGrid uses it:
+
+| What | How it shows | Pebble app |
+|---|---|---|
+| Weather | The status-line weather comes from your preferred weather provider in the Pebble app (`weather/location`). Open-Meteo is only used when that can't be read. | 1.15+ |
+| Units | °F/°C and miles/km follow the Pebble app, and the two unit settings leave the settings page. | 1.16+ |
+| **Next calendar event** | A status item: `Standup 23m`, `Lunch 1h05`, then the time of day, then the weekday; `now` once it has begun. The watch does the counting, so it stays right while the phone is away. Long names are shortened so the time always shows. | 1.15+, needs the Calendar permission |
+| **Phone battery** | A status item with the phone's battery level. | 1.15+ |
+| **Reading 1–5** | Status items showing the readings you picked in the Pebble app (**Settings → Plugins → Complications**), in that order. Change them there and the face follows; the settings page shows what each one currently is. | 1.16+ |
+| Forecast | Today's high and low and the next three hours reach the watch. Not shown yet. | 1.16+ (high/low on 1.15) |
+
+The new items only appear on the settings page when the Pebble app can serve
+them, and like every status item they hide while they have nothing to show
+(no upcoming event, a reading that can't be read, an hour without hearing from
+the phone). With plugins off, on older Pebble apps, and in the emulator, the
+face works exactly as before.
+
+### Calendar access: the plugins build
+
+Reading your calendar needs the Pebble app's **Calendar** permission, which an
+app can only declare in the newer app format (`manifestVersion` 2). The store
+build is an older-format app, so the Pebble app treats it as a legacy app: it
+may ask before letting it read your calendar, or refuse, depending on the
+Pebble app's version and settings.
+
+`tools/pack_plugins_pbw.py` builds a second bundle, `build/monthgrid-plugins.pbw`,
+that declares what it uses up front: Calendar, Location, and internet access to
+`api.open-meteo.com`. It is the same app (same UUID), so sideloading it replaces
+the store version:
+
+- open the `.pbw` on the phone with the Pebble app (for example from Files or
+  AirDrop), or
+- with Developer Connection on: `pebble install --phone <PHONE_IP> build/monthgrid-plugins.pbw`.
+
+The Pebble app asks for its permissions when it's installed. Your calendar
+subscriptions for the event markers are on hosts you chose, so each one asks
+for internet access the first time it's fetched. A store update installs the
+older-format build over it again.
 
 ## Platforms
 
@@ -186,7 +238,12 @@ Install on a watch (Dev Connect / Developer Connection in the official app):
 pebble install --cloudpebble             # or: pebble install --phone <PHONE_IP>
 ```
 
-The sideloadable bundle is `build/monthgrid.pbw`.
+The sideloadable bundle is `build/monthgrid.pbw`. For the build that declares
+its Pebble app permissions (see [Calendar access](#calendar-access-the-plugins-build)):
+
+```sh
+python3 tools/pack_plugins_pbw.py          # runs pebble build, writes build/monthgrid-plugins.pbw
+```
 
 ## Tests
 
@@ -195,6 +252,15 @@ suite — plain CommonJS, no dependencies:
 
 ```sh
 node tools/test_ics.js
+```
+
+The plugin code runs under a fake Pebble app in Node: it plays weather,
+units, calendar, phone, and complications updates at the real `index.js` and
+checks the messages sent to the watch, including that unchanged updates send
+nothing and that a full update fits the watch's 512-byte inbox:
+
+```sh
+node tools/test_plugins.js
 ```
 
 ## Calendar-dot limitations (best-effort ICS)
