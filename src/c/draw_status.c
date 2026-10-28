@@ -29,6 +29,11 @@ typedef struct {
   int16_t text_w;
 } StatusItem;
 
+// One redraw's items. Static, not on the stack: apps get a 2 KB stack on
+// most platforms, and measuring text (the event name is measured repeatedly)
+// runs deep enough that eight of these on the stack can overflow it.
+static StatusItem s_items[NUM_METRIC_SLOTS];
+
 // Live readings from the phone stop showing once it has been silent for an
 // hour (it answers the watch's requests every half hour while it's there).
 static bool prv_plugin_stale(void) {
@@ -332,7 +337,7 @@ static int prv_collect_items(StatusItem *items, bool compact, int16_t max_event_
 static void prv_draw_horizontal(GContext *ctx, const GRect zone) {
   const GColor fg = theme_fg();
   const GColor bg = theme_bg();
-  StatusItem items[NUM_METRIC_SLOTS];
+  StatusItem *items = s_items;
   const int16_t max_w = zone.size.w - 4;
   // An event name may take two thirds of the line, never all of it.
   int n_all = prv_collect_items(items, false, (max_w * 2) / 3);
@@ -534,7 +539,7 @@ void draw_status_update_proc(Layer *layer, GContext *ctx) {
     return;
   }
 
-  StatusItem items[NUM_METRIC_SLOTS];
+  StatusItem *items = s_items;
   int n_all = prv_collect_items(items, true, 0);
   if (!g_layout.status_two_columns) {
     StatusItem *all[NUM_METRIC_SLOTS];
