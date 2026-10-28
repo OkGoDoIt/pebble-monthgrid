@@ -31,6 +31,18 @@
       "configurable",
       "health"
     ],
+    "usesPermissions": [
+      "Calendar",
+      "Location",
+      {
+        "name": "Internet",
+        "parameters": {
+          "domains": [
+            "api.open-meteo.com"
+          ]
+        }
+      }
+    ],
     "messageKeys": [
       "THEME",
       "TIME_FORMAT",
