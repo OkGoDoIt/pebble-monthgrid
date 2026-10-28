@@ -73,7 +73,12 @@
       "DOTS_STATUS",
       "GRID_LINES",
       "GRID_COLOR",
-      "WEATHER_TEMP_DC"
+      "WEATHER_TEMP_DC",
+      "PLUGIN_REQUEST",
+      "EVENT_NAME",
+      "EVENT_START",
+      "EVENT_END",
+      "EVENT_ALL_DAY"
     ],
     "resources": {
       "media": [

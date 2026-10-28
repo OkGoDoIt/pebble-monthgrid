@@ -394,6 +394,7 @@ Pebble.addEventListener('ready', function() {
 Pebble.addEventListener('appmessage', function(e) {
   var p = e.payload || {};
   if (p.WEATHER_REQUEST && !bridge.answerWeatherRequest()) { pushWeather(); }
+  if (p.PLUGIN_REQUEST) { bridge.answerPluginRequest(); }
   if (p.DOTS_REQUEST) { pushDots(p.DOTS_REQUEST); }
 });
 
@@ -452,10 +453,16 @@ Pebble.addEventListener('showConfiguration', function() {
   // markers toggle, and without what the Pebble app now decides.
   var config = JSON.parse(JSON.stringify(clayConfig));
   var hidden = decidedByApp();
+  var extra = bridge.metricOptions(selectedMetrics());
   config.forEach(function(section) {
     if (!section.items) { return; }
     section.items = section.items.filter(function(item) {
       return !hidden[item.messageKey];
+    });
+    section.items.forEach(function(item) {
+      if (/^METRIC\d$/.test(item.messageKey)) {
+        item.options = item.options.concat(extra);
+      }
     });
   });
   for (var s = 0; s < config.length; s++) {

@@ -558,6 +558,126 @@ test('1.15 (no preferences source): units stay on the settings page', function()
   assert.deepStrictEqual(take(UNIT_KEYS), []);
 });
 
+// --- A3: next event ----------------------------------------------------------
+
+function nowSec() { return Math.floor(clock.now / 1000); }
+
+function calendarEnvelope(events) {
+  return {
+    pluginUuid: '00000000-0000-0000-0001-000000000004',
+    instances: events.map(function(e, i) {
+      return {
+        instanceId: String(i),
+        properties: {
+          name: { shortText: { text: e.name }, longText: { text: e.name } },
+          starts_at: { shortText: { text: 'hh:mm' }, timestamp: { value: e.start } },
+          ends_at: { shortText: { text: 'hh:mm' }, timestamp: { value: e.end } },
+          all_day: { boolean: { value: !!e.allDay } },
+          calendar: text('Work'),
+        },
+      };
+    }),
+  };
+}
+
+var EVENT_KEYS = /^EVENT_/;
+var CAL_PLUGIN = [{
+  uuid: '00000000-0000-0000-0001-000000000004', name: 'Calendar',
+  sources: [{ category: 'calendar', items: ['event'], properties: {} }], actions: [],
+}];
+
+test('no calendar subscription (and no permission prompt) unless the item is chosen', function() {
+  setup({ plugins: CAL_PLUGIN });
+  ready();
+  assert.strictEqual(sub('calendar', 'event'), null);
+});
+
+test('next event: the first timed event, re-sent only when it changes', function() {
+  setup({ plugins: CAL_PLUGIN, settings: { METRIC1: '1', METRIC2: '13' } });
+  resetTake();
+  ready();
+  var s = sub('calendar', 'event');
+  assert.ok(s, 'subscribed to calendar/event');
+  var t = nowSec();
+  var events = [
+    { name: 'Company holiday', start: t - 3600 * 10, end: t + 3600 * 14, allDay: true },
+    { name: 'Standup', start: t + 23 * 60, end: t + 38 * 60 },
+    { name: 'Lunch with Sam', start: t + 65 * 60, end: t + 125 * 60 },
+  ];
+  s.data(calendarEnvelope(events));
+  advance(100);
+  assert.deepStrictEqual(take(EVENT_KEYS), [{
+    EVENT_NAME: 'Standup', EVENT_START: t + 23 * 60, EVENT_END: t + 38 * 60, EVENT_ALL_DAY: 0,
+  }]);
+  s.data(calendarEnvelope(events));   // the calendar's minute tick, unchanged
+  advance(100);
+  assert.deepStrictEqual(take(EVENT_KEYS), []);
+  // Five minutes after Standup starts, the face moves on to Lunch by itself:
+  // the calendar sends nothing when an event merely starts.
+  advance((23 + 5) * 60 * 1000 + 2000);
+  assert.deepStrictEqual(take(EVENT_KEYS), [{
+    EVENT_NAME: 'Lunch with Sam', EVENT_START: t + 65 * 60, EVENT_END: t + 125 * 60,
+    EVENT_ALL_DAY: 0,
+  }]);
+  // The watch asks after half an hour of silence: the same event again.
+  fromWatch({ PLUGIN_REQUEST: 1 });
+  advance(100);
+  assert.strictEqual(take(EVENT_KEYS).length, 1);
+});
+
+test('next event: all-day only when nothing timed is coming; titles cleaned and cut', function() {
+  setup({ plugins: CAL_PLUGIN, settings: { METRIC1: '13' } });
+  resetTake();
+  ready();
+  var t = nowSec();
+  sub('calendar', 'event').data(calendarEnvelope([
+    { name: '🎂 Mom’s birthday 🎉', start: t - 3600, end: t + 3600 * 20, allDay: true },
+  ]));
+  advance(100);
+  var got = take(EVENT_KEYS);
+  assert.strictEqual(got.length, 1);
+  assert.strictEqual(got[0].EVENT_NAME, 'Mom’s birthday');
+  assert.strictEqual(got[0].EVENT_ALL_DAY, 1);
+  sub('calendar', 'event').data(calendarEnvelope([
+    { name: 'Quarterly planning review with the whole team', start: t + 600, end: t + 4200 },
+  ]));
+  advance(100);
+  got = take(EVENT_KEYS);
+  assert.strictEqual(got[0].EVENT_NAME, 'Quarterly planning revi');
+  var plugins = require(path.join(PKJS, 'plugins.js'));
+  assert.ok(plugins._test.truncateUtf8 && got[0].EVENT_NAME.length <= 23);
+});
+
+test('next event: refused or gone clears the item', function() {
+  setup({ plugins: CAL_PLUGIN, settings: { METRIC1: '13' } });
+  resetTake();
+  ready();
+  sub('calendar', 'event').error('PERMISSION_DENIED');
+  advance(100);
+  assert.deepStrictEqual(take(EVENT_KEYS),
+    [{ EVENT_NAME: '', EVENT_START: 0, EVENT_END: 0, EVENT_ALL_DAY: 0 }]);
+  // A passing error keeps what the watch has.
+  sub('calendar', 'event').error('TIMEOUT');
+  advance(100);
+  assert.deepStrictEqual(take(EVENT_KEYS), []);
+});
+
+test('settings page offers Next calendar event only where it can work', function() {
+  setup({ plugins: CAL_PLUGIN });
+  ready();
+  assert.ok(/Next calendar event/.test(openedConfig()));
+  setup({ plugins: [] });   // plugin API, but no calendar source
+  ready();
+  assert.ok(!/Next calendar event/.test(openedConfig()));
+  setup();                  // no plugin API at all
+  ready();
+  assert.ok(!/Next calendar event/.test(openedConfig()));
+  // Already chosen: kept on the page so saving doesn't drop it.
+  setup({ settings: { METRIC1: '13' } });
+  ready();
+  assert.ok(/Next calendar event/.test(openedConfig()));
+});
+
 // ---------------------------------------------------------------------------
 
 var failures = 0;

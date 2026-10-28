@@ -88,7 +88,9 @@ typedef enum {
   // Appended, never inserted: these values are persisted in settings, so
   // renumbering would silently change what existing users' slots mean.
   METRIC_CALORIES_TOTAL = 12,
-  METRIC_TYPE_COUNT = 13,
+  // From the Pebble app's plugins, read by the phone; hidden without data.
+  METRIC_NEXT_EVENT = 13,
+  METRIC_TYPE_COUNT = 14,
 } MetricType;
 
 typedef enum {
@@ -128,11 +130,19 @@ typedef enum {
 #define PERSIST_KEY_SETTINGS 1
 #define PERSIST_KEY_WEATHER 2
 #define PERSIST_KEY_DOTS 3
+#define PERSIST_KEY_PLUGIN 4
+
+#define PLUGIN_VERSION 1
 
 // Weather older than this is treated as "no data" (metric hidden).
 #define WEATHER_STALE_SECONDS (3 * 3600)
 // How often to ask the phone for fresh weather.
 #define WEATHER_REFRESH_SECONDS (30 * 60)
+// Plugin readings: the phone sends them as they change, and the watch asks
+// again when it has heard nothing for this long...
+#define PLUGIN_REFRESH_SECONDS (30 * 60)
+// ...and stops showing them when the phone hasn't answered for this long.
+#define PLUGIN_STALE_SECONDS (60 * 60)
 
 typedef struct __attribute__((__packed__)) {
   uint8_t version;
@@ -167,6 +177,21 @@ typedef struct __attribute__((__packed__)) {
   uint8_t cond;             // WeatherCond
   int32_t fetched_at;       // time_t of the fix
 } WeatherCache;
+
+#define EVENT_NAME_LEN 24
+
+// What the phone reads from the Pebble app's plugins. Kept across restarts
+// so the status line doesn't reflow every time the face comes back.
+typedef struct __attribute__((__packed__)) {
+  uint8_t version;
+  int32_t received_at;      // when the phone last sent any of this (0 = never)
+  // Next calendar event (event_start 0 = none). The countdown is worked
+  // out here from the start time, so it keeps counting without the phone.
+  char event_name[EVENT_NAME_LEN];
+  int32_t event_start;      // epoch seconds
+  int32_t event_end;        // epoch seconds, 0 = unknown
+  uint8_t event_all_day;
+} PluginCache;
 
 // monthkey = year * 16 + month(1..12); fits uint16_t until year 4095.
 typedef struct __attribute__((__packed__)) {
@@ -224,6 +249,7 @@ typedef struct {
 
 extern Settings g_settings;
 extern WeatherCache g_weather;
+extern PluginCache g_plugin;
 extern DotsCache g_dots;
 extern Layout g_layout;
 extern struct tm g_now;

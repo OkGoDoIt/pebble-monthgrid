@@ -124,6 +124,67 @@ function weatherDict(envelope) {
   };
 }
 
+// --- calendar ---------------------------------------------------------------
+
+// An event that began this long ago still shows as "now"; after that the
+// next one takes its place.
+var EVENT_GRACE_SEC = 5 * 60;
+var EVENT_NAME_BYTES = 23;   // EVENT_NAME_LEN - 1 on the watch
+
+// Event titles often carry emoji, which the watch fonts can't draw.
+function plainText(s) {
+  return (s || '').replace(/[\uD800-\uDFFF\uFE0F\u200D\u20E3]/g, '')
+      .replace(/\s+/g, ' ').replace(/^ | $/g, '');
+}
+
+function timestampOf(payloads) {
+  var p = payloads && payloads.timestamp;
+  return p && typeof p.value === 'number' ? Math.floor(p.value) : null;
+}
+
+function booleanOf(payloads) {
+  var p = payloads && payloads.boolean;
+  return p ? !!p.value : false;
+}
+
+// calendar/event lists upcoming events soonest first, including any under
+// way. The next event is the first timed one that hasn't started (or only
+// just has); all-day events only count when no timed event is coming.
+function pickNextEvent(instances, nowSec) {
+  var timed = null, allDay = null;
+  for (var i = 0; i < (instances || []).length; i++) {
+    var p = instances[i].properties || {};
+    var start = timestampOf(p.starts_at);
+    if (start === null) { continue; }
+    var end = timestampOf(p.ends_at);
+    if (end !== null && end <= nowSec) { continue; }
+    var ev = {
+      name: plainText(textOf(p.name) || textOf(p.name, 'longText')),
+      start: start,
+      end: end || 0,
+      allDay: booleanOf(p.all_day),
+    };
+    if (ev.allDay) {
+      if (!allDay || ev.start < allDay.start) { allDay = ev; }
+    } else if (start > nowSec - EVENT_GRACE_SEC) {
+      if (!timed || ev.start < timed.start) { timed = ev; }
+    }
+  }
+  return timed || allDay;
+}
+
+function eventDict(ev) {
+  if (!ev) {
+    return { EVENT_NAME: '', EVENT_START: 0, EVENT_END: 0, EVENT_ALL_DAY: 0 };
+  }
+  return {
+    EVENT_NAME: truncateUtf8(ev.name, EVENT_NAME_BYTES),
+    EVENT_START: ev.start,
+    EVENT_END: ev.end,
+    EVENT_ALL_DAY: ev.allDay ? 1 : 0,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Outbox: send only what changed, one message at a time
 // ---------------------------------------------------------------------------
@@ -295,6 +356,8 @@ function Bridge(options) {
   this.subs = {};
   this.weather = { state: 'off', at: 0, timer: null };
   this.units = null;
+  this.events = null;
+  this.eventTimer = null;
 }
 
 Bridge.prototype.subscribe = function(name, request, onData, onError) {
@@ -337,6 +400,16 @@ Bridge.prototype.wants = function(metric) {
 Bridge.prototype.sync = function() {
   this.syncUnits();
   this.syncWeather();
+  this.syncEvent();
+};
+
+// The groups that answer the watch's PLUGIN_REQUEST.
+var PLUGIN_GROUPS = ['event'];
+
+// The watch asks when it has heard nothing for a while: re-send everything
+// we have, so it knows the phone is still here.
+Bridge.prototype.answerPluginRequest = function() {
+  this.outbox.resend(PLUGIN_GROUPS);
 };
 
 // --- units (A2) -------------------------------------------------------------
@@ -471,6 +544,99 @@ Bridge.prototype.answerWeatherRequest = function() {
   return this.weather.state === 'waiting';
 };
 
+// --- next event (A3) ---------------------------------------------------------
+
+var METRIC_NEXT_EVENT = 13;
+
+// calendar/event needs the Calendar permission, so nothing subscribes (and
+// nothing asks) unless the user put the item in their status line.
+Bridge.prototype.syncEvent = function() {
+  if (!this.wants(METRIC_NEXT_EVENT)) {
+    this.unsubscribe('event');
+    this.events = null;
+    this.scheduleEventPick(null);
+    return;
+  }
+  if (this.subs.event) { return; }
+  this.subscribe('event', {
+    category: 'calendar',
+    item: 'event',
+    properties: ['name', 'starts_at', 'ends_at', 'all_day'],
+  }, this.onEvents, this.onEventsError);
+};
+
+Bridge.prototype.onEvents = function(envelope) {
+  this.events = envelope.instances || [];
+  this.pickEvent();
+};
+
+Bridge.prototype.onEventsError = function(code) {
+  if (code === 'PLUGIN_UNAVAILABLE' || code === 'PERMISSION_DENIED') {
+    this.events = [];
+    this.pickEvent();
+  }
+};
+
+Bridge.prototype.pickEvent = function() {
+  var ev = pickNextEvent(this.events, Math.floor(nowMs() / 1000));
+  this.outbox.offer('event', eventDict(ev));
+  // The calendar only updates when its list changes, which an event
+  // starting doesn't do: move on to the following one ourselves.
+  this.scheduleEventPick(ev && !ev.allDay ? (ev.start + EVENT_GRACE_SEC) * 1000 : null);
+};
+
+Bridge.prototype.scheduleEventPick = function(atMs) {
+  if (this.eventTimer) {
+    clearTimeout(this.eventTimer);
+    this.eventTimer = null;
+  }
+  if (atMs === null) { return; }
+  var self = this;
+  this.eventTimer = setTimeout(function() {
+    self.eventTimer = null;
+    self.pickEvent();
+  }, Math.max(1000, atMs - nowMs() + 1000));
+};
+
+// --- settings page -------------------------------------------------------------
+
+// Is category/item served by an installed plugin (built-ins included)?
+function served(category, item) {
+  if (typeof Pebble === 'undefined' || typeof Pebble.enumeratePlugins !== 'function') {
+    return false;
+  }
+  try {
+    var list = Pebble.enumeratePlugins() || [];
+    for (var i = 0; i < list.length; i++) {
+      var sources = list[i].sources || [];
+      for (var j = 0; j < sources.length; j++) {
+        if (sources[j].category === category &&
+            (sources[j].items || []).indexOf(item) !== -1) {
+          return true;
+        }
+      }
+    }
+  } catch (e) {
+    log('enumeratePlugins threw: ' + e);
+  }
+  return false;
+}
+
+// Status-line choices that come from the Pebble app's plugins, for the
+// settings page: offered while something can serve them, and always when
+// already chosen, so saving the page never quietly drops a choice.
+Bridge.prototype.metricOptions = function(chosen) {
+  var out = [];
+  var api = available();
+  function add(value, label, ok) {
+    if ((api && ok) || chosen.indexOf(value) !== -1) {
+      out.push({ label: label, value: value });
+    }
+  }
+  add(METRIC_NEXT_EVENT, 'Next calendar event', served('calendar', 'event'));
+  return out;
+};
+
 module.exports = {
   available: available,
   Outbox: Outbox,
@@ -481,6 +647,8 @@ module.exports = {
     tempTenthsC: tempTenthsC,
     conditionOf: conditionOf,
     weatherDict: weatherDict,
+    pickNextEvent: pickNextEvent,
+    plainText: plainText,
     truncateUtf8: truncateUtf8,
     utf8Length: utf8Length,
     dictBytes: dictBytes,

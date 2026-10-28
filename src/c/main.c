@@ -6,6 +6,7 @@
 
 Settings g_settings;
 WeatherCache g_weather;
+PluginCache g_plugin;
 DotsCache g_dots;
 Layout g_layout;
 struct tm g_now;
@@ -30,6 +31,20 @@ static bool prv_metric_selected(uint8_t metric) {
     if (g_settings.metrics[i] == metric) { return true; }
   }
   return false;
+}
+
+// Status items whose data the phone reads from the Pebble app's plugins.
+static bool prv_plugin_metric_selected(void) {
+  for (int i = 0; i < NUM_METRIC_SLOTS; i++) {
+    uint8_t m = g_settings.metrics[i];
+    if (m == METRIC_NEXT_EVENT) { return true; }
+  }
+  return false;
+}
+
+static bool prv_plugin_data_old(void) {
+  return g_plugin.received_at == 0
+      || time(NULL) - g_plugin.received_at > PLUGIN_REFRESH_SECONDS;
 }
 
 static uint16_t prv_current_monthkey(void) {
@@ -68,8 +83,8 @@ static int32_t prv_tuple_int(const Tuple *t) {
 // Phone requests
 // ---------------------------------------------------------------------------
 
-static void prv_send_requests(bool weather, uint16_t dots_monthkey) {
-  if (!g_connected || (!weather && !dots_monthkey)) { return; }
+static void prv_send_requests(bool weather, uint16_t dots_monthkey, bool plugins) {
+  if (!g_connected || (!weather && !dots_monthkey && !plugins)) { return; }
   DictionaryIterator *iter;
   if (app_message_outbox_begin(&iter) != APP_MSG_OK) { return; }
   if (weather) {
@@ -77,6 +92,9 @@ static void prv_send_requests(bool weather, uint16_t dots_monthkey) {
   }
   if (dots_monthkey) {
     dict_write_uint32(iter, MESSAGE_KEY_DOTS_REQUEST, dots_monthkey);
+  }
+  if (plugins) {
+    dict_write_uint8(iter, MESSAGE_KEY_PLUGIN_REQUEST, 1);
   }
   app_message_outbox_send();
 }
@@ -91,7 +109,8 @@ static void prv_periodic_requests(void) {
   if (g_settings.dots_enabled && g_dots.monthkey != prv_current_monthkey()) {
     want_dots = prv_current_monthkey();
   }
-  prv_send_requests(want_weather, want_dots);
+  bool want_plugins = prv_plugin_metric_selected() && prv_plugin_data_old();
+  prv_send_requests(want_weather, want_dots, want_plugins);
 }
 
 // ---------------------------------------------------------------------------
@@ -102,6 +121,7 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
   (void) context;
   bool settings_changed = false;
   bool weather_changed = false;
+  bool plugin_changed = false;
   // Whole degrees and tenths can arrive in the same message, in any order;
   // the tenths win.
   int32_t temp_c = INT32_MIN, temp_dc = INT32_MIN;
@@ -178,6 +198,18 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
       temp_dc = prv_tuple_int(t); weather_changed = true;
     } else if (t->key == MESSAGE_KEY_WEATHER_COND) {
       g_weather.cond = prv_tuple_int(t); weather_changed = true;
+    } else if (t->key == MESSAGE_KEY_EVENT_NAME) {
+      if (t->type == TUPLE_CSTRING) {
+        strncpy(g_plugin.event_name, t->value->cstring, EVENT_NAME_LEN - 1);
+        g_plugin.event_name[EVENT_NAME_LEN - 1] = '\0';
+      }
+      plugin_changed = true;
+    } else if (t->key == MESSAGE_KEY_EVENT_START) {
+      g_plugin.event_start = prv_tuple_int(t); plugin_changed = true;
+    } else if (t->key == MESSAGE_KEY_EVENT_END) {
+      g_plugin.event_end = prv_tuple_int(t); plugin_changed = true;
+    } else if (t->key == MESSAGE_KEY_EVENT_ALL_DAY) {
+      g_plugin.event_all_day = prv_tuple_int(t) ? 1 : 0; plugin_changed = true;
     } else if (t->key == MESSAGE_KEY_DOTS_MONTH) {
       dots_month = prv_tuple_int(t);
     } else if (t->key == MESSAGE_KEY_DOTS_STATUS) {
@@ -202,7 +234,15 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
     prv_send_requests(prv_metric_selected(METRIC_WEATHER) && g_weather.fetched_at == 0,
                       (g_settings.dots_enabled
                        && g_dots.monthkey != prv_current_monthkey())
-                          ? prv_current_monthkey() : 0);
+                          ? prv_current_monthkey() : 0,
+                      prv_plugin_metric_selected() && prv_plugin_data_old());
+  }
+  if (plugin_changed) {
+    // Any of it arriving means the phone is answering; it sends the rest
+    // only when it changes.
+    g_plugin.version = PLUGIN_VERSION;
+    g_plugin.received_at = time(NULL);
+    layer_mark_dirty(s_status_layer);
   }
   if (weather_changed) {
     if (temp_dc != INT32_MIN) {
@@ -247,7 +287,7 @@ static void prv_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
     // The layout depends on the month's row count (bottom-aligned grid).
     prv_relayout();
     if (month_rolled && g_settings.dots_enabled) {
-      prv_send_requests(false, prv_current_monthkey());
+      prv_send_requests(false, prv_current_monthkey(), false);
     }
   }
 }
@@ -331,6 +371,7 @@ static void prv_window_unload(Window *window) {
 
 static void prv_load_caches(void) {
   memset(&g_weather, 0, sizeof(g_weather));
+  memset(&g_plugin, 0, sizeof(g_plugin));
   memset(&g_dots, 0, sizeof(g_dots));
   WeatherCache w;
   bool w_read = persist_read_data(PERSIST_KEY_WEATHER, &w, sizeof(w)) == (int) sizeof(w);
@@ -342,6 +383,13 @@ static void prv_load_caches(void) {
     g_weather = w;
     g_weather.version = WEATHER_VERSION;
     g_weather.temp_dc = (int16_t) (w.temp_dc * 10);
+  }
+  // Plugin data is a cache like the rest: written on exit rather than on
+  // every update (phone battery alone changes many times a day).
+  if (persist_read_data(PERSIST_KEY_PLUGIN, &g_plugin, sizeof(g_plugin))
+          != (int) sizeof(g_plugin)
+      || g_plugin.version != PLUGIN_VERSION) {
+    memset(&g_plugin, 0, sizeof(g_plugin));
   }
   DotsCache d;
   if (persist_read_data(PERSIST_KEY_DOTS, &d, sizeof(d)) == (int) sizeof(d)
@@ -406,6 +454,9 @@ static void prv_init(void) {
 }
 
 static void prv_deinit(void) {
+  if (g_plugin.version == PLUGIN_VERSION) {
+    persist_write_data(PERSIST_KEY_PLUGIN, &g_plugin, sizeof(g_plugin));
+  }
   unobstructed_area_service_unsubscribe();
 #if defined(PBL_HEALTH)
   health_service_events_unsubscribe();

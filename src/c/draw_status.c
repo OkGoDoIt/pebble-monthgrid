@@ -24,10 +24,97 @@
 
 typedef struct {
   uint8_t metric;
-  char text[16];
+  char text[40];            // room for an event name plus its time
   int16_t icon_w;
   int16_t text_w;
 } StatusItem;
+
+static bool prv_use_24h(void) {
+  return (g_settings.time_format == TIME_FMT_24H)
+      || (g_settings.time_format == TIME_FMT_SYSTEM && clock_is_24h_style());
+}
+
+// A moment as the status line shows a time of day: "9:30a" / "21:30", or
+// bare "9:30" in the narrow round column.
+static bool prv_format_clock(char *buf, size_t len, time_t when, bool compact) {
+  struct tm *lt = localtime(&when);
+  if (!lt) { return false; }
+  if (prv_use_24h() || compact) {
+    snprintf(buf, len, "%d:%02d", lt->tm_hour, lt->tm_min);
+  } else {
+    int hour = lt->tm_hour % 12;
+    if (hour == 0) { hour = 12; }
+    snprintf(buf, len, "%d:%02d%c", hour, lt->tm_min, lt->tm_hour < 12 ? 'a' : 'p');
+  }
+  return true;
+}
+
+// When the next calendar event starts, as the status line says it: a
+// countdown while it's close ("23m", "1h05"), the time later today
+// ("2:30p"), the weekday after that ("Fri"), "now" once it has begun. An
+// all-day event says nothing on its day and its weekday before. Worked out
+// here from the start time, so it keeps counting while the phone is away.
+// Returns false when there is no event to show.
+static bool prv_event_when(char *when, size_t len, bool compact) {
+  when[0] = '\0';
+  if (!g_plugin.event_start) { return false; }
+  time_t now = time(NULL);
+  time_t start = (time_t) g_plugin.event_start;
+  if (g_plugin.event_end && now >= (time_t) g_plugin.event_end) { return false; }
+  if (g_plugin.event_all_day) {
+    if (now < start) {
+      struct tm *lt = localtime(&start);
+      if (lt) { strftime(when, len, "%a", lt); }
+    }
+    return true;
+  }
+  if (now >= start) {
+    snprintf(when, len, "now");
+    return true;
+  }
+  int32_t minutes = (int32_t) ((start - now + 59) / 60);
+  if (minutes < 60) {
+    snprintf(when, len, "%dm", (int) minutes);
+  } else if (minutes < 120) {
+    snprintf(when, len, "%dh%02d", (int) (minutes / 60), (int) (minutes % 60));
+  } else if (minutes < 20 * 60) {
+    prv_format_clock(when, len, start, compact);
+  } else {
+    struct tm *lt = localtime(&start);
+    if (lt) { strftime(when, len, "%a", lt); }
+  }
+  return true;
+}
+
+// "Standup 23m". A name too long for max_w loses characters from its end,
+// marked with an ellipsis, so the time always shows.
+static void prv_event_text_fitted(StatusItem *item, const char *when, int16_t max_w) {
+  const GRect measure_box = GRect(0, 0, 32767, 32767);
+  char name[EVENT_NAME_LEN];
+  strncpy(name, g_plugin.event_name, sizeof(name) - 1);
+  name[sizeof(name) - 1] = '\0';
+  size_t n = strlen(name);
+  bool cut = false;
+  for (;;) {
+    if (n == 0) {
+      snprintf(item->text, sizeof(item->text), "%s", when);
+    } else {
+      snprintf(item->text, sizeof(item->text), "%s%s%s%s", name, cut ? "\xe2\x80\xa6" : "",
+               when[0] ? " " : "", when);
+    }
+    item->text_w = item->text[0]
+        ? graphics_text_layout_get_content_size(item->text, g_font_small, measure_box,
+                                                GTextOverflowModeFill,
+                                                GTextAlignmentLeft).w
+        : 0;
+    if (max_w <= 0 || item->text_w <= max_w || n == 0) { return; }
+    // Drop one UTF-8 character (and any space it leaves at the end).
+    do { n--; } while (n > 0 && ((uint8_t) name[n] & 0xC0) == 0x80);
+    while (n > 0 && name[n - 1] == ' ') { n--; }
+    name[n] = '\0';
+    cut = true;
+  }
+}
 
 #if defined(PBL_HEALTH)
 static bool prv_health_ok(HealthMetric metric) {
@@ -166,18 +253,15 @@ static bool prv_metric_text(uint8_t metric, char *buf, size_t len, bool compact)
     case METRIC_NEXT_ALARM: {
       time_t when = 0;
       if (!alarm_service_peek_next(&when)) { return false; }
-      struct tm *lt = localtime(&when);
-      if (!lt) { return false; }
-      bool use_24h = (g_settings.time_format == TIME_FMT_24H)
-          || (g_settings.time_format == TIME_FMT_SYSTEM && clock_is_24h_style());
-      if (use_24h || compact) {
-        snprintf(buf, len, "%d:%02d", lt->tm_hour, lt->tm_min);
-      } else {
-        int hour = lt->tm_hour % 12;
-        if (hour == 0) { hour = 12; }
-        snprintf(buf, len, "%d:%02d%c", hour, lt->tm_min, lt->tm_hour < 12 ? 'a' : 'p');
-      }
-      return true;
+      return prv_format_clock(buf, len, when, compact);
+    }
+    // The full "name time" text is assembled in prv_collect_items, which can
+    // measure it; the narrow round column shows the time alone.
+    case METRIC_NEXT_EVENT: {
+      char when[12];
+      if (!prv_event_when(when, sizeof(when), compact)) { return false; }
+      snprintf(buf, len, "%s", (compact && when[0]) ? when : g_plugin.event_name);
+      return buf[0] != '\0';
     }
     case METRIC_CONNECTION:
       // Shows only as a warning: icon when disconnected, hidden when fine.
@@ -188,8 +272,9 @@ static bool prv_metric_text(uint8_t metric, char *buf, size_t len, bool compact)
 }
 
 // Collects up to NUM_METRIC_SLOTS displayable items in priority order
-// (deduped, no-data metrics skipped). Returns the count.
-static int prv_collect_items(StatusItem *items, bool compact) {
+// (deduped, no-data metrics skipped). Returns the count. max_event_w caps
+// the next-event item's width (0 = no cap).
+static int prv_collect_items(StatusItem *items, bool compact, int16_t max_event_w) {
   const GRect measure_box = GRect(0, 0, 32767, 32767);
   int n = 0;
   for (int slot = 0; slot < NUM_METRIC_SLOTS; slot++) {
@@ -204,6 +289,13 @@ static int prv_collect_items(StatusItem *items, bool compact) {
     item->metric = metric;
     if (!prv_metric_text(metric, item->text, sizeof(item->text), compact)) { continue; }
     item->icon_w = status_icon_width(metric, ICON_S);
+    if (metric == METRIC_NEXT_EVENT && !compact) {
+      char when[12];
+      prv_event_when(when, sizeof(when), compact);
+      prv_event_text_fitted(item, when, max_event_w);
+      n++;
+      continue;
+    }
     item->text_w = item->text[0]
         ? graphics_text_layout_get_content_size(item->text, g_font_small, measure_box,
                                                 GTextOverflowModeFill,
@@ -218,12 +310,13 @@ static void prv_draw_horizontal(GContext *ctx, const GRect zone) {
   const GColor fg = theme_fg();
   const GColor bg = theme_bg();
   StatusItem items[NUM_METRIC_SLOTS];
-  int n_all = prv_collect_items(items, false);
+  const int16_t max_w = zone.size.w - 4;
+  // An event name may take two thirds of the line, never all of it.
+  int n_all = prv_collect_items(items, false, (max_w * 2) / 3);
 
   // Append in priority order while the line still fits.
   int n = 0;
   int16_t total_w = 0;
-  const int16_t max_w = zone.size.w - 4;
   for (; n < n_all; n++) {
     StatusItem *item = &items[n];
     int16_t w = item->icon_w + (item->icon_w && item->text_w ? ICON_TEXT_GAP : 0)
@@ -419,7 +512,7 @@ void draw_status_update_proc(Layer *layer, GContext *ctx) {
   }
 
   StatusItem items[NUM_METRIC_SLOTS];
-  int n_all = prv_collect_items(items, true);
+  int n_all = prv_collect_items(items, true, 0);
   if (!g_layout.status_two_columns) {
     StatusItem *all[NUM_METRIC_SLOTS];
     for (int i = 0; i < n_all; i++) { all[i] = &items[i]; }
