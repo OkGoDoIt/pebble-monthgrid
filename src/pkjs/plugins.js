@@ -19,8 +19,17 @@ var COND = {
   RAIN: 5, SNOW: 6, THUNDER: 7, WIND: 8,
 };
 
-// How long a subscription gets to answer before we fall back.
+// How long a subscription gets to answer before it counts as unreadable
+// (reported to its handler as NO_ANSWER).
 var FIRST_ANSWER_MS = 15000;
+
+// Errors that mean "this can't be read": its value should disappear rather
+// than linger. Anything else (TIMEOUT, RATE_LIMITED...) passes, and the
+// subscription carries on.
+function gone(code) {
+  return code === 'PLUGIN_UNAVAILABLE' || code === 'PERMISSION_DENIED' ||
+      code === 'NO_ANSWER' || code === 'NO_DATA';
+}
 // Weather this old (by when it reached us) no longer answers the watch's
 // requests; Open-Meteo does instead. Matches the watch's own stale limit.
 var WEATHER_LIVE_MS = 3 * 60 * 60 * 1000;
@@ -354,32 +363,47 @@ function Bridge(options) {
   this.fallbackWeather = options.fallbackWeather;
   this.onUnits = options.onUnits || function() {};
   this.subs = {};
-  this.weather = { state: 'off', at: 0, timer: null };
+  this.weather = { state: 'off', at: 0 };
   this.units = null;
   this.events = null;
   this.eventTimer = null;
+  this.slots = null;          // preferences/complications, parsed; null = unknown
+  this.readingData = {};      // 'category/item' -> latest envelope (null = can't read)
 }
 
 Bridge.prototype.subscribe = function(name, request, onData, onError) {
   this.unsubscribe(name);
   var self = this;
+  var sub = null;
+  var firstAnswer = setTimeout(function() {
+    firstAnswer = null;
+    if (self.subs[name] !== sub) { return; }
+    log(request.category + '/' + request.item + ': no answer');
+    onError.call(self, 'NO_ANSWER');
+  }, FIRST_ANSWER_MS);
+  function answered() {
+    if (firstAnswer) { clearTimeout(firstAnswer); firstAnswer = null; }
+  }
   request.onData = function(envelope) {
     if (self.subs[name] !== sub) { return; }   // a late update for an old subscription
+    answered();
     onData.call(self, envelope || {});
   };
   request.onError = function(err) {
     if (self.subs[name] !== sub) { return; }
+    answered();
     var code = (err && err.code) || 'UNKNOWN';
     log(request.category + '/' + request.item + ': ' + code);
     onError.call(self, code);
   };
-  var sub = null;
   try {
     sub = Pebble.subscribeToSource(request) || { unsubscribe: function() {} };
   } catch (e) {
+    answered();
     log(request.category + '/' + request.item + ' threw: ' + e);
     return false;
   }
+  sub.stopFirstAnswer = answered;
   this.subs[name] = sub;
   return true;
 };
@@ -388,6 +412,7 @@ Bridge.prototype.unsubscribe = function(name) {
   var sub = this.subs[name];
   if (!sub) { return; }
   delete this.subs[name];
+  if (sub.stopFirstAnswer) { sub.stopFirstAnswer(); }
   try { sub.unsubscribe(); } catch (e) { log('unsubscribe ' + name + ' threw: ' + e); }
 };
 
@@ -402,10 +427,12 @@ Bridge.prototype.sync = function() {
   this.syncWeather();
   this.syncEvent();
   this.syncPhone();
+  this.syncReadings();
 };
 
 // The groups that answer the watch's PLUGIN_REQUEST.
-var PLUGIN_GROUPS = ['event', 'phone'];
+var PLUGIN_GROUPS = ['event', 'phone', 'reading1', 'reading2', 'reading3', 'reading4',
+                     'reading5'];
 
 // The watch asks when it has heard nothing for a while: re-send everything
 // we have, so it knows the phone is still here.
@@ -450,10 +477,7 @@ Bridge.prototype.onUnitsData = function(envelope) {
 };
 
 Bridge.prototype.onUnitsError = function(code) {
-  // Errors other than "not there" are passing; keep what we had.
-  if (code === 'PLUGIN_UNAVAILABLE' || code === 'PERMISSION_DENIED' || code === 'NO_DATA') {
-    this.units = null;
-  }
+  if (gone(code)) { this.units = null; }
 };
 
 // True while the Pebble app decides the units (the settings page hides them).
@@ -485,23 +509,10 @@ Bridge.prototype.syncWeather = function() {
     return;
   }
   this.setWeatherState('waiting');
-  var self = this;
-  this.weather.timer = setTimeout(function() {
-    self.weather.timer = null;
-    if (self.weather.state === 'waiting') {
-      log('weather/location did not answer; using Open-Meteo');
-      self.setWeatherState('failed');
-      self.fallbackWeather();
-    }
-  }, FIRST_ANSWER_MS);
 };
 
 Bridge.prototype.setWeatherState = function(state) {
   this.weather.state = state;
-  if (state !== 'waiting' && this.weather.timer) {
-    clearTimeout(this.weather.timer);
-    this.weather.timer = null;
-  }
 };
 
 Bridge.prototype.onWeather = function(envelope) {
@@ -517,8 +528,10 @@ Bridge.prototype.onWeather = function(envelope) {
 
 Bridge.prototype.onWeatherError = function(code) {
   // An error doesn't end a subscription, and one that has already answered
-  // keeps its last reading until it goes stale.
+  // keeps its last reading until it goes stale. Before the first answer,
+  // any error (or none within FIRST_ANSWER_MS) hands over to Open-Meteo.
   if (this.weather.state === 'waiting') {
+    log('weather/location unavailable (' + code + '); using Open-Meteo');
     this.setWeatherState('failed');
     this.fallbackWeather();
   }
@@ -572,7 +585,7 @@ Bridge.prototype.onEvents = function(envelope) {
 };
 
 Bridge.prototype.onEventsError = function(code) {
-  if (code === 'PLUGIN_UNAVAILABLE' || code === 'PERMISSION_DENIED') {
+  if (gone(code)) {
     this.events = [];
     this.pickEvent();
   }
@@ -626,9 +639,180 @@ Bridge.prototype.onPhone = function(envelope) {
 };
 
 Bridge.prototype.onPhoneError = function(code) {
-  if (code === 'PLUGIN_UNAVAILABLE' || code === 'PERMISSION_DENIED') {
+  if (gone(code)) {
     this.outbox.offer('phone', { PHONE_BATTERY: -1 });
   }
+};
+
+// --- readings 1-5 (A5) ---------------------------------------------------------
+
+var METRIC_READING_1 = 15;
+var NUM_READINGS = 5;
+var READING_TEXT_BYTES = 15;    // READING_TEXT_LEN - 1 on the watch
+var READING_LABEL_BYTES = 11;   // READING_LABEL_LEN - 1
+
+function words(s) {
+  return (s || '').replace(/_/g, ' ');
+}
+
+// A number as a reading: whole when it's big or whole, one decimal otherwise.
+function formatNumber(n) {
+  var v = n.value;
+  var shown = (Math.abs(v) >= 100 || v === Math.round(v)) ? String(Math.round(v))
+      : String(Math.round(v * 10) / 10);
+  return shown + (n.unit || '');
+}
+
+// What one reading says: its shortText, else its number with its unit.
+function readingText(payloads) {
+  var t = textOf(payloads);
+  if (t === null) {
+    var n = numberOf(payloads);
+    t = n ? formatNumber(n) : '';
+  }
+  return truncateUtf8(plainText(t), READING_TEXT_BYTES);
+}
+
+function parseSlots(envelope) {
+  return (envelope.instances || []).map(function(instance) {
+    var p = instance.properties || {};
+    var index = numberOf(p.index);
+    return {
+      category: textOf(p.category) || '',
+      item: textOf(p.item) || '',
+      index: index ? Math.max(0, Math.round(index.value)) : 0,
+      property: textOf(p.property) || '',
+    };
+  });
+}
+
+function sourceKey(slot) {
+  return slot.category + '/' + slot.item;
+}
+
+// Which reading numbers (1-5) the user put in the status line.
+Bridge.prototype.wantedReadings = function() {
+  var out = [];
+  var chosen = this.selectedMetrics();
+  for (var n = 1; n <= NUM_READINGS; n++) {
+    if (chosen.indexOf(METRIC_READING_1 + n - 1) !== -1) { out.push(n); }
+  }
+  return out;
+};
+
+// preferences/complications (1.16+, no permission) is cheap and tells the
+// settings page what each reading is, so it is read whenever it exists. The
+// sources it points at are read only for the readings the user chose: they
+// may need permissions.
+Bridge.prototype.syncReadings = function() {
+  if (!this.subs.complications) {
+    this.subscribe('complications', {
+      category: 'preferences',
+      item: 'complications',
+    }, this.onComplications, this.onComplicationsError);
+  }
+  this.syncReadingSources();
+};
+
+Bridge.prototype.onComplications = function(envelope) {
+  var slots = parseSlots(envelope);
+  // Re-delivered unchanged on every refresh: only a real change re-subscribes.
+  if (this.slots && JSON.stringify(slots) === JSON.stringify(this.slots)) { return; }
+  this.slots = slots;
+  this.syncReadingSources();
+};
+
+Bridge.prototype.onComplicationsError = function(code) {
+  if (gone(code)) {
+    this.slots = [];
+    this.syncReadingSources();
+  }
+};
+
+// One subscription per source the chosen readings point at.
+Bridge.prototype.syncReadingSources = function() {
+  var self = this;
+  var wanted = this.wantedReadings();
+  var needed = {};
+  if (this.slots) {
+    wanted.forEach(function(n) {
+      var slot = self.slots[n - 1];
+      if (!slot || !slot.category || !slot.item || !slot.property) { return; }
+      var key = sourceKey(slot);
+      needed[key] = needed[key] || { category: slot.category, item: slot.item, properties: ['name'] };
+      if (needed[key].properties.indexOf(slot.property) === -1) {
+        needed[key].properties.push(slot.property);
+      }
+    });
+  }
+  Object.keys(this.subs).forEach(function(name) {
+    var key = name.indexOf('reading:') === 0 ? name.substring(8) : null;
+    if (key === null) { return; }
+    var want = needed[key];
+    // A source whose wanted properties changed is subscribed afresh.
+    if (!want || want.properties.join() !== self.subs[name].properties) {
+      self.unsubscribe(name);
+      delete self.readingData[key];
+    }
+  });
+  Object.keys(needed).forEach(function(key) {
+    var name = 'reading:' + key;
+    if (self.subs[name]) { return; }
+    var want = needed[key];
+    var ok = self.subscribe(name, {
+      category: want.category,
+      item: want.item,
+      properties: want.properties.slice(),
+    }, function(envelope) {
+      self.readingData[key] = envelope;
+      self.offerReadings();
+    }, function(code) {
+      if (gone(code)) {
+        self.readingData[key] = null;   // can't be read: hide what uses it
+        self.offerReadings();
+      }
+    });
+    if (ok) {
+      self.subs[name].properties = want.properties.join();
+    } else {
+      self.readingData[key] = null;
+    }
+  });
+  this.offerReadings();
+};
+
+// Send each chosen reading whose value is known (or known to be missing).
+Bridge.prototype.offerReadings = function() {
+  if (this.slots === null) { return; }   // not heard from the Pebble app yet
+  var self = this;
+  this.wantedReadings().forEach(function(n) {
+    var slot = self.slots[n - 1];
+    var text = '', label = '';
+    if (slot) {
+      var envelope = self.readingData[sourceKey(slot)];
+      if (envelope === undefined) { return; }   // still waiting for it
+      var instance = envelope && envelope.instances && envelope.instances[slot.index];
+      var p = (instance && instance.properties) || {};
+      text = readingText(p[slot.property]);
+      label = text ? truncateUtf8(plainText(textOf(p.name) || ''), READING_LABEL_BYTES) : '';
+    }
+    var dict = {};
+    dict['READING' + n + '_TEXT'] = text;
+    dict['READING' + n + '_LABEL'] = label;
+    self.outbox.offer('reading' + n, dict);
+  });
+};
+
+// "Seattle temperature (14°C)": what reading n is, for the settings page.
+Bridge.prototype.describeReading = function(n) {
+  var slot = this.slots && this.slots[n - 1];
+  if (!slot) { return null; }
+  var envelope = this.readingData[sourceKey(slot)];
+  var instance = envelope && envelope.instances && envelope.instances[slot.index];
+  var p = (instance && instance.properties) || {};
+  var what = plainText(textOf(p.name) || '') || words(slot.category);
+  var value = instance ? readingText(p[slot.property]) : '';
+  return what + ' ' + words(slot.property) + (value ? ' (' + value + ')' : '');
 };
 
 // --- settings page -------------------------------------------------------------
@@ -668,6 +852,10 @@ Bridge.prototype.metricOptions = function(chosen) {
   }
   add(METRIC_NEXT_EVENT, 'Next calendar event', served('calendar', 'event'));
   add(METRIC_PHONE_BATTERY, 'Phone battery', served('phone', 'phone_state'));
+  for (var n = 1; n <= NUM_READINGS; n++) {
+    var what = this.describeReading(n);
+    add(METRIC_READING_1 + n - 1, 'Reading ' + n + (what ? ': ' + what : ''), what !== null);
+  }
   return out;
 };
 
@@ -682,6 +870,7 @@ module.exports = {
     conditionOf: conditionOf,
     weatherDict: weatherDict,
     pickNextEvent: pickNextEvent,
+    readingText: readingText,
     plainText: plainText,
     truncateUtf8: truncateUtf8,
     utf8Length: utf8Length,

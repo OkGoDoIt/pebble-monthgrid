@@ -37,7 +37,8 @@ static bool prv_metric_selected(uint8_t metric) {
 static bool prv_plugin_metric_selected(void) {
   for (int i = 0; i < NUM_METRIC_SLOTS; i++) {
     uint8_t m = g_settings.metrics[i];
-    if (m == METRIC_NEXT_EVENT || m == METRIC_PHONE_BATTERY) { return true; }
+    if (m == METRIC_NEXT_EVENT || m == METRIC_PHONE_BATTERY
+        || (m >= METRIC_READING_1 && m <= METRIC_READING_5)) { return true; }
   }
   return false;
 }
@@ -116,6 +117,35 @@ static void prv_periodic_requests(void) {
 // ---------------------------------------------------------------------------
 // AppMessage
 // ---------------------------------------------------------------------------
+
+static void prv_copy_cstring(char *dst, size_t len, const Tuple *t) {
+  if (t->type != TUPLE_CSTRING) { return; }
+  strncpy(dst, t->value->cstring, len - 1);
+  dst[len - 1] = '\0';
+}
+
+// READINGn_TEXT / READINGn_LABEL: true when t was one of them.
+static bool prv_read_reading(const Tuple *t) {
+  const uint32_t text_keys[NUM_READINGS] = {
+    MESSAGE_KEY_READING1_TEXT, MESSAGE_KEY_READING2_TEXT, MESSAGE_KEY_READING3_TEXT,
+    MESSAGE_KEY_READING4_TEXT, MESSAGE_KEY_READING5_TEXT,
+  };
+  const uint32_t label_keys[NUM_READINGS] = {
+    MESSAGE_KEY_READING1_LABEL, MESSAGE_KEY_READING2_LABEL, MESSAGE_KEY_READING3_LABEL,
+    MESSAGE_KEY_READING4_LABEL, MESSAGE_KEY_READING5_LABEL,
+  };
+  for (int i = 0; i < NUM_READINGS; i++) {
+    if (t->key == text_keys[i]) {
+      prv_copy_cstring(g_plugin.reading_text[i], READING_TEXT_LEN, t);
+      return true;
+    }
+    if (t->key == label_keys[i]) {
+      prv_copy_cstring(g_plugin.reading_label[i], READING_LABEL_LEN, t);
+      return true;
+    }
+  }
+  return false;
+}
 
 static void prv_inbox_received(DictionaryIterator *iter, void *context) {
   (void) context;
@@ -199,10 +229,7 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
     } else if (t->key == MESSAGE_KEY_WEATHER_COND) {
       g_weather.cond = prv_tuple_int(t); weather_changed = true;
     } else if (t->key == MESSAGE_KEY_EVENT_NAME) {
-      if (t->type == TUPLE_CSTRING) {
-        strncpy(g_plugin.event_name, t->value->cstring, EVENT_NAME_LEN - 1);
-        g_plugin.event_name[EVENT_NAME_LEN - 1] = '\0';
-      }
+      prv_copy_cstring(g_plugin.event_name, EVENT_NAME_LEN, t);
       plugin_changed = true;
     } else if (t->key == MESSAGE_KEY_EVENT_START) {
       g_plugin.event_start = prv_tuple_int(t); plugin_changed = true;
@@ -213,6 +240,8 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
     } else if (t->key == MESSAGE_KEY_PHONE_BATTERY) {
       int32_t pct = prv_tuple_int(t);
       g_plugin.phone_battery = (pct < 0 || pct > 100) ? -1 : (int8_t) pct;
+      plugin_changed = true;
+    } else if (prv_read_reading(t)) {
       plugin_changed = true;
     } else if (t->key == MESSAGE_KEY_DOTS_MONTH) {
       dots_month = prv_tuple_int(t);

@@ -267,6 +267,17 @@ static bool prv_metric_text(uint8_t metric, char *buf, size_t len, bool compact)
       if (g_plugin.phone_battery < 0 || prv_plugin_stale()) { return false; }
       snprintf(buf, len, "%d%%", (int) g_plugin.phone_battery);
       return true;
+    // Text only: a reading from any plugin has no glyph of its own.
+    case METRIC_READING_1:
+    case METRIC_READING_2:
+    case METRIC_READING_3:
+    case METRIC_READING_4:
+    case METRIC_READING_5: {
+      const char *text = g_plugin.reading_text[metric - METRIC_READING_1];
+      if (!text[0] || prv_plugin_stale()) { return false; }
+      snprintf(buf, len, "%s", text);
+      return true;
+    }
     // The full "name time" text is assembled in prv_collect_items, which can
     // measure it; the narrow round column shows the time alone.
     case METRIC_NEXT_EVENT: {

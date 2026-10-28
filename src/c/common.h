@@ -91,7 +91,14 @@ typedef enum {
   // From the Pebble app's plugins, read by the phone; hidden without data.
   METRIC_NEXT_EVENT = 13,
   METRIC_PHONE_BATTERY = 14,
-  METRIC_TYPE_COUNT = 15,
+  // The user's favourite readings, picked in the Pebble app
+  // (preferences/complications), in its order.
+  METRIC_READING_1 = 15,
+  METRIC_READING_2 = 16,
+  METRIC_READING_3 = 17,
+  METRIC_READING_4 = 18,
+  METRIC_READING_5 = 19,
+  METRIC_TYPE_COUNT = 20,
 } MetricType;
 
 typedef enum {
@@ -180,6 +187,9 @@ typedef struct __attribute__((__packed__)) {
 } WeatherCache;
 
 #define EVENT_NAME_LEN 24
+#define NUM_READINGS 5
+#define READING_TEXT_LEN 16
+#define READING_LABEL_LEN 12
 
 // What the phone reads from the Pebble app's plugins. Kept across restarts
 // so the status line doesn't reflow every time the face comes back.
@@ -193,6 +203,10 @@ typedef struct __attribute__((__packed__)) {
   int32_t event_end;        // epoch seconds, 0 = unknown
   uint8_t event_all_day;
   int8_t phone_battery;     // percent, -1 = unknown
+  // Readings 1-5 as the phone formatted them ("" = nothing to show), and
+  // what each is of (the reading's instance name: "Seattle", "AAPL").
+  char reading_text[NUM_READINGS][READING_TEXT_LEN];
+  char reading_label[NUM_READINGS][READING_LABEL_LEN];
 } PluginCache;
 
 // monthkey = year * 16 + month(1..12); fits uint16_t until year 4095.

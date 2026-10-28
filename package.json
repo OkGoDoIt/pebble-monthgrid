@@ -79,7 +79,17 @@
       "EVENT_START",
       "EVENT_END",
       "EVENT_ALL_DAY",
-      "PHONE_BATTERY"
+      "PHONE_BATTERY",
+      "READING1_TEXT",
+      "READING2_TEXT",
+      "READING3_TEXT",
+      "READING4_TEXT",
+      "READING5_TEXT",
+      "READING1_LABEL",
+      "READING2_LABEL",
+      "READING3_LABEL",
+      "READING4_LABEL",
+      "READING5_LABEL"
     ],
     "resources": {
       "media": [

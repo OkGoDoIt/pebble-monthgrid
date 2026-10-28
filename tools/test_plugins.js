@@ -733,6 +733,166 @@ test('phone battery: offered on the settings page when phone_state is served', f
   assert.strictEqual(sub('phone', 'phone_state'), null, 'not subscribed until chosen');
 });
 
+// --- A5: readings 1-5 --------------------------------------------------------
+
+function complicationsEnvelope(slots) {
+  return {
+    pluginUuid: '00000000-0000-0000-0001-000000000009',
+    instances: slots.map(function(slot, i) {
+      return {
+        instanceId: String(slot.position !== undefined ? slot.position : i),
+        properties: {
+          category: text(slot.category), item: text(slot.item),
+          index: { numericValue: { value: slot.index || 0 } }, property: text(slot.property),
+        },
+      };
+    }),
+  };
+}
+
+// The Pebble app's default list (PreferencesPlugin.DEFAULT_COMPLICATIONS).
+var DEFAULT_SLOTS = [
+  { category: 'phone', item: 'phone_state', property: 'battery_level' },
+  { category: 'weather', item: 'location', property: 'temperature' },
+  { category: 'calendar', item: 'event', property: 'starts_at' },
+  { category: 'finance', item: 'stock', property: 'price' },
+];
+
+var READING_KEYS = /^READING/;
+
+function subCount(category, item) {
+  return env.subs.filter(function(x) {
+    return x.request.category === category && x.request.item === item;
+  }).length;
+}
+
+test('readings: each chosen slot reads its source, by position in the user\'s list', function() {
+  // Readings 1, 2 and 4 in the status line; 3 (the calendar) is not.
+  setup({ plugins: [], settings: { METRIC1: '15', METRIC2: '16', METRIC3: '18' } });
+  resetTake();
+  ready();
+  sub('preferences', 'complications').data(complicationsEnvelope(DEFAULT_SLOTS));
+  advance(0);
+  var phone = sub('phone', 'phone_state');
+  var weather = sub('weather', 'location');
+  assert.ok(phone && weather && sub('finance', 'stock'), 'one subscription per chosen source');
+  assert.deepStrictEqual(phone.request.properties, ['name', 'battery_level']);
+  assert.strictEqual(sub('calendar', 'event'), null, 'reading 3 is not chosen: no calendar');
+  sub('finance', 'stock').error('PLUGIN_UNAVAILABLE');   // no Stocks plugin installed
+  phone.data(phoneEnvelope(82, true));
+  weather.data(weatherEnvelope(14, '°C', 'sun'));
+  advance(100);
+  var got = {};
+  take(READING_KEYS).forEach(function(d) {
+    Object.keys(d).forEach(function(k) { got[k] = d[k]; });
+  });
+  assert.deepStrictEqual(got, {
+    READING1_TEXT: '82%', READING1_LABEL: '',
+    READING2_TEXT: '14°C', READING2_LABEL: 'Seattle',
+    READING4_TEXT: '', READING4_LABEL: '',
+  });
+  // Unchanged re-deliveries: no messages, no re-subscribing.
+  sub('preferences', 'complications').data(complicationsEnvelope(DEFAULT_SLOTS));
+  phone.data(phoneEnvelope(82, false));
+  weather.data(weatherEnvelope(14, '°C', 'sun'));
+  advance(100);
+  assert.deepStrictEqual(take(READING_KEYS), []);
+  assert.strictEqual(subCount('phone', 'phone_state'), 1);
+  // A real change to one reading sends just that slot.
+  phone.data(phoneEnvelope(80, true));
+  advance(100);
+  assert.deepStrictEqual(take(READING_KEYS), [{ READING1_TEXT: '80%', READING1_LABEL: '' }]);
+});
+
+test('readings: reordering the list in the Pebble app moves the slots', function() {
+  setup({ plugins: [], settings: { METRIC1: '15', METRIC2: '16' } });
+  ready();
+  sub('preferences', 'complications').data(complicationsEnvelope(DEFAULT_SLOTS.slice(0, 2)));
+  sub('phone', 'phone_state').data(phoneEnvelope(55, true));
+  sub('weather', 'location').data(weatherEnvelope(70, '°F', 'sun'));
+  advance(100);
+  resetTake();
+  sub('preferences', 'complications').data(
+    complicationsEnvelope([DEFAULT_SLOTS[1], DEFAULT_SLOTS[0]]));
+  advance(0);
+  // Same two sources, same properties: the subscriptions are kept, and the
+  // readings swap places.
+  assert.strictEqual(subCount('phone', 'phone_state'), 1);
+  advance(100);
+  var got = {};
+  take(READING_KEYS).forEach(function(d) {
+    Object.keys(d).forEach(function(k) { got[k] = d[k]; });
+  });
+  assert.deepStrictEqual(got, {
+    READING1_TEXT: '70°F', READING1_LABEL: 'Seattle',
+    READING2_TEXT: '55%', READING2_LABEL: '',
+  });
+});
+
+test('readings: a number without text is shown with its unit', function() {
+  setup();
+  var t = require(path.join(PKJS, 'plugins.js'))._test;
+  assert.strictEqual(t.readingText({ numericValue: { value: 5.46, min: 0, max: 11 } }), '5.5');
+  assert.strictEqual(t.readingText({ numericValue: { value: 64, unit: '%' } }), '64%');
+  assert.strictEqual(t.readingText({ numericValue: { value: 1234.5, unit: ' ft' } }), '1235 ft');
+  assert.strictEqual(t.readingText({ shortText: { text: '$189.53' },
+                                     numericValue: { value: 189.53 } }), '$189.53');
+  assert.strictEqual(t.readingText({ boolean: { value: true } }), '');
+  assert.strictEqual(t.readingText(undefined), '');
+});
+
+test('readings: on 1.15 (no preferences source) chosen readings are empty', function() {
+  setup({ plugins: [], settings: { METRIC1: '15' } });
+  resetTake();
+  ready();
+  sub('preferences', 'complications').error('PLUGIN_UNAVAILABLE');
+  advance(100);
+  assert.deepStrictEqual(take(READING_KEYS), [{ READING1_TEXT: '', READING1_LABEL: '' }]);
+  assert.ok(/Reading 1/.test(openedConfig()), 'still listed: it is chosen');
+  assert.ok(!/Reading 2/.test(openedConfig()), 'nothing to offer otherwise');
+});
+
+test('readings: the settings page says what each one is', function() {
+  setup({ plugins: [], settings: { METRIC1: '15' } });
+  ready();
+  sub('preferences', 'complications').data(complicationsEnvelope(DEFAULT_SLOTS));
+  sub('phone', 'phone_state').data(phoneEnvelope(82, true));
+  advance(100);
+  var page = openedConfig();
+  assert.ok(/Reading 1: phone battery level \(82%\)/.test(page), 'reading 1 described with its value');
+  assert.ok(/Reading 2: weather temperature/.test(page), 'reading 2 described');
+  assert.ok(/Reading 4: finance price/.test(page), 'reading 4 described');
+  assert.ok(!/Reading 5/.test(page), 'no fifth reading in the list');
+});
+
+test('readings: the watch\'s request re-sends them; none chosen sends none', function() {
+  setup({ plugins: [], settings: { METRIC1: '15' } });
+  ready();
+  sub('preferences', 'complications').data(complicationsEnvelope(DEFAULT_SLOTS));
+  sub('phone', 'phone_state').data(phoneEnvelope(82, true));
+  advance(100);
+  resetTake();
+  fromWatch({ PLUGIN_REQUEST: 1 });
+  advance(100);
+  assert.deepStrictEqual(take(READING_KEYS), [{ READING1_TEXT: '82%', READING1_LABEL: '' }]);
+
+  setup({ plugins: [] });
+  resetTake();
+  ready();
+  sub('preferences', 'complications').data(complicationsEnvelope(DEFAULT_SLOTS));
+  advance(20000);
+  assert.deepStrictEqual(take(READING_KEYS), []);
+  assert.strictEqual(sub('phone', 'phone_state'), null);
+});
+
+test('a source that never answers stops showing whatever it showed last', function() {
+  setup({ plugins: [], settings: { METRIC1: '14' } });
+  resetTake();
+  ready();
+  advance(16000);
+  assert.deepStrictEqual(take(PHONE_KEYS), [{ PHONE_BATTERY: -1 }]);
+});
+
 // ---------------------------------------------------------------------------
 
 var failures = 0;
