@@ -1,6 +1,6 @@
 // Data from the Pebble app's plugins (Pebble mobile app 1.15+, with plugins
 // switched on): weather, units, calendar, phone state and the user's own
-// favourite readings, read from the phone instead of fetched by us.
+// favorite readings, read from the phone instead of fetched by us.
 //
 // Everything here is optional. Without `Pebble.subscribeToSource` (older
 // apps, the emulator's pypkjs, plugins switched off) nothing subscribes and
@@ -493,9 +493,29 @@ var PLUGIN_GROUPS = ['event', 'phone', 'reading1', 'reading2', 'reading3', 'read
                      'reading5'];
 
 // The watch asks when it has heard nothing for a while: re-send everything
-// we have, so it knows the phone is still here.
+// we have, so it knows the phone is still here. A chosen item with nothing
+// to show yet (or ever, without the plugin API) answers empty, which also
+// stops the watch asking again every five minutes.
 Bridge.prototype.answerPluginRequest = function() {
-  this.outbox.resend(PLUGIN_GROUPS);
+  var self = this;
+  var chosen = this.selectedMetrics();
+  PLUGIN_GROUPS.forEach(function(name) {
+    if (self.outbox.latest(name)) {
+      self.outbox.resend([name]);
+    } else if (name === 'event' && chosen.indexOf(METRIC_NEXT_EVENT) !== -1) {
+      self.outbox.offer(name, eventDict(null), true);
+    } else if (name === 'phone' && chosen.indexOf(METRIC_PHONE_BATTERY) !== -1) {
+      self.outbox.offer(name, { PHONE_BATTERY: -1 }, true);
+    } else if (/^reading\d$/.test(name)) {
+      var n = +name.charAt(7);
+      if (chosen.indexOf(METRIC_READING_1 + n - 1) !== -1) {
+        var dict = {};
+        dict['READING' + n + '_TEXT'] = '';
+        dict['READING' + n + '_LABEL'] = '';
+        self.outbox.offer(name, dict, true);
+      }
+    }
+  });
 };
 
 // --- units (A2) -------------------------------------------------------------
@@ -847,7 +867,7 @@ Bridge.prototype.offerReadings = function() {
   this.wantedReadings().forEach(function(n) {
     var slot = self.slots[n - 1];
     var text = '', label = '';
-    if (slot) {
+    if (slot && slot.category && slot.item && slot.property) {
       var envelope = self.readingData[sourceKey(slot)];
       if (envelope === undefined) { return; }   // still waiting for it
       var instance = envelope && envelope.instances && envelope.instances[slot.index];

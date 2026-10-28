@@ -829,6 +829,18 @@ test('readings: reordering the list in the Pebble app moves the slots', function
   });
 });
 
+test('readings: an entry missing its property is sent empty, not left waiting', function() {
+  setup({ plugins: [], settings: { METRIC1: '15' } });
+  resetTake();
+  ready();
+  sub('preferences', 'complications').data(complicationsEnvelope([
+    { category: 'phone', item: 'phone_state', property: '' },
+  ]));
+  advance(100);
+  assert.deepStrictEqual(take(READING_KEYS), [{ READING1_TEXT: '', READING1_LABEL: '' }]);
+  assert.strictEqual(sub('phone', 'phone_state'), null);
+});
+
 test('readings: a number without text is shown with its unit', function() {
   setup();
   var t = require(path.join(PKJS, 'plugins.js'))._test;
@@ -883,6 +895,22 @@ test('readings: the watch\'s request re-sends them; none chosen sends none', fun
   advance(20000);
   assert.deepStrictEqual(take(READING_KEYS), []);
   assert.strictEqual(sub('phone', 'phone_state'), null);
+});
+
+test('without the plugin API, the watch\'s request is answered empty', function() {
+  setup({ settings: { METRIC1: '14', METRIC2: '13', METRIC3: '16' } });
+  resetTake();
+  ready();
+  fromWatch({ PLUGIN_REQUEST: 1 });
+  advance(100);
+  var got = {};
+  take(/^(PHONE|EVENT|READING)/).forEach(function(d) {
+    Object.keys(d).forEach(function(k) { got[k] = d[k]; });
+  });
+  assert.deepStrictEqual(got, {
+    PHONE_BATTERY: -1, EVENT_NAME: '', EVENT_START: 0, EVENT_END: 0, EVENT_ALL_DAY: 0,
+    READING2_TEXT: '', READING2_LABEL: '',
+  });
 });
 
 test('a source that never answers stops showing whatever it showed last', function() {

@@ -91,7 +91,7 @@ typedef enum {
   // From the Pebble app's plugins, read by the phone; hidden without data.
   METRIC_NEXT_EVENT = 13,
   METRIC_PHONE_BATTERY = 14,
-  // The user's favourite readings, picked in the Pebble app
+  // The user's favorite readings, picked in the Pebble app
   // (preferences/complications), in its order.
   METRIC_READING_1 = 15,
   METRIC_READING_2 = 16,
