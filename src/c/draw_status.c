@@ -177,9 +177,9 @@ static time_t prv_woke_at(void) {
 }
 #endif
 
-// Each battery shows on its own once it is at the user's threshold or below.
-static bool prv_battery_low_enough(int percent) {
-  return g_settings.battery_below == 0 || percent <= g_settings.battery_below;
+// A battery shows once it is at the user's threshold for it or below.
+static bool prv_battery_low_enough(int percent, uint8_t below) {
+  return below == 0 || percent <= below;
 }
 
 // Today's high and low, if the forecast arrived today.
@@ -197,7 +197,7 @@ static bool prv_metric_text(uint8_t metric, char *buf, size_t len, bool compact)
   switch (metric) {
     case METRIC_BATTERY: {
       BatteryChargeState st = battery_state_service_peek();
-      if (!prv_battery_low_enough(st.charge_percent)) { return false; }
+      if (!prv_battery_low_enough(st.charge_percent, g_settings.battery_below)) { return false; }
       snprintf(buf, len, compact ? "%d" : "%d%%", st.charge_percent);
       return true;
     }
@@ -309,7 +309,9 @@ static bool prv_metric_text(uint8_t metric, char *buf, size_t len, bool compact)
     // The watch can't read the phone's battery; the phone tells it.
     case METRIC_PHONE_BATTERY:
       if (g_plugin.phone_battery < 0 || prv_plugin_stale()
-          || !prv_battery_low_enough(g_plugin.phone_battery)) { return false; }
+          || !prv_battery_low_enough(g_plugin.phone_battery, g_settings.phone_battery_below)) {
+        return false;
+      }
       snprintf(buf, len, compact ? "%d" : "%d%%", (int) g_plugin.phone_battery);
       return true;
     // Text only: a reading from any plugin has no glyph of its own.

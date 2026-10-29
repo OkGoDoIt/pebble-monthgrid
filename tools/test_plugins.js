@@ -556,8 +556,8 @@ test('the old settings page\'s choices carry over, and reach the watch once', fu
   resetTake();
   ready();
   var state = storedState();
-  assert.deepStrictEqual(state.status, ['conn', 'battery', 'calories']);
-  assert.strictEqual(state.opts.battery.source, 'both');
+  assert.deepStrictEqual(state.status, ['conn', 'battery', 'phoneBattery', 'calories'],
+                         'each battery is its own item, in the order it had');
   assert.strictEqual(state.event.place, 'off', 'no event for someone who never chose one');
   assert.strictEqual(state.calendars[0], 'https://example.com/a.ics');
   var sent = take(/^(THEME|METRICS|TEMP_UNIT|VIBE_DISCONNECT|CAL1_COLOR|EVENT_PLACE|CAL1_URL)$/);
@@ -745,7 +745,7 @@ function phoneEnvelope(level, wifi) {
   };
 }
 
-var PHONE_KEYS = /^PHONE_/;
+var PHONE_KEYS = /^PHONE_BATTERY$/;
 var PHONE_PLUGIN = [{
   uuid: '00000000-0000-0000-0001-000000000001', name: 'Phone',
   sources: [{ category: 'phone', items: ['phone_state'], properties: {} }], actions: [],
@@ -954,7 +954,7 @@ test('without the plugin API, the watch\'s request is answered empty', function(
   fromWatch({ PLUGIN_REQUEST: 1 });
   advance(100);
   var got = {};
-  take(/^(PHONE_BATTERY|EVENT_(NAME|START|END|ALL_DAY)|ALLDAY_|READING\d_)/).forEach(function(d) {
+  take(/^(PHONE_BATTERY$|EVENT_(NAME|START|END|ALL_DAY)|ALLDAY_|READING\d_)/).forEach(function(d) {
     Object.keys(d).forEach(function(k) { got[k] = d[k]; });
   });
   assert.deepStrictEqual(got, noAllDay({
@@ -1117,9 +1117,9 @@ test('the settings model keeps the event row and the lead time consistent', func
   assert.strictEqual(d.EVENT_PLACE, 4);
   assert.strictEqual(d.EVENT_WITHIN, 0, 'any time today');
   d = Model.toWatch(Model.normalize({ status: ['sleep', 'alarm', 'reading2'], opts: { sleep: { wake: 'on', kind: 'deep' },
-    alarm: { when: '12h' }, reading2: { label: 'label' }, battery: { when: '20' } } }), null);
-  assert.deepStrictEqual([d.SLEEP_AFTER_WAKE, d.SLEEP_KIND, d.ALARM_WITHIN, d.READING_LABELS, d.BATTERY_BELOW],
-                         [1, 1, 12, 2, 20]);
+    alarm: { when: '12h' }, reading2: { label: 'label' }, battery: { when: '20' }, phoneBattery: { when: '50' } } }), null);
+  assert.deepStrictEqual([d.SLEEP_AFTER_WAKE, d.SLEEP_KIND, d.ALARM_WITHIN, d.READING_LABELS, d.BATTERY_BELOW,
+                          d.PHONE_BATTERY_BELOW], [1, 1, 12, 2, 20, 50], 'each battery has its own threshold');
   assert.deepStrictEqual(d.METRICS, [8, 11, 16]);
 });
 
@@ -1130,7 +1130,6 @@ test('the largest settings message fits the watch\'s inbox', function() {
   var state = Model.defaultState();
   state.status = Model.ITEMS.map(function(it) { return it.id; }).concat(['event']);
   state.event.place = 'line';
-  state.opts.battery = { source: 'both' };
   var dict = Model.toWatch(Model.normalize(state), null);
   assert.strictEqual(dict.METRICS.length, 18, 'every item, none dropped');
   // Byte arrays count their length; everything else as dictBytes does.

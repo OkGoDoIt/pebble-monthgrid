@@ -7,7 +7,7 @@
 //   look: { THEME, TIME_FONT, ..., CUSTOM_BG, GRID_COLOR, CAL1_COLOR, ... }
 //         (the watch's own setting names; colors are Pebble colors 0..63),
 //   status: ['battery', 'weather', 'event', ...]   most important first,
-//   opts: { battery: { source, when }, ... }          an item's own options,
+//   opts: { battery: { when }, weather: { detail }, ... }   an item's own options,
 //   event: { place, today, minutes, style },
 //   calendars: [url, url, url]                        never sent to the watch,
 // }
@@ -38,18 +38,17 @@
     return o;
   }
 
-  // The status items. One item can stand for more than one watch metric
-  // (Battery: the watch's, the phone's, or both). needs: what the watch or
-  // phone must have for the item to be offered.
+  // When a battery shows: always, or once it gets low.
+  function lowOpt() {
+    return opt('when', 'Show it', 'menu', [['always', 'Always'], ['50', 'At 50% or less'], ['20', 'At 20% or less']],
+      'always');
+  }
+
+  // The status items. needs: what the watch or phone must have for the item
+  // to be offered.
   var ITEMS = [
-    { id: 'battery', name: 'Battery', options: [
-      opt('source', 'Which battery', 'seg', [['watch', 'Watch'], ['phone', 'Phone'], ['both', 'Both']], 'watch',
-        { needs: 'phone', summary: { both: 'Watch and phone' } }),
-      opt('when', 'Show it', 'menu', [['always', 'Always'], ['50', 'At 50% or less'], ['20', 'At 20% or less']],
-        'always', { note: function (st) {
-          return value(st, 'battery', 'source') === 'both' && value(st, 'battery', 'when') !== 'always'
-            ? 'Each battery shows on its own once it gets that low.' : null;
-        } })] },
+    { id: 'battery', name: 'Watch battery', options: [lowOpt()] },
+    { id: 'phoneBattery', name: 'Phone battery', needs: 'phone', options: [lowOpt()] },
     { id: 'weather', name: 'Weather', options: [
       opt('detail', 'Show', 'menu', [['now', 'Now'], ['range', 'Now, high, and low'], ['hours', 'Next 3 hours']], 'now'),
       opt('unit', 'Unit', 'seg', [['f', '°F'], ['c', '°C']], 'f', { needs: 'units' })] },
@@ -194,7 +193,7 @@
   // ---- From the old settings page (Clay) ------------------------------------------
   // Clay kept its values by message key in localStorage ('clay-settings').
   var FROM_METRIC = { 1: 'battery', 2: 'weather', 3: 'steps', 4: 'distance', 5: 'heart', 6: 'active', 7: 'calories',
-    8: 'sleep', 9: 'week', 10: 'conn', 11: 'alarm', 12: 'calories', 13: 'event', 14: 'battery' };
+    8: 'sleep', 9: 'week', 10: 'conn', 11: 'alarm', 12: 'calories', 13: 'event', 14: 'phoneBattery' };
   function fromClay(clay) {
     var s = defaultState(), look = s.look;
     function has(k) { return clay[k] !== undefined && clay[k] !== null && clay[k] !== ''; }
@@ -216,8 +215,6 @@
       var id = m >= M.READING_1 && m < M.READING_1 + NUM_READINGS ? 'reading' + (m - M.READING_1 + 1) : FROM_METRIC[m];
       if (id && s.status.indexOf(id) < 0) { s.status.push(id); }
     });
-    var watchBattery = metrics.indexOf(M.BATTERY) >= 0, phoneBattery = metrics.indexOf(M.PHONE_BATTERY) >= 0;
-    if (phoneBattery) { s.opts.battery = { source: watchBattery ? 'both' : 'phone' }; }
     if (metrics.indexOf(M.CALORIES_TOTAL) >= 0 && metrics.indexOf(M.CALORIES) < 0) { s.opts.calories = { count: 'total' }; }
     // Someone who had the event in their status line keeps it there; no one
     // else starts seeing events they never asked for.
@@ -239,10 +236,8 @@
     state.status.forEach(function (id) {
       var v = function (k) { return value(state, id, k); };
       switch (id) {
-        case 'battery':
-          if (v('source') !== 'phone') { push(M.BATTERY); }
-          if (v('source') !== 'watch') { push(M.PHONE_BATTERY); }
-          break;
+        case 'battery': push(M.BATTERY); break;
+        case 'phoneBattery': push(M.PHONE_BATTERY); break;
         case 'weather': push(M.WEATHER); break;
         case 'steps': push(M.STEPS); break;
         case 'distance': push(M.DISTANCE); break;
@@ -273,8 +268,9 @@
     d.TEMP_UNIT = units ? (units.fahrenheit ? 1 : 0) : (value(state, 'weather', 'unit') === 'c' ? 0 : 1);
     d.DIST_UNIT = units ? (units.miles ? 1 : 0) : (value(state, 'distance', 'unit') === 'km' ? 0 : 1);
     d.VIBE_DISCONNECT = value(state, 'conn', 'vibe') === 'on' ? 1 : 0;
-    var below = value(state, 'battery', 'when');
-    d.BATTERY_BELOW = below === 'always' ? 0 : Number(below);
+    var below = function (id) { var w = value(state, id, 'when'); return w === 'always' ? 0 : Number(w); };
+    d.BATTERY_BELOW = below('battery');
+    d.PHONE_BATTERY_BELOW = below('phoneBattery');
     d.WEATHER_DETAIL = ['now', 'range', 'hours'].indexOf(value(state, 'weather', 'detail'));
     d.STEPS_SHOW = value(state, 'steps', 'show') === 'usual' ? 1 : 0;
     d.SLEEP_KIND = value(state, 'sleep', 'kind') === 'deep' ? 1 : 0;

@@ -35,7 +35,7 @@ If you test it on any other Pebble watch models, please let me know if you find 
   12-hour mode doesn't show a leading zero. Optional seconds (off by default; the
   face ticks once a minute to save battery unless enabled).
 - **Status line** — add items in priority order, as many as you like. As many as fit on the watch are shown. Items with nothing to report are hidden automatically. Choose from:
-  - Battery: the watch's, the phone's, or both, always or only once low
+  - Watch battery and Phone battery, each always or only once low
   - Weather (condition icon + temperature, °F/°C), with today's high and low or the next three hours
   - Steps (today's count, or ahead of or behind your usual), Distance walked (mi/km),
     Heart rate, Active minutes, Calories (active, or active and resting), Sleep (all
@@ -148,7 +148,8 @@ options open in place:
 
 | Item | Options |
 |---|---|
-| Battery | The watch's, the phone's, or both; always, or at 50% or 20% or less (each battery on its own) |
+| Watch battery | Always, or at 50% or 20% or less |
+| Phone battery | Always, or at 50% or 20% or less |
 | Weather | Now; now with today's high and low; or now and the next three hours. °F or °C |
 | Steps | Today's count, or ahead of or behind your usual by now |
 | Distance walked | Miles or kilometers |
@@ -222,7 +223,7 @@ keep it under the debug options), and MonthGrid uses it:
 | Weather | The status-line weather comes from your preferred weather provider in the Pebble app (`weather/location`). Open-Meteo is only used when that can't be read. | 1.15+ |
 | Units | °F/°C and miles/km follow the Pebble app, and the settings page stops asking. | 1.16+ |
 | **Next calendar event** | See [Next event](#next-event): `Standup in 23m`, `Lunch 1h05`, then the time of day, `tmrw` for tomorrow, `now` once it has begun. The phone sends the next timed event and today's all-day one; long names are cut at a word. | 1.15+, needs the Calendar permission |
-| **Phone battery** | The Battery item can show the phone's battery too. | 1.15+ |
+| **Phone battery** | Its own status item. | 1.15+ |
 | **Reading 1–5** | Status items showing the readings you picked in the Pebble app (**Settings → Plugins → Complications**), in that order. Change them there and the face follows; the settings page shows what each one currently is. | 1.16+ |
 | Forecast | Today's high and low and the next three hours, for the Weather item's options (from Open-Meteo otherwise). | 1.16+ (high/low on 1.15) |
 

@@ -100,6 +100,7 @@ void settings_sanitize(Settings *s) {
     if (s->metrics[i] >= METRIC_TYPE_COUNT) { s->metrics[i] = METRIC_NONE; }
   }
   if (s->battery_below > 100) { s->battery_below = 0; }
+  if (s->phone_battery_below > 100) { s->phone_battery_below = 0; }
   if (s->weather_detail >= WEATHER_DETAIL_COUNT) { s->weather_detail = WEATHER_NOW; }
   if (s->event_place >= EVENT_PLACE_COUNT) { s->event_place = EVENT_BAR; }
   if (s->event_within > 24 * 60) { s->event_within = 24 * 60; }

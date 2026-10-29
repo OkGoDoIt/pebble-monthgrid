@@ -195,6 +195,7 @@ static const struct {
   SETTING(CAL2_COLOR, cal_colors[1], SET_COLOR),
   SETTING(CAL3_COLOR, cal_colors[2], SET_COLOR),
   SETTING(BATTERY_BELOW, battery_below, SET_NUM),
+  SETTING(PHONE_BATTERY_BELOW, phone_battery_below, SET_NUM),
   SETTING(WEATHER_DETAIL, weather_detail, SET_NUM),
   SETTING(STEPS_SHOW, steps_vs_usual, SET_FLAG),
   SETTING(SLEEP_KIND, sleep_deep, SET_FLAG),

@@ -125,7 +125,7 @@
   function optionsOf(c, id) {
     return (Model.BY_ID[id].options || []).filter(function (o) { return can(c, o.needs); });
   }
-  // An item's choices in a few words, for its row: "Watch and phone · at 50% or less".
+  // An item's choices in a few words, for its row: "Now, high, and low · °F".
   function summary(c, id) {
     var st = c.store.state;
     if (id === 'event') {
@@ -212,6 +212,8 @@
   // Two lists: what's on the watch, most important first, and everything
   // else. The minus moves an item down, the plus moves it up; nothing is
   // lost either way, and Undo puts a removed item back where it was.
+  // Why a chosen item can't show, when it isn't the watch's doing.
+  var MISSING = { event: 'Needs the Pebble app’s calendar', phoneBattery: 'Needs a newer Pebble app' };
   function statusTab(c) {
     var store = c.store, ui = c.ui, rows = c.r.plan.rows;
     var lastShown = -1, anyRoom = rows.some(function (r) { return r.state === 'room'; });
@@ -223,7 +225,7 @@
       var missing = !can(c, Model.BY_ID[id].needs);
       if (missing) { r.state = 'hidden'; }
       var hasOptions = !missing && (id === 'event' || optionsOf(c, id).length > 0);
-      var line2 = missing ? (id === 'event' ? 'Needs the Pebble app’s calendar' : 'Not on this watch')
+      var line2 = missing ? MISSING[id] || 'Not on this watch'
         : hasOptions ? summary(c, id)
         : r.state === 'room' ? 'Waits for room on the watch' : r.state === 'hidden' ? r.why : '';
       var pic = MG.chip(view(c, store.state), id, c.data, c.ctx, 104);

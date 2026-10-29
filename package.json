@@ -119,7 +119,8 @@
       "EVENT_STYLE",
       "ALLDAY_NAME",
       "ALLDAY_START",
-      "ALLDAY_END"
+      "ALLDAY_END",
+      "PHONE_BATTERY_BELOW"
     ],
     "resources": {
       "media": [

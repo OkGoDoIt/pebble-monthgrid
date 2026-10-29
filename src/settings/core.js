@@ -106,13 +106,12 @@
         if (text !== undefined) { overrides[m] = { text: text }; }
       };
       switch (id) {
-        case 'battery': {
-          // A threshold applies to each battery on its own.
+        case 'battery':
+        case 'phoneBattery': {
           var lim = v('when') === 'always' ? 100 : Number(v('when'));
-          var src = Model.canShow('phone', ctx) ? v('source') : 'watch';
-          if (src !== 'phone' && data.battery.percent <= lim) { push(M.BATTERY); }
-          if (src !== 'watch' && data.phoneBattery <= lim) { push(M.PHONE_BATTERY); }
-          if (!row.metrics.length && !row.overflow) { row.why = 'Shows at ' + lim + '% or less'; }
+          var phone = id === 'phoneBattery';
+          if ((phone ? data.phoneBattery : data.battery.percent) <= lim) { push(phone ? M.PHONE_BATTERY : M.BATTERY); }
+          else { row.why = 'Shows at ' + lim + '% or less'; }
           break;
         }
         case 'weather': {
@@ -252,11 +251,12 @@
   // when it does.
   function whenShown(id, state, data) {
     switch (id) {
-      case 'battery': {
-        var lim = value(state, 'battery', 'when');
+      case 'battery':
+      case 'phoneBattery': {
+        var lim = value(state, id, 'when');
         lim = lim === 'always' ? 100 : Number(lim);
-        return merge(data, { battery: { percent: Math.min(data.battery.percent, lim - 8) },
-          phoneBattery: Math.min(data.phoneBattery, lim - 11) });
+        return id === 'battery' ? merge(data, { battery: { percent: Math.min(data.battery.percent, lim - 8) } })
+          : merge(data, { phoneBattery: Math.min(data.phoneBattery, lim - 11) });
       }
       case 'event': return merge(data, { event: BASE.event, now: new Date(BASE.event.start - 12 * 60000) });
       case 'conn': return merge(data, { connected: false });

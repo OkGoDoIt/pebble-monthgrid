@@ -207,7 +207,7 @@ typedef struct __attribute__((__packed__)) {
   uint8_t grid_lines;       // draw borders around the month grid cells
   uint8_t grid_color;       // GColor8 .argb for the borders (color platforms)
   // Status items' own options.
-  uint8_t battery_below;    // 0 = always; else each battery shows at this % or less
+  uint8_t battery_below;    // 0 = always; else the watch battery shows at this % or less
   uint8_t weather_detail;   // WeatherDetail
   uint8_t steps_vs_usual;   // 1 = ahead or behind the usual count by now
   uint8_t sleep_deep;       // 1 = deep sleep only
@@ -218,6 +218,7 @@ typedef struct __attribute__((__packed__)) {
   uint8_t event_place;      // EventPlace
   uint16_t event_within;    // minutes before it starts it may show; 0 = any time today
   uint8_t event_time_only;  // in the status line: the time and a calendar mark
+  uint8_t phone_battery_below;   // like battery_below, for the phone's battery
 } Settings;
 
 // Tenths of a degree Celsius, so a whole-degree Fahrenheit reading from the
