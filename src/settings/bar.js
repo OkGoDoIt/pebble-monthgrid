@@ -134,6 +134,9 @@
 
   // ---- The ladder -----------------------------------------------------------
   var MIN_NAME = 3;   // a name shorter than this, plus "…", says nothing
+  // What a cut name shouldn't end on: spaces, punctuation, dashes, and an
+  // ellipsis the phone already added (trim_name_end in event.c).
+  function trimEnd(s) { return s.replace(/[ ,.;:\-\u2013\u2014\u2026]+$/, ''); }
   var widthCache = {};
   function width(text, font) {
     var k = font + '\u0000' + text;
@@ -189,10 +192,10 @@
       }
     }
     // 2. The shortest date; the name loses letters from its end, the time stays.
-    var d = dates[dates.length - 1], cps = Array.from(name.replace(/…$/, ''));
+    var d = dates[dates.length - 1], cps = Array.from(trimEnd(name));
     for (var n = cps.length - 1; n >= MIN_NAME; n--) {
       rung++;
-      var cut = cps.slice(0, n).join('').replace(/[\s,.;:–—-]+$/, '') + '…';
+      var cut = trimEnd(cps.slice(0, n).join('')) + '…';
       var e = t.text ? cut + ' ' + t.text : cut;
       if (fits(d, e, false, 'cut')) { return done(d, e, false, 'cut'); }
     }
@@ -278,7 +281,7 @@
 
   var MGBar = { WATCHES: WATCHES, LOCALES: LOCALES, compose: compose, paint: paint, strip: strip,
     dateLadder: dateLadder, when: when, cutName: cutName, cutBytes: cutBytes, width: width,
-    calMark: calMark, barRect: barRect, upperAll: upperAll, upperAscii: upperAscii };
+    calMark: calMark, barRect: barRect, upperAll: upperAll, upperAscii: upperAscii, trimEnd: trimEnd };
   if (typeof module === 'object' && module.exports) { module.exports = MGBar; }
   else { global.MGBar = MGBar; }
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -19,9 +19,9 @@
     var full = sentence(name, w), compact = w.text ? name + ' ' + w.text : name;
     if (width(full) <= room) { return full; }
     if (width(compact) <= room) { return compact; }
-    var cps = Array.from(name.replace(/…$/, ''));
+    var cps = Array.from(Bar().trimEnd(name));
     for (var n = cps.length - 1; n >= 3; n--) {
-      var t = cps.slice(0, n).join('').replace(/[\s,.;:–—-]+$/, '') + '…' + (w.text ? ' ' + w.text : '');
+      var t = Bar().trimEnd(cps.slice(0, n).join('')) + '…' + (w.text ? ' ' + w.text : '');
       if (width(t) <= room) { return t; }
     }
     return w.text;

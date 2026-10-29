@@ -924,7 +924,8 @@
       w = text ? measureText(text, fontKey).w : 0;
       if (maxW <= 0 || w <= maxW || !chars.length) { return { text: text, w: w }; }
       chars.pop();
-      while (chars.length && chars[chars.length - 1] === ' ') { chars.pop(); }
+      // trim_name_end: spaces, punctuation, dashes, an ellipsis.
+      while (chars.length && /[ ,.;:\-\u2013\u2014\u2026]/.test(chars[chars.length - 1])) { chars.pop(); }
       cut = true;
     }
   }

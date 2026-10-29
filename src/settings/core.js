@@ -85,7 +85,8 @@
           overrides[M.EVENT] = { text: global.MGEvent.sentence(ev.name, w), icon: M.EVENT };
         } else { eventWhy = 'Takes over the line ' + Model.TAKE_MIN + ' minutes before'; }
       } else if (E.place === 'line') {
-        overrides[M.EVENT] = E.style === 'short' ? { text: w.text, icon: M.EVENT }
+        // Time only; an all-day event has no time, so its name stays.
+        overrides[M.EVENT] = E.style === 'short' ? { text: w.text || ev.name, icon: M.EVENT }
           : { text: w.text ? ev.name + ' ' + w.text : ev.name, icon: null };
       } else {
         event = { place: E.place, ev: ev, name: ev.name, when: w };
