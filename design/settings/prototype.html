@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>MonthGrid settings prototype</title>
+<title>MonthGrid settings</title>
 <link rel="stylesheet" href="core.css">
 <style>
   html, body { margin: 0; height: 100%; }
@@ -13,13 +13,16 @@
 </style>
 </head>
 <body>
+<!-- The settings page as the Pebble app would show it, full screen. -->
 <div id="frame"></div>
+<script src="../preview/monthgrid-fonts.js"></script>
 <script src="../preview/monthgrid-face.js"></script>
+<script src="bar.js"></script>
 <script src="core.js"></script>
-<script src="directions.js"></script>
+<script src="event.js"></script>
+<script src="page.js"></script>
 <script>
-  var d = (location.hash || '#pictures').slice(1);
-  (MGDirections[d] || MGDirections.pictures)(document.getElementById('frame'));
+  MGPage.mount(document.getElementById('frame'), { tab: (location.hash || '#time').slice(1) });
 </script>
 </body>
 </html>

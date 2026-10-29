@@ -1,26 +1,19 @@
-// The review page: tabs on narrow screens, the three prototypes, the
-// month-bar lab, the hard cases, and the own-line and Quick View moments.
+// The review page: the settings page in its phone with notes that open its
+// tabs, the month-bar lab, the hard cases, and the own-line and Quick View moments.
 (function () {
   'use strict';
   var Face = window.MonthGridFace, Bar = window.MGBar;
   function $(id) { return document.getElementById(id); }
   function el(tag, attrs, kids) { return MG.el(tag, attrs, kids); }
 
-  // Tabs only matter below the width where all three phones fit side by side.
-  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tabs [role="tab"]'));
-  function select(tab) {
-    tabs.forEach(function (t) {
-      var on = t === tab;
-      t.setAttribute('aria-selected', String(on));
-      $(t.getAttribute('aria-controls')).classList.toggle('off', !on);
+  // The settings page itself. A note's tab name opens that tab in the phone.
+  var page = MGPage.mount($('mount'));
+  document.querySelectorAll('[data-go]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      page.go(b.getAttribute('data-go'));
+      var phone = $('phone'), box = phone.getBoundingClientRect();
+      if (box.top < 0 || box.bottom > innerHeight) { phone.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
     });
-  }
-  tabs.forEach(function (t) { t.addEventListener('click', function () { select(t); }); });
-  select(tabs[0]);
-
-  document.querySelectorAll('.mount').forEach(function (m) {
-    try { MGHybrids[m.getAttribute('data-dir')](m); }
-    catch (e) { m.textContent = 'This prototype failed to draw: ' + e.message; console.error(e); }
   });
 
   // A canvas of rgba pixels at a whole-pixel scale.
@@ -43,9 +36,10 @@
     sel.value = value;
   }
   fill($('lab-watch'), Object.keys(Bar.WATCHES).map(function (k) { return [k, Bar.WATCHES[k].name]; }), 'emery');
-  fill($('lab-content'), MG.CONTROLS.month[1].choices.map(function (c) { return [c[0], c[1]]; }), '2');
+  fill($('lab-content'), [[0, 'Month'], [1, 'Month and day'], [2, 'Weekday, month, and day'], [3, 'Month, day, and year'],
+    [4, 'Weekday, date, and year'], [5, 'Numbers']], '2');
   fill($('lab-locale'), Object.keys(Bar.LOCALES).map(function (k) { return [k, Bar.LOCALES[k].label]; }), 'en-US');
-  fill($('lab-theme'), MG.CONTROLS.colors[0].choices.map(function (c) { return [c[0], c[1]]; }), '0');
+  fill($('lab-theme'), Face.THEME_NAMES.slice(0, 10).map(function (n, i) { return [i, n]; }), '0');
   fill($('lab-date'), DATES.map(function (d, i) { return [i, d[0]]; }), '0');
   fill($('lab-when'), WHENS.map(function (w, i) { return [i, w[0]]; }), '2');
 
@@ -153,10 +147,10 @@
   }
   function moment(place, now, qv, look) {
     var s = MG.defaultState();
-    s.opts.event = { place: place };
+    s.event.place = place;
     Object.keys(look || {}).forEach(function (k) { s.look[k] = look[k]; });
     var day = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 0);
-    var data = MG.merge(MG.NOW.data, { now: now, quickView: qv,
+    var data = MG.merge(MG.BASE, { now: now, quickView: qv,
       event: { name: 'Standup', start: day, end: new Date(day.getTime() + 15 * 60000), allDay: false } });
     var r = MG.draw(s, data);
     if (qv) { quickView(r, 'Standup', 'In ' + Math.round((day - now) / 60000) + ' minutes'); }

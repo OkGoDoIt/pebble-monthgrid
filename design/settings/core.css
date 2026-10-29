@@ -1,17 +1,19 @@
-/* Shared look for the settings-page studies: the Pebble app's own palette
-   (core orange on white, or on black in dark mode), system type. */
+/* MonthGrid's settings page, in the Pebble app's own look: core orange on
+   white, or on black in dark mode, with system type. */
 .mg {
   --bg: #ffffff;
-  --card: #f3f2f4;
+  --card: #f2f1f4;
   --raised: #ffffff;
   --ink: #1c1b1f;
-  --muted: #5f5b66;
-  --line: #e2e0e5;
+  --muted: #625e69;
+  --line: #e3e1e6;
   --accent: #fa4a36;
   --accent-ink: #c4301e;
   --on-accent: #ffffff;
-  --ok: #157a30;
-  --sheet-shadow: 0 -8px 28px rgba(0, 0, 0, .18);
+  --remove: #e5413a;
+  --add: #2e9a4b;
+  --tab-on: #ffffff;
+  --shadow: 0 1px 3px rgba(0, 0, 0, .16);
   --radius: 14px;
   font: 16px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color: var(--ink);
@@ -20,209 +22,140 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .mg {
-    --bg: #000000; --card: #141414; --raised: #1f1f1f; --ink: #e6e0e9; --muted: #a39fa8;
-    --line: #2b2930; --accent-ink: #ff7a68; --sheet-shadow: 0 -8px 28px rgba(0, 0, 0, .6);
-    color-scheme: dark;
+    --bg: #000000; --card: #161618; --raised: #1f1f22; --ink: #e8e3ea; --muted: #a39fa8;
+    --line: #2c2a30; --accent-ink: #ff7a68; --remove: #ff5a50; --add: #49c26a; --tab-on: #3a3a3e;
+    --shadow: 0 1px 3px rgba(0, 0, 0, .6); color-scheme: dark;
   }
 }
 :root[data-theme="dark"] .mg {
-  --bg: #000000; --card: #141414; --raised: #1f1f1f; --ink: #e6e0e9; --muted: #a39fa8;
-  --line: #2b2930; --accent-ink: #ff7a68; --sheet-shadow: 0 -8px 28px rgba(0, 0, 0, .6);
-  color-scheme: dark;
+  --bg: #000000; --card: #161618; --raised: #1f1f22; --ink: #e8e3ea; --muted: #a39fa8;
+  --line: #2c2a30; --accent-ink: #ff7a68; --remove: #ff5a50; --add: #49c26a; --tab-on: #3a3a3e;
+  --shadow: 0 1px 3px rgba(0, 0, 0, .6); color-scheme: dark;
 }
 .mg *, .mg *::before, .mg *::after { box-sizing: border-box; }
 .mg button { font: inherit; color: inherit; }
-.mg h2 { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
-  color: var(--muted); margin: 0; }
+.mg :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .mg .pix { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
-
-/* Segmented choice: the control every per-item option uses. */
-.mg .seg { display: flex; flex-wrap: wrap; gap: 6px; }
-.mg .seg button { min-height: 36px; padding: 6px 12px; border-radius: 18px; border: 1px solid var(--line);
-  background: var(--raised); cursor: pointer; font-size: 14px; }
-.mg .seg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent);
-  color: var(--on-accent); font-weight: 600; }
-.mg .opt { display: grid; gap: 6px; }
-.mg .opt > span { font-size: 13px; color: var(--muted); }
+.mg .ico { display: inline-grid; place-items: center; flex: none; }
 .mg .note { font-size: 13px; color: var(--muted); margin: 0; }
-
-/* The status list: rows in priority order, with the fold where the watch runs out of room. */
-.mg .slist { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
-.mg .srow { display: grid; grid-template-columns: 36px minmax(0, 1fr); align-items: center; gap: 4px;
-  min-height: 56px; border-bottom: 1px solid var(--line); background: var(--bg); touch-action: pan-y; }
-.mg .srow.dragging { position: relative; z-index: 2; box-shadow: 0 6px 18px rgba(0,0,0,.25);
-  border-radius: 10px; }
-.mg .handle { width: 36px; height: 44px; display: grid; place-items: center; cursor: grab;
-  color: var(--muted); touch-action: none; background: none; border: 0; }
-.mg .srow .main { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 56px;
-  background: none; border: 0; padding: 6px 4px 6px 0; text-align: left; cursor: pointer; border-radius: 10px; }
-.mg .srow .main:active, .mg .prow:active, .mg .fhead:active, .mg .xlink:active { background: var(--card); }
+.mg .note.warn { color: var(--accent-ink); }
 .mg .label { min-width: 0; flex: 1; display: grid; gap: 1px; }
-.mg .srow .chip { flex: none; outline: 1px solid var(--line); }
-.mg .chevwrap { flex: none; display: grid; place-items: center; width: 18px; color: var(--muted); }
+.mg .name { font-weight: 500; }
+.mg .why { font-size: 13px; color: var(--muted); line-height: 1.3; }
+.mg .chevwrap { width: 16px; color: var(--muted); }
 .mg .chev { transition: transform .15s ease; }
 .mg [aria-expanded="true"] .chev { transform: rotate(90deg); color: var(--accent-ink); }
-.mg .srow.open { background: var(--card); border-radius: 12px 12px 0 0; }
-.mg .srow.open .main:active { background: none; }
-.mg .srow .name { font-weight: 500; }
-.mg .why { display: block; font-size: 13px; color: var(--muted); line-height: 1.3; }
-.mg .srow.off .chip { opacity: .45; }
-.mg .chip { border-radius: 4px; flex: none; }
-.mg .fold { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--accent-ink);
-  padding: 6px 0; font-weight: 600; }
-.mg .fold::before, .mg .fold::after { content: ""; height: 1px; flex: 1; background: currentColor; opacity: .5; }
-.mg .remove { background: none; border: 0; color: var(--muted); width: 40px; height: 40px; cursor: pointer;
-  border-radius: 20px; }
-.mg .add { display: flex; align-items: center; gap: 8px; min-height: 48px; width: 100%; border: 0;
-  background: none; color: var(--accent-ink); font-weight: 600; cursor: pointer; padding: 0; }
 
-/* The add-an-item palette: every item drawn as the watch draws it. */
-.mg .palette { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
-.mg .tile { display: grid; gap: 6px; justify-items: start; padding: 10px; border-radius: 12px;
-  border: 1px solid var(--line); background: var(--raised); text-align: left; cursor: pointer; min-height: 72px; }
-.mg .tile[disabled] { cursor: default; opacity: .6; }
-.mg .tile .why { font-size: 12px; color: var(--muted); }
+.mg.settings { display: flex; flex-direction: column; min-height: 100%; }
 
-.mg .save { min-height: 48px; padding: 0 28px; border-radius: 24px; border: 0; background: var(--accent);
-  color: var(--on-accent); font-weight: 700; font-size: 16px; cursor: pointer; }
-.mg :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.mg .toast { position: fixed; z-index: 20; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink);
-  color: var(--bg); padding: 8px 16px; border-radius: 18px; font-size: 14px; pointer-events: none; }
-
-/* Pictured choices: each option drawn as that part of the face. */
-.mg .pics { display: grid; gap: 8px; }
-.mg .pics-row { display: flex; overflow-x: auto; gap: 10px; padding-bottom: 6px; scroll-snap-type: x mandatory; }
-.mg .pic { display: grid; gap: 6px; justify-items: start; padding: 8px; border-radius: 12px; border: 2px solid transparent;
-  background: var(--card); cursor: pointer; text-align: left; font-size: 14px; scroll-snap-align: start; flex: none;
-  max-width: 100%; overflow: hidden; }
-.mg .pic canvas { max-width: 100%; height: auto !important; border-radius: 3px; outline: 1px solid var(--line); }
-.mg .pic[aria-pressed="true"] { border-color: var(--accent); background: var(--raised); font-weight: 600; }
-.mg input[type="url"] { font: inherit; font-size: 15px; min-height: 44px; padding: 8px 12px; border-radius: 10px;
-  border: 1px solid var(--line); background: var(--raised); color: var(--ink); width: 100%; }
-
-/* ---- Directions ---------------------------------------------------------- */
-.mg { min-height: 100%; }
-.mg .sec { display: grid; gap: 12px; padding: 18px 16px; border-bottom: 8px solid var(--card); }
-.mg .strip { width: 100% !important; height: auto !important; max-width: 400px; border-radius: 4px;
-  outline: 1px solid var(--line); }
-.mg .savebar { position: sticky; bottom: 0; display: flex; justify-content: center; padding: 12px 16px 16px;
-  background: linear-gradient(to top, var(--bg) 70%, transparent); z-index: 3; }
-.mg .savebar .save { width: 100%; max-width: 360px; }
-.mg .inline-opts { list-style: none; padding: 6px 12px 14px 40px; border-bottom: 1px solid var(--line);
-  background: var(--card); border-radius: 0 0 12px 12px; margin-bottom: 6px; }
-.mg .srow.open { border-bottom-color: transparent; }
-.mg .opts { display: grid; gap: 16px; }
-.mg .remove-item { justify-self: start; border: 0; background: none; color: var(--accent-ink); font-size: 14px;
-  min-height: 40px; padding: 0; cursor: pointer; }
-.mg .pics.grid2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.mg .pics.grid2 .pic, .dir-d .pics:not(.pics-row) .pic, .dir-e .pics:not(.pics-row) .pic,
-  .dir-f .pics:not(.pics-row) .pic { background: var(--raised); border-color: var(--line); border-width: 1px; padding: 7px; }
-.mg .pics:not(.pics-row) .pic[aria-pressed="true"] { border: 2px solid var(--accent); padding: 6px; }
-.mg .inline-opts .seg button:not([aria-pressed="true"]) { background: var(--raised); }
-
-/* B: the face is the menu. */
-.dir-b { display: flex; flex-direction: column; min-height: 100%; }
-.dir-b .facewrap { display: flex; justify-content: center; padding: 20px 16px 8px; position: sticky; top: 0;
-  background: var(--bg); z-index: 2; }
-.dir-b .stage { position: relative; max-width: 100%; }
-.dir-b .stage canvas { width: 100% !important; height: auto !important; border-radius: 6px; }
-.dir-b .hit { position: absolute; border: 0; background: transparent; border-radius: 4px; cursor: pointer;
-  outline: 1.5px dashed rgba(250, 74, 54, .55); outline-offset: 1px; }
-.dir-b.editing .hit { outline-color: transparent; }
-.dir-b .hit.on { outline: 2px solid var(--accent) !important; }
-.dir-b .hint { text-align: center; color: var(--muted); margin: 6px 16px; font-size: 14px; }
-.dir-b .parts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; padding: 8px 16px 16px; }
-.dir-b .part { min-height: 40px; padding: 0 14px; border-radius: 20px; border: 1px solid var(--line);
-  background: var(--raised); cursor: pointer; }
-.dir-b .savebar { margin-top: auto; }
-.dir-b .sheet { display: flex; flex-direction: column; background: var(--raised); border-radius: 18px 18px 0 0;
-  box-shadow: var(--sheet-shadow); min-height: 420px; }
-.dir-b .sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 8px; }
-.dir-b .sheet-body { padding: 4px 16px 24px; display: grid; gap: 12px; align-content: start; }
-.dir-b .sheet .srow { background: var(--raised); }
-.dir-b .done, .dir-b .back { border: 0; background: none; color: var(--accent-ink); font-weight: 600; min-height: 44px;
-  cursor: pointer; padding: 0 4px; justify-self: start; }
-.dir-b h3 { margin: 0; font-size: 18px; }
-
-/* C: a day on your wrist. */
-.dir-c .film { display: grid; gap: 8px; }
-.dir-c .moment { display: grid; grid-template-columns: 1fr; gap: 6px; padding: 8px; border-radius: 12px;
-  border: 2px solid transparent; background: var(--card); cursor: pointer; text-align: left; }
-.dir-c .moment.on { border-color: var(--accent); }
-.dir-c .moment canvas { width: 100% !important; height: auto !important; max-width: 400px; border-radius: 3px; }
-.dir-c .when { font-size: 13px; color: var(--muted); }
-.dir-c .when b { color: var(--ink); font-variant-numeric: tabular-nums; }
-.dir-c .clist { list-style: none; margin: 0; padding: 0; }
-.dir-c .crow, .dir-c .chead { display: grid; grid-template-columns: 1fr repeat(4, 44px); align-items: center;
-  min-height: 48px; border-bottom: 1px solid var(--line); }
-.dir-c .chead { min-height: 28px; font-size: 11.5px; color: var(--muted); text-align: center;
-  font-variant-numeric: tabular-nums; border-bottom: 0; }
-.dir-c .cname { border: 0; background: none; text-align: left; font-weight: 500; min-height: 44px; cursor: pointer; padding: 0; }
-.dir-c .crow.open { border-bottom-color: transparent; }
-.dir-c .mark { width: 14px; height: 14px; border-radius: 7px; justify-self: center; display: inline-block; vertical-align: -2px; }
-.dir-c .m-on { background: var(--accent); }
-.dir-c .m-room { border: 2px solid var(--accent); }
-.dir-c .m-off { border: 2px dotted var(--muted); opacity: .6; }
-.dir-c .legend { font-size: 12.5px; color: var(--muted); margin: 0; display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
-.dir-c .inline-opts { padding-left: 0; }
-.dir-c .row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-.dir-c .row-actions button { min-height: 36px; padding: 0 12px; border-radius: 18px; border: 1px solid var(--line);
-  background: var(--raised); cursor: pointer; font-size: 14px; }
-.dir-c .row-actions button[disabled] { opacity: .4; cursor: default; }
-.dir-c .disclose { display: flex; justify-content: space-between; align-items: center; border: 0; background: none;
-  min-height: 44px; padding: 0; cursor: pointer; color: var(--accent-ink); font-weight: 600; }
-.dir-c .look { display: grid; gap: 16px; }
-.dir-c .lookface { display: flex; justify-content: center; }
-.dir-c .lookctl { display: grid; gap: 22px; }
-
-/* ---- Round two: A and B together --------------------------------------------- */
-.dir-d .pics:not(.pics-row), .dir-e .pics:not(.pics-row), .dir-f .pics:not(.pics-row) {
-  grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.mg .facewrap { display: flex; justify-content: center; padding: 16px 16px 12px; }
+/* The dock: the face, then the tabs. */
+.mg .dock { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+.mg .facewrap { display: flex; justify-content: center; padding: 10px 16px 8px; }
 .mg .stage { position: relative; max-width: 100%; }
-.mg .stage canvas { width: 100% !important; height: auto !important; border-radius: 6px; display: block; }
-.mg .hit { position: absolute; border: 0; background: transparent; border-radius: 4px; cursor: pointer; padding: 0; }
-.mg .hit:hover, .mg .hit:active { outline: 2px solid rgba(250, 74, 54, .7); outline-offset: 1px; }
+.mg .stage canvas { width: 100% !important; height: auto !important; border-radius: 6px; outline: 1px solid var(--line); }
+.mg .stage.cut-bottom canvas { -webkit-mask-image: linear-gradient(#000 calc(100% - 22px), transparent);
+  mask-image: linear-gradient(#000 calc(100% - 22px), transparent); border-radius: 6px 6px 0 0; }
+.mg .stage.cut-top canvas { -webkit-mask-image: linear-gradient(transparent, #000 14px);
+  mask-image: linear-gradient(transparent, #000 14px); border-radius: 0 0 6px 6px; }
+.mg .hit { position: absolute; border: 0; padding: 0; background: transparent; border-radius: 4px; cursor: pointer; }
+.mg .hit:hover { outline: 1.5px solid rgba(250, 74, 54, .55); outline-offset: 1px; }
 .mg .hit.on { outline: 2px solid var(--accent); outline-offset: 1px; }
-.mg .thumb { border-radius: 3px; display: block; }
-.mg .thumb.empty { width: 40px; height: 12px; }
-.mg .swatches { display: flex; gap: 4px; }
-.mg .swatches span { width: 18px; height: 18px; border-radius: 9px; outline: 1px solid var(--line); }
-.mg .xlink { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px; padding: 8px 12px;
-  border: 1px solid var(--line); border-radius: 12px; background: var(--raised); text-align: left; cursor: pointer; }
-.mg .pbody { display: grid; gap: 14px; padding: 8px 16px 20px; align-content: start; }
-.mg .pbody .slist { margin-inline: -4px; }
+.mg .tabs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 2px; margin: 0 12px 10px;
+  padding: 3px; border-radius: 10px; background: var(--card); }
+.mg .tabs button { min-height: 34px; padding: 0 2px; border: 0; border-radius: 8px; background: none; cursor: pointer;
+  font-size: clamp(12px, 3.7vw, 13.5px); font-weight: 500; color: var(--muted); white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; }
+.mg .tabs button[aria-selected="true"] { background: var(--tab-on); color: var(--ink); font-weight: 650; box-shadow: var(--shadow); }
 
-/* 1: the face over a list of parts. */
-.dir-d .parts { list-style: none; margin: 4px 16px 16px; padding: 0; border-radius: var(--radius); background: var(--card);
-  overflow: hidden; }
-.dir-d .parts li + li { border-top: 1px solid var(--line); }
-.dir-d .prow, .dir-e .fhead { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px;
-  padding: 10px 12px 10px 14px; border: 0; background: none; text-align: left; cursor: pointer; }
-.dir-d .prow .name, .dir-e .fhead .name { font-weight: 600; }
-.dir-d .pagehead { position: sticky; top: 0; z-index: 3; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
-  padding: 6px 8px; background: var(--bg); border-bottom: 1px solid var(--line); }
-.dir-d .pagehead h2 { grid-column: 2; font-size: 16px; letter-spacing: 0; text-transform: none; color: var(--ink); }
-.dir-d .back { grid-column: 1; justify-self: start; display: flex; align-items: center; gap: 6px; border: 0; background: none;
-  color: var(--accent-ink); font-weight: 600; min-height: 44px; padding: 0 8px; cursor: pointer; font-size: 15px; }
-.dir-d .zoom { position: sticky; top: 57px; z-index: 2; display: flex; justify-content: center; padding: 12px 16px;
-  background: var(--bg); border-bottom: 1px solid var(--line); }
-.dir-d .zoom canvas { max-width: 100%; height: auto !important; outline: 1px solid var(--line); }
-
-/* 2: one page of folded parts. */
-.dir-e .psec { border-top: 1px solid var(--line); }
-.dir-e .psec.open .fstick { position: sticky; top: 0; z-index: 2; background: var(--bg); border-bottom: 1px solid var(--line); }
-.dir-e .fzoom { display: flex; justify-content: center; padding: 0 16px 12px; }
-.dir-e .fzoom canvas { max-width: 100%; height: auto !important; outline: 1px solid var(--line); }
-.dir-e .fbody { display: grid; gap: 14px; padding: 12px 16px 22px; }
-.dir-e .fbody .slist { margin-inline: -4px; }
-
-/* 3: the face docked with labeled tabs. */
-.dir-f .dock { position: sticky; top: 0; z-index: 3; background: var(--bg); border-bottom: 1px solid var(--line); }
-.dir-f .facewrap { padding: 12px 16px 8px; }
-.dir-f .ptabs { display: flex; gap: 4px; overflow-x: auto; padding: 0 12px 10px; scrollbar-width: none; }
-.dir-f .ptabs::-webkit-scrollbar { display: none; }
-.dir-f .ptabs button { flex: none; min-height: 38px; padding: 0 14px; border-radius: 19px; border: 1px solid var(--line);
+/* A tab's controls. */
+.mg .panel { display: grid; gap: 20px; align-content: start; padding: 16px 16px 28px; flex: 1; }
+.mg .field { display: grid; gap: 8px; }
+.mg .flabel { font-size: 13.5px; font-weight: 600; color: var(--muted); }
+.mg .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.mg .seg button { min-height: 38px; padding: 6px 14px; border-radius: 19px; border: 1px solid var(--line);
   background: var(--raised); cursor: pointer; font-size: 14.5px; }
-.dir-f .ptabs button[aria-selected="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); font-weight: 600; }
-.dir-f .pbody { padding-top: 14px; }
+.mg .seg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent);
+  font-weight: 600; }
+.mg .pics { display: grid; gap: 8px; }
+.mg .pics.cols2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.mg .pics.cols3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.mg .pic { display: grid; gap: 6px; justify-items: start; align-content: start; padding: 7px; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--raised); cursor: pointer; text-align: left; font-size: 14px; min-width: 0; }
+.mg .pic canvas { width: 100% !important; height: auto !important; border-radius: 3px; outline: 1px solid var(--line); }
+.mg .pic[aria-pressed="true"] { border: 2px solid var(--accent); padding: 6px; font-weight: 600; }
+.mg .xlink, .mg .crow { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px; padding: 8px 12px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--raised); text-align: left; cursor: pointer; }
+
+/* Status: what's on the watch, then everything else. */
+.mg .listhead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: -12px; }
+.mg .listhead h3 { margin: 0; font-size: 15px; font-weight: 650; }
+.mg .listhead span { font-size: 13px; color: var(--muted); }
+.mg .slist, .mg .mlist { list-style: none; margin: 0 -6px; padding: 0; }
+.mg .srow { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; align-items: center;
+  min-height: 58px; border-bottom: 1px solid var(--line); background: var(--bg); touch-action: pan-y; }
+.mg .srow .main { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 58px; padding: 6px 2px;
+  border: 0; background: none; text-align: left; }
+.mg .srow button.main { cursor: pointer; }
+.mg .minus, .mg .handle { width: 40px; height: 48px; display: grid; place-items: center; border: 0; background: none;
+  padding: 0; cursor: pointer; }
+.mg .minus { color: var(--remove); }
+.mg .handle { color: var(--muted); cursor: grab; touch-action: none; }
+.mg .chip { flex: none; border-radius: 4px; outline: 1px solid var(--line); }
+.mg .srow.off .chip { opacity: .45; }
+.mg .srow.open { background: var(--card); border-radius: 12px 12px 0 0; border-bottom-color: transparent; }
+.mg .srow.dragging { position: relative; z-index: 2; box-shadow: 0 6px 18px rgba(0, 0, 0, .25); border-radius: 10px; }
+.mg .srow.flash { animation: mg-flash 1.4s ease-out; }
+@keyframes mg-flash { from { background: color-mix(in srgb, var(--add) 22%, var(--bg)); } to { background: var(--bg); } }
+.mg .opts { display: grid; gap: 14px; padding: 4px 14px 16px 46px; margin-bottom: 6px; background: var(--card);
+  border-radius: 0 0 12px 12px; border-bottom: 1px solid var(--line); }
+.mg .opts .seg button:not([aria-pressed="true"]) { background: var(--raised); }
+.mg .fold { display: flex; align-items: center; gap: 8px; padding: 6px 6px; font-size: 12.5px; font-weight: 600;
+  color: var(--accent-ink); }
+.mg .fold::before, .mg .fold::after { content: ""; height: 1px; flex: 1; background: currentColor; opacity: .5; }
+.mg .empty { padding: 14px 6px; color: var(--muted); font-size: 14px; }
+.mg .pinned { border-bottom: 1px solid var(--line); }
+.mg .pinned .main { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 58px; padding: 6px 10px 6px 9px;
+  border: 0; background: none; text-align: left; cursor: pointer; }
+.mg .pinned .calico { width: 22px; margin-right: 9px; color: var(--muted); }
+.mg .mrow { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 54px; padding: 6px 6px 6px 9px;
+  border: 0; border-bottom: 1px solid var(--line); background: none; text-align: left; cursor: pointer; }
+.mg .mrow:active, .mg .srow button.main:active, .mg .xlink:active, .mg .crow:active { background: var(--card); }
+.mg .mrow .plus { color: var(--add); margin-right: 9px; }
+.mg .mgroup { padding: 16px 6px 2px; font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--muted); }
+.mg .mnote { padding: 8px 6px 0; font-size: 13px; color: var(--muted); }
+
+/* Colors. */
+.mg .themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.mg .theme { display: grid; gap: 5px; padding: 6px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--raised); cursor: pointer; font-size: 13px; text-align: center; min-width: 0; }
+.mg .theme canvas { width: 100% !important; height: auto !important; border-radius: 4px; outline: 1px solid var(--line);
+  image-rendering: auto; }
+.mg .theme[aria-pressed="true"] { border: 2px solid var(--accent); padding: 5px; font-weight: 600; }
+.mg .custom { display: grid; gap: 8px; }
+.mg .colorfield { display: grid; gap: 8px; }
+.mg .swatch { width: 28px; height: 28px; border-radius: 14px; flex: none; box-shadow: inset 0 0 0 1px rgba(127, 127, 127, .45); }
+.mg .palette { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; padding: 10px;
+  border-radius: 12px; background: var(--card); }
+.mg .pcolor { aspect-ratio: 1; border: 0; border-radius: 6px; cursor: pointer; padding: 0;
+  box-shadow: inset 0 0 0 1px rgba(127, 127, 127, .35); }
+.mg .pcolor[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--ink); }
+.mg .cals { display: grid; gap: 8px; }
+.mg .cal { display: flex; gap: 8px; align-items: center; }
+.mg .swatchbtn { width: 48px; height: 44px; display: grid; place-items: center; flex: none; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--raised); cursor: pointer; padding: 0; }
+.mg input[type="url"] { flex: 1; min-width: 0; font: inherit; font-size: 15px; min-height: 44px; padding: 8px 12px;
+  border-radius: 10px; border: 1px solid var(--line); background: var(--raised); color: var(--ink); }
+
+/* Save, always in reach. */
+.mg .savebar { position: sticky; bottom: 0; z-index: 6; display: flex; justify-content: center;
+  padding: 10px 16px calc(12px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(to top, var(--bg) 75%, transparent); }
+.mg .save { width: 100%; max-width: 360px; min-height: 48px; border-radius: 24px; border: 0; background: var(--accent);
+  color: var(--on-accent); font-weight: 700; font-size: 16px; cursor: pointer; }
+.mg .toast { position: absolute; left: 50%; bottom: calc(100% - 4px); transform: translateX(-50%); display: flex;
+  align-items: center; gap: 14px; max-width: calc(100% - 32px); padding: 8px 8px 8px 16px; border-radius: 20px;
+  background: var(--ink); color: var(--bg); font-size: 14px; white-space: nowrap; box-shadow: var(--shadow); }
+.mg .toast:not(:has(button)) { padding-right: 16px; }
+.mg .toast button { border: 0; background: none; color: inherit; font-weight: 700; padding: 6px 10px; border-radius: 14px;
+  cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .mg .chev { transition: none; } .mg .srow.flash { animation: none; } }
