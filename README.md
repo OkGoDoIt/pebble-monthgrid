@@ -34,15 +34,20 @@ If you test it on any other Pebble watch models, please let me know if you find 
   (LECO), Pixel (Silkscreen), Bitham bold / light — in three sizes.
   12-hour mode doesn't show a leading zero. Optional seconds (off by default; the
   face ticks once a minute to save battery unless enabled).
-- **Status line** — add items in priority order. As many as fit on the watch are shown. Items with nothing to report are hidden automatically. Choose from:
-  - Battery (icon + %)
-  - Weather (condition icon + temperature, °F/°C)
-  - Steps, Distance walked (mi/km), Heart rate, Active minutes, Calories, Sleep
+- **Status line** — add items in priority order, as many as you like. As many as fit on the watch are shown. Items with nothing to report are hidden automatically. Choose from:
+  - Battery: the watch's, the phone's, or both, always or only once low
+  - Weather (condition icon + temperature, °F/°C), with today's high and low or the next three hours
+  - Steps (today's count, or ahead of or behind your usual), Distance walked (mi/km),
+    Heart rate, Active minutes, Calories (active, or active and resting), Sleep (all
+    or deep, optionally only in the hour after waking)
   - Week number (ISO)
-  - Next alarm
-  - Disconnected alert
-  - With the Pebble app's plugins: next calendar event, phone battery, and your
+  - Next alarm (whenever one is set, or in the 12 hours before)
+  - Phone disconnected (optionally with a vibration)
+  - With the Pebble app's plugins: the next calendar event and your
     own readings 1–5 (see [Pebble app plugins](#pebble-app-plugins-preview))
+- **Next calendar event** — in the month bar beside the date (default), on its own line,
+  in the status line, or taking the status line over in its last 15 minutes; from
+  15 minutes to 24 hours before it starts, or any time today.
 - **Weather** from the Pebble app's own weather when its plugins are on, otherwise
   via [Open-Meteo](https://open-meteo.com/)
 - **Calendar event markers** — up to three iCal/ICS subscriptions (e.g. Google
@@ -62,11 +67,15 @@ If you test it on any other Pebble watch models, please let me know if you find 
 - **Grid borders** — optional thin table lines around the calendar cells, like the
   classic calendar faces. Pick your own border color on color watches.
 - Sunday / Monday / Saturday week start
-- Vibrate on disconnect
 
 ## Settings
 
-Everything is configured from the phone (Settings → MonthGrid). All examples below are on Pebble Time 2.
+Everything is configured from the phone (Settings → MonthGrid). The settings
+page shows your face at the top as you change it, with a tab for each part:
+Time, Status, Event, Month, Days, and Colors; tapping a part of the face opens
+its tab. The face is drawn the way Pebble Time 2 draws it (in black and white
+for black-and-white watches), and the page only offers what your watch can show.
+All examples below are on Pebble Time 2.
 
 ### Color themes
 
@@ -131,16 +140,52 @@ color.
 
 ### Status line
 
-Add items in priority order. As many as fit
-are shown; items with nothing to report (no upcoming alarm, connection fine, etc) hide instead of showing clutter. Choose from battery, weather,
-steps, distance (mi/km), heart rate, active minutes, calories, sleep, ISO week
-number, next alarm, and a disconnected alert. With the Pebble app's plugins
-switched on, three more kinds of item appear: the next calendar event, the
-phone's battery, and Readings 1–5 (see below).
+Two lists: what's on your watch, most important first, and everything else.
+The minus moves an item out (with Undo), the plus moves it in, and the handle
+reorders. As many as fit are shown; items with nothing to report (no upcoming
+alarm, connection fine, etc) hide instead of showing clutter. Items with
+options open in place:
 
-| Battery + weather (default) | Battery, weather, steps |
-|:---:|:---:|
-| ![](screenshots/settings/th_classic.png) | ![](screenshots/settings/status_five.png) |
+| Item | Options |
+|---|---|
+| Battery | The watch's, the phone's, or both; always, or at 50% or 20% or less (each battery on its own) |
+| Weather | Now; now with today's high and low; or now and the next three hours. °F or °C |
+| Steps | Today's count, or ahead of or behind your usual by now |
+| Distance walked | Miles or kilometers |
+| Calories | Active, or active and resting |
+| Sleep last night | All or deep sleep; optionally only in the hour after waking |
+| Next alarm | Whenever one is set, or in the 12 hours before |
+| Phone disconnected | Optionally vibrates when the connection drops |
+| Readings 1–5 | The value, or its name and value |
+
+The phone's battery comes from the Pebble app's plugins, and so do Readings
+1–5 (see below).
+
+| Battery + weather (default) | Battery, weather, steps | Weather with high and low |
+|:---:|:---:|:---:|
+| ![](screenshots/settings/th_classic.png) | ![](screenshots/settings/status_five.png) | ![](screenshots/settings/weather_range.png) |
+
+### Next event
+
+Your next calendar event, from the Pebble app's calendar (plugins on). Where it goes:
+
+- **In the month bar** (default): the date on the left, the event on the right. When
+  they don't fit, the date shortens first, then the name, and the time always stays.
+- **On its own line** under the status line, while that costs the face nothing else;
+  otherwise it goes in the month bar.
+- **In the status line**, as an item you place and remove like the others, with its
+  name and time or just the time.
+- **Takes over the status line** in its last 15 minutes before it starts.
+
+It shows from 15 minutes up to 24 hours before it starts (a slider), or any time
+today; an all-day event shows on its day. The watch counts down by itself, so it
+stays right while the phone is away. Pebble Time Round has no month bar and the
+original Pebble has no room for the bar's text, so there an event set to the bar
+or its own line leads the status line instead.
+
+| In the month bar | On its own line | In the status line, time only | Taking over |
+|:---:|:---:|:---:|:---:|
+| ![](screenshots/settings/event_bar.png) | ![](screenshots/settings/event_own.png) | ![](screenshots/settings/event_line.png) | ![](screenshots/settings/event_take.png) |
 
 ### Calendar event markers
 
@@ -157,10 +202,12 @@ calendar fails to refresh.
 
 ### And the rest
 
-- **Temperature / distance units** — °F or °C, miles or kilometers. When the
-  Pebble app provides your units (plugins on, app 1.16+), the face follows them
-  and these two settings disappear from the page.
-- **Vibrate on disconnect** — a short pulse when the phone link drops.
+- **Temperature / distance units** live in the Weather and Distance items. When
+  the Pebble app provides your units (plugins on, app 1.16+), the face follows them
+  and the page stops asking.
+- **Colors** — the ten themes plus your own background, text, and accent from
+  Pebble's 64 colors (laid out as a color wheel), with a warning when text or the
+  accent would be hard to see.
 
 ## Pebble app plugins (preview)
 
@@ -173,11 +220,11 @@ keep it under the debug options), and MonthGrid uses it:
 | What | How it shows | Pebble app |
 |---|---|---|
 | Weather | The status-line weather comes from your preferred weather provider in the Pebble app (`weather/location`). Open-Meteo is only used when that can't be read. | 1.15+ |
-| Units | °F/°C and miles/km follow the Pebble app, and the two unit settings leave the settings page. | 1.16+ |
-| **Next calendar event** | A status item: `Standup 23m`, `Lunch 1h05`, then the time of day, then the weekday; `now` once it has begun. The watch does the counting, so it stays right while the phone is away. Long names are shortened so the time always shows. | 1.15+, needs the Calendar permission |
-| **Phone battery** | A status item with the phone's battery level. | 1.15+ |
+| Units | °F/°C and miles/km follow the Pebble app, and the settings page stops asking. | 1.16+ |
+| **Next calendar event** | See [Next event](#next-event): `Standup in 23m`, `Lunch 1h05`, then the time of day, `tmrw` for tomorrow, `now` once it has begun. The phone sends the next timed event and today's all-day one; long names are cut at a word. | 1.15+, needs the Calendar permission |
+| **Phone battery** | The Battery item can show the phone's battery too. | 1.15+ |
 | **Reading 1–5** | Status items showing the readings you picked in the Pebble app (**Settings → Plugins → Complications**), in that order. Change them there and the face follows; the settings page shows what each one currently is. | 1.16+ |
-| Forecast | Today's high and low and the next three hours reach the watch. Not shown yet. | 1.16+ (high/low on 1.15) |
+| Forecast | Today's high and low and the next three hours, for the Weather item's options (from Open-Meteo otherwise). | 1.16+ (high/low on 1.15) |
 
 The new items only appear on the settings page when the Pebble app can serve
 them, and like every status item they hide while they have nothing to show
@@ -229,8 +276,12 @@ Run in the emulator:
 ```sh
 pebble install --emulator basalt
 pebble emu-set-timeline-quick-view on    # test the Quick View compression
-pebble emu-app-config                    # open the settings page
 ```
+
+The settings page lives in `src/settings` (plain scripts, no build step to work
+on it): serve `src/` over HTTP and open `settings/index.html`. The build packs it
+into one HTML document, `src/pkjs/settings_page.js`, which the phone opens as a
+`data:` URI (`node tools/build_settings_page.js` reports its size).
 
 Install on a watch (Dev Connect / Developer Connection in the official app):
 
@@ -261,6 +312,17 @@ nothing and that a full update fits the watch's 512-byte inbox:
 
 ```sh
 node tools/test_plugins.js
+```
+
+The same suite covers the settings: the old settings page's choices carrying
+over, and the largest settings message fitting the inbox. The settings page's
+face preview is checked against emulator screenshots pixel for pixel, and the
+month bar's event ladder against every combination of watch, date format,
+language, and event:
+
+```sh
+node design/preview/tools/verify.js
+node design/preview/tools/bar-cases.js
 ```
 
 ## Calendar-dot limitations (best-effort ICS)
