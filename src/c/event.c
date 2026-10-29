@@ -10,13 +10,12 @@ bool use_24h(void) {
       || (g_settings.time_format == TIME_FMT_SYSTEM && clock_is_24h_style());
 }
 
-// Local midnight of the day t falls on.
-static time_t prv_day_start(time_t t) {
-  struct tm lt = *localtime(&t);
-  lt.tm_hour = 0;
-  lt.tm_min = 0;
-  lt.tm_sec = 0;
-  return mktime(&lt);
+// The local day t falls on, as a number that only grows. Read from the
+// calendar fields, not computed through midnight: on a daylight-saving day
+// midnight has a different UTC offset than the event.
+int32_t day_number(time_t t) {
+  struct tm *lt = localtime(&t);
+  return (int32_t) lt->tm_year * 400 + lt->tm_yday;
 }
 
 // A timed event shows from its lead time (or, with "any time today", from
@@ -25,7 +24,7 @@ static time_t prv_day_start(time_t t) {
 static bool prv_visible(time_t start, time_t end, time_t now) {
   if (!start || (end && now >= end)) { return false; }
   if (now >= start) { return true; }
-  if (g_settings.event_within == 0) { return prv_day_start(start) == prv_day_start(now); }
+  if (g_settings.event_within == 0) { return day_number(start) == day_number(now); }
   return start - now <= (time_t) g_settings.event_within * 60;
 }
 
@@ -64,7 +63,7 @@ static void prv_clock(char *buf, size_t len, time_t when, bool compact) {
 // column: the shortest form of each.
 void event_when(const EventView *ev, EventWhen *w, bool compact) {
   time_t now = time(NULL);
-  bool tomorrow = prv_day_start(ev->start) > prv_day_start(now);
+  bool tomorrow = day_number(ev->start) > day_number(now);
   w->text[0] = w->full[0] = '\0';
   if (ev->all_day) {
     if (tomorrow) {

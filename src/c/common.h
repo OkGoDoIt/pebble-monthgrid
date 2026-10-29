@@ -392,11 +392,14 @@ bool event_own_line_wanted(void);
 bool event_in_bar(void);
 bool event_leads_status(void);
 bool use_24h(void);
+int32_t day_number(time_t t);
 // UTF-8 helpers for cutting names: bytes in the first n characters, and
 // the character count.
 size_t utf8_prefix(const char *s, int n);
 int utf8_count(const char *s);
 void trim_name_end(char *s);
+// A name cut shorter than this, plus "…", says nothing: it goes altogether.
+#define MIN_NAME_CHARS 3
 
 // settings.c
 void settings_set_defaults(Settings *s);

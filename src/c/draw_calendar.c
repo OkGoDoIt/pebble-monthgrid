@@ -316,7 +316,6 @@ static void prv_banner_text(char *buf, size_t len, GFont font, int16_t max_w) {
   #define BAR_LIFT 2
   #define BAR_GLYPH_S 9
 #endif
-#define MIN_NAME 3   // a name shorter than this, plus "…", says nothing
 
 typedef struct {
   char date[DATE_LEN];
@@ -370,7 +369,7 @@ static void prv_bar_compose(BarText *out, const EventView *ev, int16_t avail) {
   char name[EVENT_NAME_LEN];
   snprintf(name, sizeof(name), "%s", ev->name);
   trim_name_end(name);
-  for (int n = utf8_count(name) - 1; n >= MIN_NAME; n--) {
+  for (int n = utf8_count(name) - 1; n >= MIN_NAME_CHARS; n--) {
     char cut[EVENT_NAME_LEN];
     size_t bytes = utf8_prefix(name, n);
     memcpy(cut, name, bytes);

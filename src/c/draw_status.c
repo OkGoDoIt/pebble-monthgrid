@@ -68,9 +68,9 @@ static int16_t prv_text_w(const char *text) {
 
 // "Standup 23m" (or a whole sentence: "Standup in 23m"). A name too long
 // for max_w loses characters from its end, marked with an ellipsis, so the
-// time always shows.
+// time always shows; one shorter than min_chars goes altogether.
 static void prv_event_text_fitted(char *out, size_t len, int16_t *out_w, const char *full_name,
-                                  const char *when, int16_t max_w) {
+                                  const char *when, int16_t max_w, int min_chars) {
   char name[EVENT_NAME_LEN];
   strncpy(name, full_name, sizeof(name) - 1);
   name[sizeof(name) - 1] = '\0';
@@ -88,6 +88,7 @@ static void prv_event_text_fitted(char *out, size_t len, int16_t *out_w, const c
     do { n--; } while (n > 0 && ((uint8_t) name[n] & 0xC0) == 0x80);
     name[n] = '\0';
     trim_name_end(name);
+    if (utf8_count(name) < min_chars) { name[0] = '\0'; }
     n = strlen(name);
     cut = true;
   }
@@ -181,10 +182,10 @@ static bool prv_battery_low_enough(int percent) {
   return g_settings.battery_below == 0 || percent <= g_settings.battery_below;
 }
 
-// Today's high and low, if the forecast is from today.
+// Today's high and low, if the forecast arrived today.
 static bool prv_forecast_today(void) {
   return g_forecast.received_at != 0
-      && time(NULL) - g_forecast.received_at < 12 * 3600
+      && day_number(g_forecast.received_at) == day_number(time(NULL))
       && g_forecast.high_dc != TEMP_NONE && g_forecast.low_dc != TEMP_NONE;
 }
 
@@ -358,7 +359,7 @@ static bool prv_event_item(StatusItem *item, bool compact, bool takeover, int16_
   }
   if (max_w > 0 && item->icon_w) { max_w -= item->icon_w + ICON_TEXT_GAP; }
   prv_event_text_fitted(item->text, sizeof(item->text), &item->text_w, ev.name,
-                        takeover ? w.full : w.text, max_w);
+                        takeover ? w.full : w.text, max_w, 1);
   return item->text[0] != '\0';
 }
 
@@ -601,14 +602,15 @@ static void prv_draw_event_line(GContext *ctx, const GRect band) {
   if (!event_current(&ev)) { return; }
   EventWhen w;
   event_when(&ev, &w, false);
-  const int16_t mark = status_icon_width(METRIC_NEXT_EVENT, ICON_S) + ICON_TEXT_GAP;
+  // The calendar mark (without its icon box's padding) and the gap after it.
+  const int16_t mark = status_icon_width(METRIC_NEXT_EVENT, ICON_S) - 2 + ICON_TEXT_GAP;
   const int16_t room = band.size.w - mark - 12;
   static char text[48];
   int16_t text_w;
   snprintf(text, sizeof(text), "%s%s%s", ev.name, w.full[0] ? " " : "", w.full);
   text_w = prv_text_w(text);
   if (text_w > room) {
-    prv_event_text_fitted(text, sizeof(text), &text_w, ev.name, w.text, room);
+    prv_event_text_fitted(text, sizeof(text), &text_w, ev.name, w.text, room, MIN_NAME_CHARS);
   }
   int16_t x = band.origin.x + (band.size.w - mark - text_w) / 2;
   status_icon_draw(ctx, METRIC_NEXT_EVENT, GPoint(x, band.origin.y + (band.size.h - 2 - ICON_S) / 2),
