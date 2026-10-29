@@ -61,7 +61,8 @@
 .mg .hit { position: absolute; border: 0; padding: 0; background: transparent; border-radius: 4px; cursor: pointer; }
 .mg .hit:hover { outline: 1.5px solid rgba(250, 74, 54, .55); outline-offset: 1px; }
 .mg .hit.on { outline: 2px solid var(--accent); outline-offset: 1px; }
-.mg .tabs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 2px; margin: 0 12px 10px;
+.mg .tabs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 2px;
+  width: calc(100% - 24px); max-width: 576px; margin: 0 auto 10px;
   padding: 3px; border-radius: 10px; background: var(--card); }
 .mg .tabs button { min-height: 34px; padding: 0 2px; border: 0; border-radius: 8px; background: none; cursor: pointer;
   font-size: clamp(12px, 3.7vw, 13.5px); font-weight: 500; color: var(--muted); white-space: nowrap; overflow: hidden;
@@ -69,7 +70,8 @@
 .mg .tabs button[aria-selected="true"] { background: var(--seg-on); color: var(--ink); font-weight: 650; box-shadow: var(--shadow); }
 
 /* A tab's controls: grouped lists, like the phone's own settings. */
-.mg .panel { display: grid; gap: 22px; align-content: start; padding: 16px 16px 28px; flex: 1; }
+.mg .panel { display: grid; gap: 22px; align-content: start; padding: 16px 16px 28px; flex: 1;
+  width: 100%; max-width: 600px; margin: 0 auto; }
 .mg .group { display: grid; gap: 7px; min-width: 0; }
 .mg .ghead { margin: 0; padding: 0 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
 .mg .card { display: grid; border-radius: 12px; background: var(--card); overflow: hidden; }

@@ -73,6 +73,7 @@
     var E = state.event, ev = data.event, event = null, eventWhy = null, eventOn = false;
     var units = ctx && ctx.units;
     if (E.place === 'off') { eventWhy = 'Off'; }
+    else if (!Model.canShow('event', ctx)) { eventWhy = 'Needs the Pebble app’s calendar'; }
     else if (!ev || !eventVisible(ev, data.now, E)) {
       eventWhy = !ev ? 'Nothing coming up' : E.today ? 'Nothing more today' : 'Shows ' + Model.eventWhen(E).toLowerCase();
     } else {
@@ -93,6 +94,11 @@
     state.status.forEach(function (id) {
       var row = { id: id, metrics: [], why: null };
       var v = function (k) { return value(state, id, k); };
+      if (!Model.canShow(Model.BY_ID[id].needs, ctx)) {
+        row.why = 'Not on this watch';
+        rows.push(row);
+        return;
+      }
       var push = function (m, text) {
         if (metrics.length >= Model.MAX_METRICS) { row.overflow = true; return; }
         metrics.push(m); row.metrics.push(m);
@@ -101,7 +107,8 @@
       switch (id) {
         case 'battery': {
           // A threshold applies to each battery on its own.
-          var lim = v('when') === 'always' ? 100 : Number(v('when')), src = v('source');
+          var lim = v('when') === 'always' ? 100 : Number(v('when'));
+          var src = Model.canShow('phone', ctx) ? v('source') : 'watch';
           if (src !== 'phone' && data.battery.percent <= lim) { push(M.BATTERY); }
           if (src !== 'watch' && data.phoneBattery <= lim) { push(M.PHONE_BATTERY); }
           if (!row.metrics.length && !row.overflow) { row.why = 'Shows at ' + lim + '% or less'; }
@@ -183,6 +190,7 @@
     (r.layout.statusSkipped || []).forEach(function (it) { skipped[it.metric] = it.reason; });
     r.drawn = drawn;
     if (global.MGEvent) { global.MGEvent.draw(r, p, data); }
+    if (ctx && ctx.color === false) { blackAndWhite(r); }
     p.rows.forEach(function (row) {
       if (row.why) { row.state = 'hidden'; return; }
       var any = row.metrics.some(function (m) { return drawn[m]; });
@@ -192,6 +200,16 @@
     });
     r.plan = p;
     return r;
+  }
+  // A black-and-white watch draws everything that isn't background in its
+  // text color: battery levels, dimmed days, the accent.
+  function blackAndWhite(r) {
+    var th = r.layout.theme, bg = Face.colorToRGB(th.bg), fg = Face.colorToRGB(th.fg), px = r.pixels;
+    for (var i = 0; i < px.length; i += 4) {
+      var isBg = px[i] === bg[0] && px[i + 1] === bg[1] && px[i + 2] === bg[2];
+      var c = isBg ? bg : fg;
+      px[i] = c[0]; px[i + 1] = c[1]; px[i + 2] = c[2];
+    }
   }
   // A canvas showing part of a render, scale CSS px per watch pixel.
   function crop(r, rect, scale) {

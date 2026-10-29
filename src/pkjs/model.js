@@ -92,6 +92,21 @@
     return spec ? spec.def : undefined;
   }
 
+  // Whether this watch and phone can show something that needs `needs` (an
+  // item's or option's). ctx: what the phone told the settings page.
+  function canShow(needs, ctx) {
+    if (!ctx) { return true; }
+    switch (needs) {
+      case 'health': return !!ctx.health;
+      case 'hrm': return !!(ctx.health && ctx.hrm);
+      case 'alarms': return !!ctx.alarms;
+      case 'phone': return !!ctx.served.phone;
+      case 'event': return !!ctx.served.event;
+      case 'units': return !ctx.units;
+    }
+    return true;
+  }
+
   // ---- Lead time ------------------------------------------------------------
   // "15 minutes", "1½ hours", "24 hours".
   function leadLabel(min) {
@@ -281,7 +296,7 @@
 
   var api = { M: M, NUM_READINGS: NUM_READINGS, MAX_METRICS: MAX_METRICS, PLACES: PLACES, TAKE_MIN: TAKE_MIN,
     LEAD_STOPS: LEAD_STOPS, ITEMS: ITEMS, BY_ID: BY_ID, optionSpec: optionSpec, value: value,
-    leadLabel: leadLabel, nearestStop: nearestStop, eventWhen: eventWhen, defaultState: defaultState,
+    canShow: canShow, leadLabel: leadLabel, nearestStop: nearestStop, eventWhen: eventWhen, defaultState: defaultState,
     normalize: normalize, toHex: toHex, fromHex: fromHex, fromClay: fromClay, metricsOf: metricsOf,
     toWatch: toWatch, wantsEvent: wantsEvent };
   if (typeof module === 'object' && module.exports) { module.exports = api; }

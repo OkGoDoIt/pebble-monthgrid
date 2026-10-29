@@ -115,19 +115,7 @@
     return null;
   }
   // What the watch can do with an option or item (needs in model.js).
-  function can(c, needs) {
-    var x = c.ctx;
-    switch (needs) {
-      case 'health': return x.health;
-      case 'hrm': return x.health && x.hrm;
-      case 'alarms': return x.alarms;
-      case 'phone': return x.served.phone;
-      case 'event': return x.served.event;
-      case 'units': return !x.units;
-      case 'reading': return true;
-    }
-    return true;
-  }
+  function can(c, needs) { return Model.canShow(needs, c.ctx); }
   function reading(c, n) { return c.ctx.readings.filter(function (r) { return r.n === n; })[0] || null; }
   function itemName(c, id) {
     var it = Model.BY_ID[id];
@@ -162,7 +150,7 @@
     ['GRID_COLOR', 'CAL1_COLOR', 'CAL2_COLOR', 'CAL3_COLOR'].forEach(function (k) { s.look[k] = paper ? 0 : 63; });
     return s;
   }
-  function render(c, state, data) { return MG.draw(view(c, state), data || c.data, c.ctx); }
+  function render(c, state, data, ctx) { return MG.draw(view(c, state), data || c.data, ctx || c.ctx); }
 
   // ---- The dock: a window onto the face, and the tabs ---------------------------
   // The window is the same height on every tab, so the tabs never move: it
@@ -214,7 +202,7 @@
       })),
       group([
         segRow('Size', [[0, 'Large'], [1, 'Medium'], [2, 'Small']], look.TIME_SIZE, c.setLook('TIME_SIZE')),
-        segRow('Hours', [[0, 'Like the phone'], [1, '12-hour'], [2, '24-hour']], look.TIME_FORMAT, c.setLook('TIME_FORMAT')),
+        menu('Hours', [[0, 'Like the phone'], [1, '12-hour'], [2, '24-hour']], look.TIME_FORMAT, c.setLook('TIME_FORMAT')),
         toggle('Show seconds', look.SHOW_SECONDS, c.setLook('SHOW_SECONDS')),
       ], null, look.SHOW_SECONDS ? 'Showing seconds uses noticeably more battery.' : null),
     ];
@@ -231,8 +219,12 @@
     var list = el('ol', { class: 'slist', 'aria-label': 'On your watch, most important first' });
     rows.forEach(function (r, i) {
       var id = r.id, name = itemName(c, id), open = ui.open === id;
-      var hasOptions = id === 'event' || optionsOf(c, id).length > 0;
-      var line2 = hasOptions ? summary(c, id)
+      // Chosen on another watch, or the phone can't serve it now.
+      var missing = !can(c, Model.BY_ID[id].needs);
+      if (missing) { r.state = 'hidden'; }
+      var hasOptions = !missing && (id === 'event' || optionsOf(c, id).length > 0);
+      var line2 = missing ? (id === 'event' ? 'Needs the Pebble app’s calendar' : 'Not on this watch')
+        : hasOptions ? summary(c, id)
         : r.state === 'room' ? 'Waits for room on the watch' : r.state === 'hidden' ? r.why : '';
       var pic = MG.chip(view(c, store.state), id, c.data, c.ctx, 104);
       if (pic) { pic.classList.add('chip'); }
@@ -342,12 +334,14 @@
   // Where the event is when it isn't in the status line, for its More row.
   var ELSEWHERE = { off: null, bar: 'Shows in the month bar', own: 'Shows on its own line',
     take: 'Takes over the status line' };
-  // The places this watch has: Pebble Time Round has no month bar, and a
-  // round watch has no line under the status line.
+  // The places this watch has: Pebble Time Round has no month bar, a round
+  // watch has no line under the status line, and the original Pebble has
+  // room for neither (src/c/common.h, EVENT_IN_BAR and EVENT_OWN_LINE).
   function places(c) {
+    var x = c.ctx;
     return Model.PLACES.filter(function (p) {
-      if (p === 'bar') { return c.ctx.shape !== 'round' || c.ctx.platform === 'gabbro'; }
-      if (p === 'own') { return c.ctx.shape !== 'round'; }
+      if (p === 'bar') { return x.platform !== 'aplite' && (x.shape !== 'round' || x.platform === 'gabbro'); }
+      if (p === 'own') { return x.platform !== 'aplite' && x.shape !== 'round'; }
       return true;
     });
   }
@@ -385,12 +379,14 @@
         el('p', { text: 'Turn on plugins in the Pebble app’s settings to show your next event.' })]));
     }
     var soon = MG.whenShown('event', c.store.state, c.data);
+    // The pictures show a sample event even before the calendar can be read.
+    var sample = MG.merge(c.ctx, { served: { event: true, phone: c.ctx.served.phone } });
     out.push(field('Where', pictures(places(c).map(function (p) { return [p, placeLabel(p)]; }), E.place,
       c.setPlace, 'Where', 2, function (v) {
         var s = clone(c.store.state);
         s.event.place = v;
         s = Model.normalize(s);
-        var r = render(c, s, soon), L = r.layout;
+        var r = render(c, s, soon, sample), L = r.layout;
         var low = L.banner || L.extra || L.status, y0 = Math.max(0, L.time.y - 3);
         return MG.crop(r, { x: 0, y: y0, w: r.width, h: Math.min(r.height, low.y + low.h + 3) - y0 }, 1);
       })));
@@ -570,7 +566,14 @@
   function mount(frame, opts) {
     opts = opts || {};
     var ctx = MG.merge(defaultCtx(), opts.ctx || {});
-    var store = new MG.Store(Model.normalize(opts.state || Model.defaultState()));
+    var state = Model.normalize(opts.state || Model.defaultState());
+    // Where the watch has no room for the event where it's set, it shows
+    // first in the status line: say so here.
+    if (places({ ctx: ctx }).indexOf(state.event.place) < 0) {
+      state.event.place = 'line';
+      state.status.unshift('event');
+    }
+    var store = new MG.Store(state);
     var data = MG.merge(MG.BASE, { readings: [1, 2, 3, 4, 5].map(function (n) {
       var r = ctx.readings.filter(function (x) { return x.n === n; })[0];
       return r ? { label: r.label, text: r.text } : null;
