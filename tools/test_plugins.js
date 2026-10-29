@@ -1074,6 +1074,31 @@ test('a full update stays inside the watch\'s 512-byte inbox', function() {
       .forEach(function(k) { assert.ok(keys[k], k + ' delivered'); });
 });
 
+test('the settings model keeps the event row and the lead time consistent', function() {
+  setup();
+  var Model = require(path.join(PKJS, 'model.js'));
+  // The event is in the status list exactly when it shows in the status line.
+  var s = Model.normalize({ status: ['battery', 'event', 'weather'], event: { place: 'bar' } });
+  assert.deepStrictEqual(s.status, ['battery', 'weather']);
+  s = Model.normalize({ status: ['battery', 'weather'], event: { place: 'line' } });
+  assert.deepStrictEqual(s.status, ['event', 'battery', 'weather']);
+  s = Model.normalize({ status: ['battery', 'event', 'battery', 'nonsense'], event: { place: 'line', minutes: 100 } });
+  assert.deepStrictEqual(s.status, ['battery', 'event'], 'its place kept, repeats and unknowns dropped');
+  assert.strictEqual(s.event.minutes, 90, 'snapped to the nearest stop');
+  assert.strictEqual(Model.eventWhen(s.event), '1½ hours before');
+  assert.strictEqual(Model.eventWhen({ today: false, minutes: 15 }), '15 minutes before');
+  assert.strictEqual(Model.eventWhen({ today: false, minutes: 1440 }), '24 hours before');
+  assert.strictEqual(Model.eventWhen({ today: true, minutes: 120 }), 'Any time today');
+  var d = Model.toWatch(Model.normalize({ event: { place: 'take', today: true } }), null);
+  assert.strictEqual(d.EVENT_PLACE, 4);
+  assert.strictEqual(d.EVENT_WITHIN, 0, 'any time today');
+  d = Model.toWatch(Model.normalize({ status: ['sleep', 'alarm', 'reading2'], opts: { sleep: { wake: 'on', kind: 'deep' },
+    alarm: { when: '12h' }, reading2: { label: 'label' }, battery: { when: '20' } } }), null);
+  assert.deepStrictEqual([d.SLEEP_AFTER_WAKE, d.SLEEP_KIND, d.ALARM_WITHIN, d.READING_LABELS, d.BATTERY_BELOW],
+                         [1, 1, 12, 2, 20]);
+  assert.deepStrictEqual(d.METRICS, [8, 11, 16]);
+});
+
 test('the largest settings message fits the watch\'s inbox', function() {
   setup();
   var Model = require(path.join(PKJS, 'model.js'));
