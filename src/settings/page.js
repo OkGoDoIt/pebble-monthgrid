@@ -202,7 +202,7 @@
       })),
       group([
         segRow('Size', [[0, 'Large'], [1, 'Medium'], [2, 'Small']], look.TIME_SIZE, c.setLook('TIME_SIZE')),
-        menu('Hours', [[0, 'Like the phone'], [1, '12-hour'], [2, '24-hour']], look.TIME_FORMAT, c.setLook('TIME_FORMAT')),
+        segRow('Hours', [[0, 'Auto'], [1, '12-hour'], [2, '24-hour']], look.TIME_FORMAT, c.setLook('TIME_FORMAT')),
         toggle('Show seconds', look.SHOW_SECONDS, c.setLook('SHOW_SECONDS')),
       ], null, look.SHOW_SECONDS ? 'Showing seconds uses noticeably more battery.' : null),
     ];

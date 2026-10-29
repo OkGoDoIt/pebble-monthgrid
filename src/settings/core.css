@@ -177,14 +177,14 @@
   image-rendering: auto; }
 .mg .theme[aria-checked="true"] { border: 2px solid var(--accent); padding: 5px; font-weight: 600; }
 .mg .crow { width: 100%; border: 0; background: none; cursor: pointer; }
-.mg .swatch { width: 28px; height: 28px; border-radius: 14px; flex: none; box-shadow: inset 0 0 0 1px rgba(127, 127, 127, .45); }
-.mg .palrow { padding: 4px 14px 14px; }
+.mg .swatch { width: 28px; height: 28px; border-radius: 7px; flex: none; box-shadow: inset 0 0 0 1px rgba(127, 127, 127, .45); }
+.mg .palrow { padding: 4px 6px 12px; }
 .mg .palrow::before { display: none; }
-.mg .palette { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 5px; width: 100%; max-width: 380px;
+.mg .palette { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 3px; width: 100%; max-width: 420px;
   margin: 0 auto; }
-.mg .pcolor { aspect-ratio: 1; width: 100%; border: 0; border-radius: 50%; cursor: pointer; padding: 0;
+.mg .pcolor { aspect-ratio: 1; width: 100%; border: 0; border-radius: 7px; cursor: pointer; padding: 0;
   box-shadow: inset 0 0 0 1px rgba(127, 127, 127, .35); }
-.mg .pcolor[aria-checked="true"] { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--ink); }
+.mg .pcolor[aria-checked="true"] { position: relative; z-index: 1; box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--ink); }
 .mg .opts .pcolor[aria-checked="true"], .mg .card .pcolor[aria-checked="true"] { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--ink); }
 .mg .cal { gap: 10px; }
 .mg .swatchbtn { width: 44px; height: 40px; display: grid; place-items: center; flex: none; border-radius: 10px;
