@@ -312,7 +312,8 @@ function pageContext() {
 
 Pebble.addEventListener('showConfiguration', function() {
   var boot = JSON.stringify({ state: loadState(), ctx: pageContext() }).replace(/</g, '\\u003c');
-  var html = page.html.replace(page.boot, boot);
+  // A function, so a "$" in a link or a reading isn't read as a pattern.
+  var html = page.html.replace(page.boot, function() { return boot; });
   Pebble.openURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
 });
 

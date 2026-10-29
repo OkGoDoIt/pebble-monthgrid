@@ -167,12 +167,17 @@ function pickEvents(instances, nowSec) {
     var start = timestampOf(p.starts_at);
     if (start === null) { continue; }
     var end = timestampOf(p.ends_at);
+    var isAllDay = booleanOf(p.all_day);
+    if (isAllDay) {
+      start = localDate(start);
+      end = end === null ? null : localDate(end);
+    }
     if (end !== null && end <= nowSec) { continue; }
     var ev = {
       name: plainText(textOf(p.name) || textOf(p.name, 'longText')),
       start: start,
       end: end || 0,
-      allDay: booleanOf(p.all_day),
+      allDay: isAllDay,
     };
     if (ev.allDay) {
       if (!allDay || ev.start < allDay.start) { allDay = ev; }
@@ -181,6 +186,15 @@ function pickEvents(instances, nowSec) {
     }
   }
   return { timed: timed, allDay: allDay };
+}
+
+// Android keeps an all-day event's dates at UTC midnight; the watch wants
+// local midnight of that date. A time that is already local midnight (iOS)
+// is left alone, and so is anything not at UTC midnight.
+function localDate(sec) {
+  if (sec % 86400 !== 0) { return sec; }
+  var d = new Date(sec * 1000);
+  return Math.floor(new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()).getTime() / 1000);
 }
 
 // A name too long for the watch is cut at a word where it can be, and says
@@ -695,6 +709,10 @@ Bridge.prototype.pickEvent = function() {
   this.scheduleEventPick(next.length ? Math.min.apply(null, next) : null);
 };
 
+// Never further ahead than this: a longer delay overflows the 32-bit timers
+// of Android's WebView, which then fire at once, and again, in a loop.
+var MAX_PICK_DELAY_MS = 6 * 60 * 60 * 1000;
+
 Bridge.prototype.scheduleEventPick = function(atMs) {
   if (this.eventTimer) {
     clearTimeout(this.eventTimer);
@@ -705,7 +723,7 @@ Bridge.prototype.scheduleEventPick = function(atMs) {
   this.eventTimer = setTimeout(function() {
     self.eventTimer = null;
     self.pickEvent();
-  }, Math.max(1000, atMs - nowMs() + 1000));
+  }, Math.min(MAX_PICK_DELAY_MS, Math.max(1000, atMs - nowMs() + 1000)));
 };
 
 // --- phone battery (A4) ------------------------------------------------------
@@ -966,6 +984,7 @@ module.exports = {
     conditionOf: conditionOf,
     weatherDict: weatherDict,
     pickEvents: pickEvents,
+    localDate: localDate,
     cutName: cutName,
     eventDict: eventDict,
     readingText: readingText,

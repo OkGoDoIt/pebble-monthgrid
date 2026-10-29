@@ -677,6 +677,30 @@ test('next event: the all-day one rides along; titles cleaned and cut at a word'
   assert.strictEqual(plugins._test.cutName('Café avec Zoë et les autres', 23), 'Café avec Zoë et…');
 });
 
+test('next event: a month-long all-day event never schedules past 6 hours', function() {
+  setup({ plugins: CAL_PLUGIN, settings: { METRIC1: '13' } });
+  ready();
+  var t = nowSec();
+  sub('calendar', 'event').data(calendarEnvelope([
+    { name: 'Semester', start: t - 86400 * 3, end: t + 86400 * 40, allDay: true },
+  ]));
+  advance(100);
+  // Android's timers wrap delays past 2^31 ms to zero and would re-pick in a loop.
+  clock.timers.forEach(function(timer) {
+    assert.ok(timer.at - clock.now <= 6 * 3600 * 1000, 'a timer ' + (timer.at - clock.now) + ' ms out');
+  });
+});
+
+test('next event: all-day dates at UTC midnight become local midnight', function() {
+  setup();
+  var t = require(path.join(PKJS, 'plugins.js'))._test;
+  var utc = RealDate.UTC(2026, 9, 30) / 1000;
+  assert.strictEqual(t.localDate(utc), new RealDate(2026, 9, 30).getTime() / 1000);
+  var local = new RealDate(2026, 9, 30).getTime() / 1000;
+  if (local % 86400 !== 0) { assert.strictEqual(t.localDate(local), local, 'local midnight is kept'); }
+  assert.strictEqual(t.localDate(utc + 3600), utc + 3600, 'not midnight: kept');
+});
+
 test('next event: refused or gone clears the item', function() {
   setup({ plugins: CAL_PLUGIN, settings: { METRIC1: '13' } });
   resetTake();
