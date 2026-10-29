@@ -48,19 +48,24 @@
 
 /* The status list: rows in priority order, with the fold where the watch runs out of room. */
 .mg .slist { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
-.mg .srow { display: grid; grid-template-columns: 36px 1fr auto; align-items: center; gap: 8px;
-  min-height: 52px; padding: 4px 8px 4px 0; border-bottom: 1px solid var(--line); background: var(--bg);
-  touch-action: pan-y; }
+.mg .srow { display: grid; grid-template-columns: 36px minmax(0, 1fr); align-items: center; gap: 4px;
+  min-height: 56px; border-bottom: 1px solid var(--line); background: var(--bg); touch-action: pan-y; }
 .mg .srow.dragging { position: relative; z-index: 2; box-shadow: 0 6px 18px rgba(0,0,0,.25);
   border-radius: 10px; }
 .mg .handle { width: 36px; height: 44px; display: grid; place-items: center; cursor: grab;
   color: var(--muted); touch-action: none; background: none; border: 0; }
-.mg .srow .main { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0;
-  background: none; border: 0; padding: 6px 0; text-align: left; cursor: pointer; }
-.mg .srow .label { min-width: 0; }
-.mg .srow .chip { max-width: 50%; }
+.mg .srow .main { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 56px;
+  background: none; border: 0; padding: 6px 4px 6px 0; text-align: left; cursor: pointer; border-radius: 10px; }
+.mg .srow .main:active, .mg .prow:active, .mg .fhead:active, .mg .xlink:active { background: var(--card); }
+.mg .label { min-width: 0; flex: 1; display: grid; gap: 1px; }
+.mg .srow .chip { flex: none; outline: 1px solid var(--line); }
+.mg .chevwrap { flex: none; display: grid; place-items: center; width: 18px; color: var(--muted); }
+.mg .chev { transition: transform .15s ease; }
+.mg [aria-expanded="true"] .chev { transform: rotate(90deg); color: var(--accent-ink); }
+.mg .srow.open { background: var(--card); border-radius: 12px 12px 0 0; }
+.mg .srow.open .main:active { background: none; }
 .mg .srow .name { font-weight: 500; }
-.mg .srow .why { display: block; font-size: 12.5px; color: var(--muted); }
+.mg .why { display: block; font-size: 13px; color: var(--muted); line-height: 1.3; }
 .mg .srow.off .chip { opacity: .45; }
 .mg .chip { border-radius: 4px; flex: none; }
 .mg .fold { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--accent-ink);
@@ -103,8 +108,17 @@
 .mg .savebar { position: sticky; bottom: 0; display: flex; justify-content: center; padding: 12px 16px 16px;
   background: linear-gradient(to top, var(--bg) 70%, transparent); z-index: 3; }
 .mg .savebar .save { width: 100%; max-width: 360px; }
-.mg .inline-opts { list-style: none; padding: 12px 0 16px 44px; border-bottom: 1px solid var(--line); }
+.mg .inline-opts { list-style: none; padding: 6px 12px 14px 40px; border-bottom: 1px solid var(--line);
+  background: var(--card); border-radius: 0 0 12px 12px; margin-bottom: 6px; }
 .mg .srow.open { border-bottom-color: transparent; }
+.mg .opts { display: grid; gap: 16px; }
+.mg .remove-item { justify-self: start; border: 0; background: none; color: var(--accent-ink); font-size: 14px;
+  min-height: 40px; padding: 0; cursor: pointer; }
+.mg .pics.grid2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.mg .pics.grid2 .pic, .dir-d .pics:not(.pics-row) .pic, .dir-e .pics:not(.pics-row) .pic,
+  .dir-f .pics:not(.pics-row) .pic { background: var(--raised); border-color: var(--line); border-width: 1px; padding: 7px; }
+.mg .pics:not(.pics-row) .pic[aria-pressed="true"] { border: 2px solid var(--accent); padding: 6px; }
+.mg .inline-opts .seg button:not([aria-pressed="true"]) { background: var(--raised); }
 
 /* B: the face is the menu. */
 .dir-b { display: flex; flex-direction: column; min-height: 100%; }
@@ -160,3 +174,55 @@
 .dir-c .look { display: grid; gap: 16px; }
 .dir-c .lookface { display: flex; justify-content: center; }
 .dir-c .lookctl { display: grid; gap: 22px; }
+
+/* ---- Round two: A and B together --------------------------------------------- */
+.dir-d .pics:not(.pics-row), .dir-e .pics:not(.pics-row), .dir-f .pics:not(.pics-row) {
+  grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.mg .facewrap { display: flex; justify-content: center; padding: 16px 16px 12px; }
+.mg .stage { position: relative; max-width: 100%; }
+.mg .stage canvas { width: 100% !important; height: auto !important; border-radius: 6px; display: block; }
+.mg .hit { position: absolute; border: 0; background: transparent; border-radius: 4px; cursor: pointer; padding: 0; }
+.mg .hit:hover, .mg .hit:active { outline: 2px solid rgba(250, 74, 54, .7); outline-offset: 1px; }
+.mg .hit.on { outline: 2px solid var(--accent); outline-offset: 1px; }
+.mg .thumb { border-radius: 3px; display: block; }
+.mg .thumb.empty { width: 40px; height: 12px; }
+.mg .swatches { display: flex; gap: 4px; }
+.mg .swatches span { width: 18px; height: 18px; border-radius: 9px; outline: 1px solid var(--line); }
+.mg .xlink { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px; padding: 8px 12px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--raised); text-align: left; cursor: pointer; }
+.mg .pbody { display: grid; gap: 14px; padding: 8px 16px 20px; align-content: start; }
+.mg .pbody .slist { margin-inline: -4px; }
+
+/* 1: the face over a list of parts. */
+.dir-d .parts { list-style: none; margin: 4px 16px 16px; padding: 0; border-radius: var(--radius); background: var(--card);
+  overflow: hidden; }
+.dir-d .parts li + li { border-top: 1px solid var(--line); }
+.dir-d .prow, .dir-e .fhead { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px;
+  padding: 10px 12px 10px 14px; border: 0; background: none; text-align: left; cursor: pointer; }
+.dir-d .prow .name, .dir-e .fhead .name { font-weight: 600; }
+.dir-d .pagehead { position: sticky; top: 0; z-index: 3; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  padding: 6px 8px; background: var(--bg); border-bottom: 1px solid var(--line); }
+.dir-d .pagehead h2 { grid-column: 2; font-size: 16px; letter-spacing: 0; text-transform: none; color: var(--ink); }
+.dir-d .back { grid-column: 1; justify-self: start; display: flex; align-items: center; gap: 6px; border: 0; background: none;
+  color: var(--accent-ink); font-weight: 600; min-height: 44px; padding: 0 8px; cursor: pointer; font-size: 15px; }
+.dir-d .zoom { position: sticky; top: 57px; z-index: 2; display: flex; justify-content: center; padding: 12px 16px;
+  background: var(--bg); border-bottom: 1px solid var(--line); }
+.dir-d .zoom canvas { max-width: 100%; height: auto !important; outline: 1px solid var(--line); }
+
+/* 2: one page of folded parts. */
+.dir-e .psec { border-top: 1px solid var(--line); }
+.dir-e .psec.open .fstick { position: sticky; top: 0; z-index: 2; background: var(--bg); border-bottom: 1px solid var(--line); }
+.dir-e .fzoom { display: flex; justify-content: center; padding: 0 16px 12px; }
+.dir-e .fzoom canvas { max-width: 100%; height: auto !important; outline: 1px solid var(--line); }
+.dir-e .fbody { display: grid; gap: 14px; padding: 12px 16px 22px; }
+.dir-e .fbody .slist { margin-inline: -4px; }
+
+/* 3: the face docked with labeled tabs. */
+.dir-f .dock { position: sticky; top: 0; z-index: 3; background: var(--bg); border-bottom: 1px solid var(--line); }
+.dir-f .facewrap { padding: 12px 16px 8px; }
+.dir-f .ptabs { display: flex; gap: 4px; overflow-x: auto; padding: 0 12px 10px; scrollbar-width: none; }
+.dir-f .ptabs::-webkit-scrollbar { display: none; }
+.dir-f .ptabs button { flex: none; min-height: 38px; padding: 0 14px; border-radius: 19px; border: 1px solid var(--line);
+  background: var(--raised); cursor: pointer; font-size: 14.5px; }
+.dir-f .ptabs button[aria-selected="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); font-weight: 600; }
+.dir-f .pbody { padding-top: 14px; }

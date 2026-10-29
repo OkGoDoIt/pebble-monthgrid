@@ -103,7 +103,8 @@ FONTS = {
     # Small text (status, grid digits), its bold, the weekday header and banner.
     'GOTHIC_18': (system('GOTHIC_18'), TEXT),
     'GOTHIC_18_BOLD': (system('GOTHIC_18_BOLD'), TEXT),
-    'GOTHIC_14': (system('GOTHIC_14'), ASCII + [ELLIPSIS, WILDCARD]),
+    'GOTHIC_14': (system('GOTHIC_14'), TEXT),
+    'GOTHIC_14_BOLD': (system('GOTHIC_14_BOLD'), TEXT),
     # Time faces (emery ladder in layout.c).
     'ROBOTO_BOLD_SUBSET_49': (lambda: read_reso(ROBOTO_RESO), DIGITS),
     'GOTHIC_28_BOLD': (system('GOTHIC_28_BOLD'), DIGITS),

@@ -481,8 +481,8 @@
 
   var STAGES = [[1, 0, 1, 0], [0, 0, 1, 0], [0, 1, 1, 0], [0, 1, 1, 1], [0, 1, 0, 1], [0, 2, 0, 1], [0, 2, 0, 2]];
 
-  function computeLayout(P, s, now, extra) {
-    var ub = rect(0, 0, P.width, P.height);
+  function computeLayout(P, s, now, extra, obstruction) {
+    var ub = rect(0, 0, P.width, P.height - (obstruction || 0));
     var wantStatus = s.metrics.some(function (m) { return m !== M.NONE; });
     var extraH = extra ? extra.height + (extra.gap || 0) : 0;
     var avail = ub.h - P.TOP_INSET - P.BOTTOM_INSET;
@@ -1154,6 +1154,8 @@
   // render(settings, data, opts) -> {width, height, pixels, layout, surface}
   //   opts.platform    'emery' (only one built)
   //   opts.extras      {height, gap = 0}: a band reserved under the status line
+  //   opts.obstruction px covered at the bottom (Quick View): the layout gets
+  //                    the unobstructed bounds, as layer_get_unobstructed_bounds
   //   opts.statusOverrides {<metric>: {text, icon}}: preview a text the C doesn't produce
   //   opts.drawIcon    replaces drawIcon (same signature) for icon experiments
   //   opts.draw        function (surface, layout, api) run after the face is drawn
@@ -1166,7 +1168,7 @@
     var s = normalizeSettings(settings);
     var th = themeColors(s);
     var sf = createSurface(P.width, P.height, th.bg);
-    var l = computeLayout(P, s, data.now, opts.extras);
+    var l = computeLayout(P, s, data.now, opts.extras, opts.obstruction);
     // Layer order on the watch: calendar, then status, then time on top.
     drawCalendar(P, sf, l, s, data, th);
     drawStatus(P, sf, l, s, data, th, opts);

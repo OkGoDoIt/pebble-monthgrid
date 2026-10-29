@@ -10,23 +10,31 @@
     PHONE_BATTERY: 14, READING_1: 15 };
   var MAX_METRICS = 8;
 
-  function opt(key, label, choices, def) { return { key: key, label: label, choices: choices, def: def }; }
+  function opt(key, label, choices, def, more) {
+    var o = { key: key, label: label, choices: choices, def: def };
+    Object.keys(more || {}).forEach(function (k) { o[k] = more[k]; });
+    return o;
+  }
 
   // What a person picks. An item can have its own options, and one item can
   // stand for more than one watch metric (Battery: the watch's, the phone's, or both).
   var ITEMS = [
     { id: 'battery', name: 'Battery', options: [
-      opt('source', 'Which battery', [['watch', 'Watch'], ['phone', 'Phone'], ['both', 'Both']], 'watch'),
-      opt('when', 'Show it', [['always', 'Always'], ['low', 'At 20% or less']], 'always')] },
+      opt('source', 'Which battery', [['watch', 'Watch'], ['phone', 'Phone'], ['both', 'Watch and phone']], 'watch'),
+      opt('when', 'Show it', [['always', 'Always'], ['50', 'At 50% or less'], ['20', 'At 20% or less']], 'always',
+        { note: function (st) {
+          return optValue(st, 'battery', 'source') === 'both' && optValue(st, 'battery', 'when') !== 'always'
+            ? 'Each battery shows on its own once it gets that low.' : null; } })] },
     { id: 'weather', name: 'Weather', options: [
       opt('detail', 'Show', [['now', 'Now'], ['range', 'Now, high and low'], ['hours', 'Next 3 hours']], 'now'),
       opt('unit', 'Unit', [['f', '°F'], ['c', '°C']], 'f')] },
     { id: 'event', name: 'Next event', needs: 'Turn on plugins in the Pebble app', options: [
+      opt('place', 'Where', [['bar', 'In the month bar'], ['own', 'On its own line'], ['line', 'In the status line'],
+        ['take', 'Takes over the status line']], 'bar', { pictured: true }),
       opt('within', 'Show it', [['1h', '1 hour before'], ['2h', '2 hours before'], ['4h', '4 hours before'],
-        ['day', 'All day']], '2h'),
-      opt('style', 'Show', [['full', 'Name and time'], ['short', 'Time only']], 'full'),
-      opt('place', 'Where', [['line', 'In this line'], ['bar', 'In the month bar'], ['own', 'On its own line']],
-        'line')] },
+        ['day', 'Any time today']], '2h'),
+      opt('style', 'Show', [['full', 'Name and time'], ['short', 'Time only']], 'full',
+        { onlyIf: function (st) { return optValue(st, 'event', 'place') === 'line'; } })] },
     { id: 'steps', name: 'Steps', options: [
       opt('show', 'Show', [['count', 'Today’s count'], ['usual', 'Ahead or behind your usual']], 'count')] },
     { id: 'distance', name: 'Distance walked', options: [
@@ -38,12 +46,12 @@
     { id: 'sleep', name: 'Sleep last night', options: [
       opt('kind', 'Show', [['all', 'All sleep'], ['deep', 'Deep sleep']], 'all')] },
     { id: 'alarm', name: 'Next alarm', options: [
-      opt('when', 'Show it', [['always', 'Always'], ['12h', 'In the 12 hours before']], 'always')] },
+      opt('when', 'Show it', [['always', 'Whenever one is set'], ['12h', 'In the 12 hours before']], 'always')] },
     { id: 'week', name: 'Week number' },
     { id: 'conn', name: 'Phone disconnected', options: [
-      opt('vibe', 'Vibrate', [['off', 'No'], ['on', 'When it drops']], 'off')] },
+      opt('vibe', 'Vibrate', [['off', 'Don’t vibrate'], ['on', 'Vibrate when it drops']], 'off')] },
     { id: 'reading1', name: 'AAPL', group: 'From other apps', options: [
-      opt('label', 'Show', [['value', 'Value'], ['label', 'Name and value']], 'value')] },
+      opt('label', 'Show', [['value', 'Value only'], ['label', 'Name and value']], 'value')] },
     { id: 'reading2', name: 'More readings', group: 'From other apps',
       needs: 'Pick them in the Pebble app’s Complications' },
   ];
@@ -125,6 +133,12 @@
     if (min < 20 * 60) { return clock(ev.start, h24); }
     return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][ev.start.getDay()];
   }
+  var TAKE_MIN = 15;
+  // "Standup in 23m", "Standup at 2:30p", "Standup now".
+  function sentence(name, when) {
+    if (when === 'now') { return name + ' now'; }
+    return name + (when.indexOf(':') > 0 ? ' at ' : ' in ') + when;
+  }
   function hm(sec) { return Math.floor(sec / 3600) + 'h' + ('0' + Math.floor(sec % 3600 / 60)).slice(-2); }
   function signedK(v) {
     var s = v < 0 ? '-' : '+', a = Math.abs(v);
@@ -133,6 +147,9 @@
   function temp(f, unit) { return unit === 'c' ? Math.round((f - 32) * 5 / 9) : f; }
   function eventVisible(ev, now, within) {
     if (!ev || (ev.end && now >= ev.end)) { return false; }
+    // An all-day event has no start to count down to: it shows on its day
+    // with "Any time today" only.
+    if (ev.allDay) { return within === 'day' && ev.start.toDateString() === now.toDateString(); }
     if (within === 'day') { return ev.start.toDateString() === now.toDateString() || now >= ev.start; }
     var limit = { '1h': 60, '2h': 120, '4h': 240 }[within];
     return (ev.start - now) / 60000 <= limit;
@@ -144,7 +161,7 @@
   // item is hidden right now.
   function plan(state, data) {
     var h24 = data.system24h || state.look.TIME_FORMAT === 2;
-    var metrics = [], overrides = {}, rows = [], event = null;
+    var metrics = [], overrides = {}, rows = [], event = null, takeover = null, glyph = false;
     state.status.forEach(function (id) {
       var row = { id: id, metrics: [], why: null };
       var v = function (k) { return optValue(state, id, k); };
@@ -155,14 +172,11 @@
       };
       switch (id) {
         case 'battery': {
-          var low = v('when') === 'low', src = v('source');
-          if (src !== 'phone') {
-            if (!low || data.battery.percent <= 20) { push(M.BATTERY); }
-          }
-          if (src !== 'watch') {
-            if (!low || data.phoneBattery <= 20) { push(M.PHONE_BATTERY, '   ' + data.phoneBattery + '%'); }
-          }
-          if (!row.metrics.length) { row.why = 'Shows at 20% or less'; }
+          // A threshold applies to each battery on its own.
+          var lim = v('when') === 'always' ? 100 : Number(v('when')), src = v('source');
+          if (src !== 'phone' && data.battery.percent <= lim) { push(M.BATTERY); }
+          if (src !== 'watch' && data.phoneBattery <= lim) { push(M.PHONE_BATTERY, '   ' + data.phoneBattery + '%'); }
+          if (!row.metrics.length) { row.why = 'Shows at ' + lim + '% or less'; }
           break;
         }
         case 'weather': {
@@ -181,11 +195,21 @@
               : 'Shows ' + BY_ID.event.options[0].choices.filter(function (c) { return c[0] === v('within'); })[0][1];
             break;
           }
-          var when = countdown(ev, data.now, h24);
-          // Time only leaves room at the front for the calendar mark (event.js).
-          var label = v('style') === 'short' ? '   ' + when : ev.name + ' ' + when;
-          if (v('place') === 'line') { push(M.EVENT, label); }
-          else { event = { place: v('place'), name: ev.name, when: when, label: label }; row.elsewhere = v('place'); }
+          var when = countdown(ev, data.now, h24), place = v('place');
+          if (place === 'line') {
+            // Time only leaves room at the front for the calendar mark (event.js).
+            if (v('style') === 'short') { push(M.EVENT, '   ' + when); glyph = true; }
+            else { push(M.EVENT, ev.name + ' ' + when); }
+          } else if (place === 'take') {
+            if (ev.start - data.now <= TAKE_MIN * 60000) {
+              takeover = row;
+              push(M.EVENT, '   ' + sentence(ev.name, when));
+              glyph = true;
+            } else { row.why = 'Takes over the line ' + TAKE_MIN + ' minutes before'; }
+          } else {
+            event = { place: place, ev: ev, name: ev.name, when: when };
+            row.elsewhere = place;
+          }
           break;
         }
         case 'steps':
@@ -214,13 +238,19 @@
       }
       rows.push(row);
     });
+    // In its last minutes an event that takes over is the line's only item.
+    if (takeover) {
+      metrics = [M.EVENT];
+      rows.forEach(function (r) { if (r !== takeover && !r.why && !r.elsewhere) { r.why = 'Back once the event starts'; } });
+    }
     var settings = {};
     Object.keys(state.look).forEach(function (k) { settings[k] = state.look[k]; });
     for (var i = 0; i < MAX_METRICS; i++) { settings['METRIC' + (i + 1)] = metrics[i] || 0; }
     settings.TEMP_UNIT = optValue(state, 'weather', 'unit') === 'c' ? 0 : 1;
     settings.DIST_UNIT = optValue(state, 'distance', 'unit') === 'km' ? 0 : 1;
     settings.VIBE_DISCONNECT = optValue(state, 'conn', 'vibe') === 'on';
-    return { settings: settings, overrides: overrides, rows: rows, event: event, state: state };
+    return { settings: settings, overrides: overrides, rows: rows, event: event, state: state,
+      eventGlyph: glyph, h24: h24 };
   }
 
   // ---- Drawing --------------------------------------------------------
@@ -228,12 +258,20 @@
   function zone(layout, name) { return layout[name] || null; }
   // Renders the face for these picks at this moment; also returns each row's
   // fit on the watch: 'shown', 'room' (no room left) or 'hidden' (with why).
+  var QUICK_VIEW_H = 51;   // TIMELINE_PEEK_HEIGHT on rectangular watches
   function draw(state, data, extra) {
     var p = plan(state, data);
-    var opts = { statusOverrides: p.overrides };
-    if (p.event && p.event.place === 'own' && global.MGEvent) { opts.extras = global.MGEvent.band(); }
+    var opts = { statusOverrides: p.overrides, obstruction: data.quickView ? QUICK_VIEW_H : 0 };
     if (extra) { Object.keys(extra).forEach(function (k) { opts[k] = extra[k]; }); }
     var r = Face.render(p.settings, data, opts);
+    if (p.event && p.event.place === 'own' && global.MGEvent) {
+      // The event's own line shows only while it costs the face nothing
+      // else (weekday letters, the bar, a time size); otherwise it goes in
+      // the month bar.
+      var withLine = Face.render(p.settings, data, merge(opts, { extras: global.MGEvent.band() }));
+      if (withLine.layout.stage === r.layout.stage) { r = withLine; }
+      else { p.event.place = 'bar'; p.event.from = 'own'; }
+    }
     var drawn = {}, skipped = {};
     (r.layout.statusItems || []).forEach(function (it) { drawn[it.metric] = it; });
     (r.layout.statusSkipped || []).forEach(function (it) { skipped[it.metric] = it.reason; });
@@ -241,7 +279,11 @@
     if (global.MGEvent) { global.MGEvent.draw(r, p, data); }
     p.rows.forEach(function (row) {
       if (row.why) { row.state = 'hidden'; return; }
-      if (row.elsewhere) { row.state = 'shown'; return; }
+      if (row.elsewhere) {
+        row.state = p.event.shown ? 'shown' : 'hidden';
+        if (!p.event.shown) { row.why = 'No room for it right now'; }
+        return;
+      }
       var any = row.metrics.some(function (m) { return drawn[m]; });
       var room = row.metrics.some(function (m) { return skipped[m] === 'no-room'; });
       row.state = any ? 'shown' : room ? 'room' : 'hidden';
@@ -270,24 +312,67 @@
     return { x: x, y: y, w: Math.min(r.width - x, z.w + 2 * pad), h: Math.min(r.height - y, z.h + 2 * pad) };
   }
 
-  // One item drawn the way the watch draws it, for list rows and the palette.
-  // It is shown even when the moment would hide it, so every row has a picture.
-  function chip(state, id, data, scale) {
+  // A rect of a render trimmed to what's drawn in it (columns that are all
+  // one color are dropped from the sides), with pad pixels kept around it.
+  function trim(r, rect, pad) {
+    var px = r.pixels, W = r.width, bg = (rect.y * W + rect.x) * 4;
+    function plain(x) {
+      for (var y = rect.y; y < rect.y + rect.h; y++) {
+        var i = (y * W + x) * 4;
+        if (px[i] !== px[bg] || px[i + 1] !== px[bg + 1] || px[i + 2] !== px[bg + 2]) { return false; }
+      }
+      return true;
+    }
+    var x0 = rect.x, x1 = rect.x + rect.w - 1;
+    while (x0 < x1 && plain(x0)) { x0++; }
+    while (x1 > x0 && plain(x1)) { x1--; }
+    x0 = Math.max(rect.x, x0 - pad); x1 = Math.min(rect.x + rect.w - 1, x1 + pad);
+    return { x: x0, y: rect.y, w: x1 - x0 + 1, h: rect.h };
+  }
+  // Data in which an item that is hidden right now would show: how it looks
+  // when it does.
+  function whenShown(id, state, data) {
+    var lim = optValue(state, 'battery', 'when');
+    switch (id) {
+      case 'battery': lim = lim === 'always' ? 100 : Number(lim);
+        return merge(data, { battery: { percent: Math.min(data.battery.percent, lim - 8) },
+          phoneBattery: Math.min(data.phoneBattery, lim - 11) });
+      case 'event': return merge(data, { event: BASE.event, now: new Date(BASE.event.start - 12 * 60000) });
+      case 'conn': return merge(data, { connected: false });
+      case 'alarm': return merge(data, { nextAlarm: new Date(data.now.getTime() + 5 * 3600000) });
+    }
+    return data;
+  }
+  // One item drawn the way the watch draws it, for list rows and the palette,
+  // at most maxW px wide (scaled down, never cut). An item hidden right now is
+  // drawn as it looks when it shows; the row dims it.
+  function chip(state, id, data, maxW) {
     var s = JSON.parse(JSON.stringify(state));
-    s.look.THEME = state.look.THEME;
     s.status = [id];
-    var o = s.opts[id] = s.opts[id] || {};
-    if (id === 'battery') { o.when = 'always'; }
-    if (id === 'event') { o.within = 'day'; o.place = 'line'; }
-    if (id === 'alarm') { o.when = 'always'; }
-    var d = merge(data, { connected: id === 'conn' ? false : data.connected });
-    if (id === 'event' && !d.event) { d.event = BASE.event; d.now = new Date(BASE.event.start - 23 * 60000); }
-    var r = draw(s, d);
-    var items = r.layout.statusItems || [];
-    var st = zone(r.layout, 'status');
-    if (!items.length || !st) { return null; }
-    var x0 = items[0].x, x1 = items[items.length - 1].x + items[items.length - 1].w;
-    return crop(r, { x: Math.max(0, x0 - 2), y: st.y, w: x1 - x0 + 4, h: st.h }, scale || 2);
+    var r = draw(s, data);
+    var place = id === 'event' && optValue(s, 'event', 'place');
+    function picture(r) {
+      if (place === 'bar' && r.barEvent) {
+        var b = zone(r.layout, 'banner');
+        return { x: Math.max(0, r.barEvent.x - 5), y: b.y, w: Math.min(r.width - r.barEvent.x + 5, r.barEvent.w + 10), h: b.h };
+      }
+      var z = zone(r.layout, place === 'own' ? 'extra' : 'status');
+      return z && trim(r, z, 3).w > 7 ? trim(r, z, 3) : null;
+    }
+    var rect = picture(r);
+    if (!rect) { r = draw(s, whenShown(id, s, data)); rect = picture(r); }
+    if (!rect) { return null; }
+    var scale = Math.min(1, (maxW || 132) / rect.w);
+    return crop(r, rect, scale);
+  }
+  // An item's choices in a few words, for its row: "Watch and phone · at 50% or less".
+  function optionApplies(state, o) { return !o.onlyIf || o.onlyIf(state); }
+  function summary(state, id) {
+    return (BY_ID[id].options || []).filter(function (o) { return optionApplies(state, o); }).map(function (o, i) {
+      var v = optValue(state, id, o.key);
+      var label = o.choices.filter(function (c) { return c[0] === v; })[0][1];
+      return i ? label.charAt(0).toLowerCase() + label.slice(1) : label;
+    }).join(' · ');
   }
 
   // ---- Store ----------------------------------------------------------
@@ -320,25 +405,46 @@
   }
 
   // ---- Widgets ------------------------------------------------------------
-  // An item's own options, as segmented choices.
-  function optionsPanel(store, id) {
+  // An item's own options, as segmented choices or, for where the event
+  // goes, as pictures of the face with an event 12 minutes away. Ends with
+  // the way to take the item out of the line.
+  function optionsPanel(store, id, data) {
     var it = BY_ID[id];
-    var box = el('div', { class: 'opts', style: 'display:grid;gap:14px' });
+    var box = el('div', { class: 'opts' });
     (it.options || []).forEach(function (o) {
-      box.appendChild(el('div', { class: 'opt' }, [
-        el('span', { text: o.label }),
-        segmented(o.choices, optValue(store.state, id, o.key), function (v) { store.setOpt(id, o.key, v); }, o.label),
-      ]));
+      if (!optionApplies(store.state, o)) { return; }
+      var cur = optValue(store.state, id, o.key), pick = function (v) { store.setOpt(id, o.key, v); };
+      var control;
+      if (o.pictured && data) {
+        control = el('div', { class: 'pics grid2', role: 'group', 'aria-label': o.label }, o.choices.map(function (c) {
+          var st = JSON.parse(JSON.stringify(store.state));
+          (st.opts[id] = st.opts[id] || {})[o.key] = c[0];
+          var r = draw(st, whenShown('event', st, data));
+          var L = r.layout, top = zone(L, 'time'), low = zone(L, 'banner') || zone(L, 'extra') || zone(L, 'status');
+          var rect = { x: 0, y: Math.max(0, top.y - 3), w: r.width, h: low.y + low.h + 3 - Math.max(0, top.y - 3) };
+          var pic = crop(r, rect, 1);
+          return el('button', { type: 'button', class: 'pic', 'aria-pressed': String(c[0] === cur),
+            onclick: function () { pick(c[0]); } }, [pic, el('span', { text: c[1] })]);
+        }));
+      } else {
+        control = segmented(o.choices, cur, pick, o.label);
+      }
+      var note = o.note && o.note(store.state);
+      box.appendChild(el('div', { class: 'opt' }, [el('span', { text: o.label }), control,
+        note ? el('p', { class: 'note', text: note }) : null]));
     });
-    if (!it.options) { box.appendChild(el('p', { class: 'note', text: 'Nothing to set for this one.' })); }
+    box.appendChild(el('button', { type: 'button', class: 'remove-item',
+      onclick: function () { store.set(function (s) { s.status.splice(s.status.indexOf(id), 1); }); } },
+      ['Remove from the status line']));
     return box;
   }
 
   var GRIP = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
-  var CROSS = '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+  var CHEVRON = '<svg class="chev" width="10" height="16" viewBox="0 0 10 16" aria-hidden="true"><path d="M2 2l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
   // The status line as an ordered list. Rows above the fold fit on the watch;
-  // rows below it wait for room. onOpen(id) is called when a row is tapped.
+  // rows below it wait for room. Every row opens to its options (opts.open is
+  // the open one) and says what they are set to; onOpen(id) toggles a row.
   function statusList(store, data, onOpen, opts) {
     opts = opts || {};
     var r = draw(store.state, data);
@@ -348,26 +454,25 @@
     var anyRoom = rows.some(function (row) { return row.state === 'room'; });
     var list = el('ol', { class: 'slist', 'aria-label': 'Status items in priority order' });
     rows.forEach(function (row, i) {
-      var it = BY_ID[row.id];
-      var why = row.state === 'room' ? 'Waits for room on the watch'
-        : row.state === 'hidden' ? row.why
-        : row.elsewhere === 'bar' ? 'In the month bar' : row.elsewhere === 'own' ? 'On its own line' : '';
-      var pic = chip(store.state, row.id, data, opts.scale || 1);
+      var it = BY_ID[row.id], open = opts.open === row.id;
+      var line2 = summary(store.state, row.id) ||
+        (row.state === 'room' ? 'Waits for room on the watch' : row.state === 'hidden' ? row.why : '');
+      var pic = chip(store.state, row.id, data, opts.picW || 120);
       if (pic) { pic.classList.add('chip'); }
-      var li = el('li', { class: 'srow' + (row.state === 'shown' ? '' : ' off'), 'data-id': row.id }, [
+      var li = el('li', { class: 'srow' + (row.state === 'shown' ? '' : ' off') + (open ? ' open' : ''), 'data-id': row.id }, [
         el('button', { type: 'button', class: 'handle', 'aria-label': 'Reorder ' + it.name }),
-        el('button', { type: 'button', class: 'main', onclick: function () { onOpen && onOpen(row.id); } }, [
+        el('button', { type: 'button', class: 'main', 'aria-expanded': String(open),
+          onclick: function () { onOpen && onOpen(row.id); } }, [
           el('span', { class: 'label' }, [el('span', { class: 'name', text: it.name }),
-            why ? el('span', { class: 'why', text: why }) : null]),
-          pic,
+            line2 ? el('span', { class: 'why', text: line2 }) : null]),
+          pic, el('span', { class: 'chevwrap' }),
         ]),
-        el('button', { type: 'button', class: 'remove', 'aria-label': 'Remove ' + it.name,
-          onclick: function () { store.set(function (s) { s.status.splice(s.status.indexOf(row.id), 1); }); } }),
       ]);
       li.querySelector('.handle').innerHTML = GRIP;
-      li.querySelector('.remove').innerHTML = CROSS;
+      li.querySelector('.chevwrap').innerHTML = CHEVRON;
       dragToReorder(li, list, store);
       list.appendChild(li);
+      if (open) { list.appendChild(el('li', { class: 'inline-opts' }, [optionsPanel(store, row.id, data)])); }
       if (anyRoom && i === lastShown) {
         list.appendChild(el('li', { class: 'fold', 'aria-hidden': 'true', text: 'Room on the watch ends here' }));
       }
@@ -418,7 +523,7 @@
     ITEMS.forEach(function (it) {
       if (used.indexOf(it.id) >= 0) { return; }
       var unavailable = it.id === 'reading2';
-      var pic = unavailable ? null : chip(store.state, it.id, data, 1);
+      var pic = unavailable ? null : chip(store.state, it.id, data, 140);
       box.appendChild(el('button', { type: 'button', class: 'tile', disabled: unavailable || full,
         onclick: function () { store.set(function (s) { s.status.push(it.id); }); onPick && onPick(it.id); } }, [
         pic, el('span', { text: it.name }),
@@ -438,6 +543,7 @@
   global.MG = {
     M: M, ITEMS: ITEMS, BY_ID: BY_ID, MOMENTS: MOMENTS, NOW: MOMENTS[1], defaultState: defaultState,
     optValue: optValue, plan: plan, draw: draw, crop: crop, region: region, zone: zone, chip: chip,
+    summary: summary, trim: trim, whenShown: whenShown, BASE: BASE,
     Store: Store, el: el, segmented: segmented, optionsPanel: optionsPanel, statusList: statusList,
     palette: palette, toast: toast, countdown: countdown, clock: clock, merge: merge,
   };
@@ -540,7 +646,8 @@
     var alone = CONTROLS[section].length === 1;
     CONTROLS[section].forEach(function (c) {
       if (c.onlyIf && !store.state.look[c.onlyIf]) { return; }
-      box.appendChild(control(store, data, c, pictured, alone));
+      var drawn = Array.isArray(pictured) ? pictured.indexOf(c.key) >= 0 : pictured;
+      box.appendChild(control(store, data, c, drawn, alone));
     });
     if (section === 'calendar') { var cals = calendars(store); if (cals) { box.appendChild(cals); } }
     return box;
