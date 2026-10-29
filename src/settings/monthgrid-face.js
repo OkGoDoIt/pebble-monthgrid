@@ -383,9 +383,14 @@
     clamp('TIME_FORMAT', 2, 0); clamp('TIME_SIZE', 2, 0); clamp('TIME_FONT', 4, 0);
     clamp('START_DAY', 2, 0); clamp('DOTS_STYLE', 1, 0); clamp('BANNER_CONTENT', 5, 0);
     s.metrics = [];
-    for (var i = 1; i <= 8; i++) {
-      clamp('METRIC' + i, 19, 0);
-      s.metrics.push(s['METRIC' + i]);
+    if (Array.isArray(input.METRICS)) {
+      // The whole list, as the settings page sends it (no slot limit).
+      input.METRICS.forEach(function (m) { m = num(m); if (m > 0 && m <= 19) { s.metrics.push(m); } });
+    } else {
+      for (var i = 1; i <= 8; i++) {
+        clamp('METRIC' + i, 19, 0);
+        s.metrics.push(s['METRIC' + i]);
+      }
     }
     ['SHOW_SECONDS', 'SHOW_ADJACENT', 'DOTS_ENABLED', 'GRID_LINES', 'TEMP_UNIT', 'DIST_UNIT']
       .forEach(function (k) { s[k] = s[k] ? 1 : 0; });
@@ -618,6 +623,10 @@
   var FOOT_S = [0x2, 0x7, 0x7, 0x0, 0x2];
   var RUN_L = [0x030, 0x030, 0x000, 0x07C, 0x05E, 0x030, 0x078, 0x05C, 0x0CE, 0x086, 0x183, 0x103, 0x001];
   var RUN_S = [0x18, 0x18, 0x00, 0x1E, 0x0F, 0x0C, 0x0E, 0x12, 0x21];
+  var CAL_L = [0x1FF, 0x145, 0x1FF, 0x101, 0x155, 0x101, 0x155, 0x101, 0x1FF];
+  var CAL_S = [0x7F, 0x55, 0x7F, 0x41, 0x55, 0x41, 0x7F];
+  var PHONE_L = [0x3E, 0x7F, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x7F, 0x77, 0x3E];
+  var PHONE_S = [0x1F, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1F, 0x1B, 0x1F];
 
   function blit(s, x, y, rows, w, c) {
     rows.forEach(function (bits, r) {
@@ -654,6 +663,8 @@
       case M.WEATHER: return state.weatherCond ? z + 2 : 0;
       case M.HEART_RATE: case M.CALORIES: case M.CALORIES_TOTAL: case M.SLEEP: case M.STEPS:
       case M.ACTIVE_MIN: case M.NEXT_ALARM: case M.CONNECTION: return z + 2;
+      case M.NEXT_EVENT: return (z >= 12 ? 9 : 7) + 2;
+      case M.PHONE_BATTERY: return (z >= 12 ? 7 : 5) + 2;
       default: return 0;
     }
   }
@@ -759,6 +770,16 @@
         drawLine(s, acx, acy, ox + idiv(z * 65, 100), acy, bg);
         drawLine(s, ox + idiv(z, 5), oy + idiv(z * 8, 10), ox + idiv(z, 3), oy + idiv(z * 7, 10), fg);
         drawLine(s, ox + idiv(z * 4, 5), oy + idiv(z * 8, 10), ox + idiv(z * 2, 3), oy + idiv(z * 7, 10), fg);
+        break;
+      }
+      case M.NEXT_EVENT: {
+        var cal = large ? CAL_L : CAL_S;
+        blit(s, ox, oy + idiv(z - cal.length, 2), cal, large ? 9 : 7, fg);
+        break;
+      }
+      case M.PHONE_BATTERY: {
+        var ph = large ? PHONE_L : PHONE_S;
+        blit(s, ox, oy + idiv(z - ph.length, 2), ph, large ? 7 : 5, fg);
         break;
       }
       case M.CONNECTION: {
@@ -917,6 +938,8 @@
       } else {
         text = metricText(metric, s, data);
         if (text === null) { skipped.push({ slot: slot, metric: metric, reason: 'no-data' }); return; }
+        // The event's calendar mark only stands in for its name (time only).
+        if (metric === M.NEXT_EVENT) { iconMetric = M.NONE; }
       }
       var it = { slot: slot, metric: metric, icon: iconMetric, iconW: iconWidth(iconMetric, P.ICON_S, state), text: text };
       if (!ov && metric === M.NEXT_EVENT) {

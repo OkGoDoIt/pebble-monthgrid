@@ -5,7 +5,7 @@
 // Runs in the browser and under node (tools/bar-cases.js checks every case).
 (function (global) {
   'use strict';
-  function F() { return global.MonthGridFace || require('../preview/monthgrid-face.js'); }
+  function F() { return global.MonthGridFace || require('./monthgrid-face.js'); }
 
   // Each watch's bar. textW is the room between the bar's side paddings;
   // on Round 2 the bar runs edge to edge and the circle clips it, so the
@@ -91,18 +91,28 @@
   }
 
   // ---- The event's words -----------------------------------------------------
-  // ev = {name, start, end, allDay}; when, as draw_status.c words it.
+  // ev = {name, start, end, allDay}. text is the short form ("12m", "2:30p",
+  // "tmrw 9:00a"), full what follows the name in a sentence ("in 12m",
+  // "at 2:30p", "tomorrow at 9:00a"); both empty for an all-day event on its day.
   function clock(d, h24) {
     var h = d.getHours(), m = ('0' + d.getMinutes()).slice(-2);
     return h24 ? h + ':' + m : ((h % 12) || 12) + ':' + m + (h < 12 ? 'a' : 'p');
   }
+  function dayNumber(d) { return Math.round(new Date(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000); }
   function when(ev, now, h24) {
-    if (ev.allDay) { return { kind: 'allday', text: '' }; }
-    if (now >= ev.start) { return { kind: 'now', text: 'now' }; }
-    var min = Math.ceil((ev.start - now) / 60000);
-    if (min < 60) { return { kind: 'soon', text: min + 'm' }; }
-    if (min < 120) { return { kind: 'soon', text: Math.floor(min / 60) + 'h' + ('0' + (min % 60)).slice(-2) }; }
-    return { kind: 'clock', text: clock(ev.start, h24) };
+    var later = dayNumber(ev.start) > dayNumber(now);
+    if (ev.allDay) {
+      return later ? { kind: 'tomorrow', text: 'tmrw', full: 'tomorrow' } : { kind: 'allday', text: '', full: '' };
+    }
+    if (now >= ev.start) { return { kind: 'now', text: 'now', full: 'now' }; }
+    var min = Math.ceil((ev.start - now) / 60000), t;
+    if (min < 120) {
+      t = min < 60 ? min + 'm' : Math.floor(min / 60) + 'h' + ('0' + (min % 60)).slice(-2);
+      return { kind: 'soon', text: t, full: 'in ' + t };
+    }
+    t = clock(ev.start, h24);
+    return later ? { kind: 'tomorrow', text: 'tmrw ' + t, full: 'tomorrow at ' + t }
+      : { kind: 'clock', text: t, full: 'at ' + t };
   }
   // The phone sends at most 23 bytes (EVENT_NAME_LEN - 1). Today it cuts
   // anywhere; cutName is the fix: at a word, marked with an ellipsis.
@@ -151,9 +161,8 @@
     }
     var avail = room - staleW;
     var ev = cfg.event, t = when(ev, cfg.now, cfg.h24), name = ev.name || 'Event';
-    var full = t.kind === 'allday' ? name : t.kind === 'now' ? name + ' now'
-      : name + (t.kind === 'clock' ? ' at ' : ' in ') + t.text;
-    var compact = t.kind === 'allday' ? name : name + ' ' + t.text;
+    var full = t.full ? name + ' ' + t.full : name;
+    var compact = t.text ? name + ' ' + t.text : name;
     var forms = full === compact ? [full] : [full, compact];
     var dates = dateLadder(cfg.content, cfg.locale, cfg.now, true, cfg.fixCase);
     var rung = 0;

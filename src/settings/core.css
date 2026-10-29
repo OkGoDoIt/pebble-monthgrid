@@ -1,5 +1,5 @@
 /* MonthGrid's settings page, in the Pebble app's own look: core orange on
-   white, or on black in dark mode, with system type. */
+   white, or on black in dark mode, with system type and grouped lists. */
 .mg {
   --bg: #ffffff;
   --card: #f2f1f4;
@@ -12,9 +12,10 @@
   --on-accent: #ffffff;
   --remove: #e5413a;
   --add: #2e9a4b;
-  --tab-on: #ffffff;
+  --track: #e7e6ea;
+  --seg-on: #ffffff;
+  --switch-off: #d9d7dd;
   --shadow: 0 1px 3px rgba(0, 0, 0, .16);
-  --radius: 14px;
   font: 16px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color: var(--ink);
   background: var(--bg);
@@ -23,22 +24,22 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .mg {
     --bg: #000000; --card: #161618; --raised: #1f1f22; --ink: #e8e3ea; --muted: #a39fa8;
-    --line: #2c2a30; --accent-ink: #ff7a68; --remove: #ff5a50; --add: #49c26a; --tab-on: #3a3a3e;
-    --shadow: 0 1px 3px rgba(0, 0, 0, .6); color-scheme: dark;
+    --line: #2c2a30; --accent-ink: #ff7a68; --remove: #ff5a50; --add: #49c26a; --track: #2a2a2e;
+    --seg-on: #5a5a60; --switch-off: #3a3a3f; --shadow: 0 1px 3px rgba(0, 0, 0, .6); color-scheme: dark;
   }
 }
 :root[data-theme="dark"] .mg {
   --bg: #000000; --card: #161618; --raised: #1f1f22; --ink: #e8e3ea; --muted: #a39fa8;
-  --line: #2c2a30; --accent-ink: #ff7a68; --remove: #ff5a50; --add: #49c26a; --tab-on: #3a3a3e;
-  --shadow: 0 1px 3px rgba(0, 0, 0, .6); color-scheme: dark;
+  --line: #2c2a30; --accent-ink: #ff7a68; --remove: #ff5a50; --add: #49c26a; --track: #2a2a2e;
+  --seg-on: #5a5a60; --switch-off: #3a3a3f; --shadow: 0 1px 3px rgba(0, 0, 0, .6); color-scheme: dark;
 }
 .mg *, .mg *::before, .mg *::after { box-sizing: border-box; }
 .mg button { font: inherit; color: inherit; }
 .mg :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .mg .pix { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
 .mg .ico { display: inline-grid; place-items: center; flex: none; }
-.mg .note { font-size: 13px; color: var(--muted); margin: 0; }
-.mg .note.warn { color: var(--accent-ink); }
+.mg .note { font-size: 13px; color: var(--muted); margin: 0; padding: 0 4px; }
+.mg .note.warn, .mg .why.warn { color: var(--accent-ink); }
 .mg .label { min-width: 0; flex: 1; display: grid; gap: 1px; }
 .mg .name { font-weight: 500; }
 .mg .why { font-size: 13px; color: var(--muted); line-height: 1.3; }
@@ -65,29 +66,73 @@
 .mg .tabs button { min-height: 34px; padding: 0 2px; border: 0; border-radius: 8px; background: none; cursor: pointer;
   font-size: clamp(12px, 3.7vw, 13.5px); font-weight: 500; color: var(--muted); white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis; }
-.mg .tabs button[aria-selected="true"] { background: var(--tab-on); color: var(--ink); font-weight: 650; box-shadow: var(--shadow); }
+.mg .tabs button[aria-selected="true"] { background: var(--seg-on); color: var(--ink); font-weight: 650; box-shadow: var(--shadow); }
 
-/* A tab's controls. */
-.mg .panel { display: grid; gap: 20px; align-content: start; padding: 16px 16px 28px; flex: 1; }
-.mg .field { display: grid; gap: 8px; }
-.mg .flabel { font-size: 13.5px; font-weight: 600; color: var(--muted); }
-.mg .seg { display: flex; flex-wrap: wrap; gap: 6px; }
-.mg .seg button { min-height: 38px; padding: 6px 14px; border-radius: 19px; border: 1px solid var(--line);
-  background: var(--raised); cursor: pointer; font-size: 14.5px; }
-.mg .seg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent);
-  font-weight: 600; }
+/* A tab's controls: grouped lists, like the phone's own settings. */
+.mg .panel { display: grid; gap: 22px; align-content: start; padding: 16px 16px 28px; flex: 1; }
+.mg .group { display: grid; gap: 7px; min-width: 0; }
+.mg .ghead { margin: 0; padding: 0 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.mg .card { display: grid; border-radius: 12px; background: var(--card); overflow: hidden; }
+.mg .row { position: relative; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 9px 14px;
+  min-width: 0; text-align: left; }
+.mg .row + .row::before { content: ""; position: absolute; top: 0; left: 14px; right: 0; height: 1px; background: var(--line); }
+.mg .segrow { display: grid; gap: 8px; padding: 11px 14px 12px; }
+.mg .flabel { font-size: 15px; font-weight: 500; }
+
+/* A segmented control: one track, equal parts. */
+.mg .seg { display: grid; gap: 2px; padding: 2px; border-radius: 9px; background: var(--track); min-width: 0; }
+.mg .seg button { min-height: 34px; padding: 4px 6px; border: 0; border-radius: 7px; background: none; cursor: pointer;
+  font-size: 14px; line-height: 1.2; color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
+.mg .seg button[aria-checked="true"] { background: var(--seg-on); font-weight: 600; box-shadow: var(--shadow); }
+
+/* A pop-up menu: the native menu opens from anywhere on the row. */
+.mg .row.menu { cursor: pointer; }
+.mg .row.menu select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;
+  font-size: 16px; -webkit-appearance: none; appearance: none; }
+.mg .menuval { display: flex; align-items: center; gap: 6px; color: var(--muted); text-align: right; font-size: 15px; }
+.mg .row.menu:active { background: var(--track); }
+
+/* An on/off switch. */
+.mg .switch { position: relative; flex: none; width: 51px; height: 31px; }
+.mg .switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; z-index: 1; }
+.mg .knob { position: absolute; inset: 0; border-radius: 16px; background: var(--switch-off); transition: background .15s ease; }
+.mg .knob::after { content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%;
+  background: #fff; box-shadow: 0 2px 4px rgba(0, 0, 0, .25); transition: transform .15s ease; }
+.mg .switch input:checked + .knob { background: var(--accent); }
+.mg .switch input:checked + .knob::after { transform: translateX(20px); }
+.mg .switch input:focus-visible + .knob { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* How long before an event it shows. */
+.mg .sliderrow { display: grid; gap: 4px; padding: 12px 14px 10px; }
+.mg .leadval { font-size: 17px; font-weight: 650; }
+.mg input[type="range"] { --fill: 0%; width: 100%; height: 32px; margin: 0; background: none; -webkit-appearance: none;
+  appearance: none; cursor: pointer; }
+.mg input[type="range"]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px;
+  background: linear-gradient(to right, var(--accent) var(--fill), var(--track) var(--fill)); }
+.mg input[type="range"]::-moz-range-track { height: 4px; border-radius: 2px;
+  background: linear-gradient(to right, var(--accent) var(--fill), var(--track) var(--fill)); }
+.mg input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 28px; margin-top: -12px;
+  border-radius: 50%; background: #fff; border: 0; box-shadow: 0 1px 4px rgba(0, 0, 0, .3), 0 0 0 .5px rgba(0, 0, 0, .08); }
+.mg input[type="range"]::-moz-range-thumb { width: 28px; height: 28px; border-radius: 50%; background: #fff; border: 0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .3); }
+.mg .scale { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); }
+
+/* Choices drawn as the face. */
 .mg .pics { display: grid; gap: 8px; }
 .mg .pics.cols2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .mg .pics.cols3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .mg .pic { display: grid; gap: 6px; justify-items: start; align-content: start; padding: 7px; border-radius: 12px;
   border: 1px solid var(--line); background: var(--raised); cursor: pointer; text-align: left; font-size: 14px; min-width: 0; }
 .mg .pic canvas { width: 100% !important; height: auto !important; border-radius: 3px; outline: 1px solid var(--line); }
-.mg .pic[aria-pressed="true"] { border: 2px solid var(--accent); padding: 6px; font-weight: 600; }
-.mg .xlink, .mg .crow { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px; padding: 8px 12px;
-  border: 1px solid var(--line); border-radius: 12px; background: var(--raised); text-align: left; cursor: pointer; }
+.mg .pic[aria-checked="true"] { border: 2px solid var(--accent); padding: 6px; font-weight: 600; }
+.mg .xlink { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px; padding: 8px 14px;
+  border: 0; border-radius: 12px; background: var(--card); text-align: left; cursor: pointer; }
+.mg .callout { display: grid; gap: 2px; padding: 12px 14px; border-radius: 12px; background: var(--card); }
+.mg .callout h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.mg .callout p { margin: 0; font-size: 13.5px; color: var(--muted); }
 
 /* Status: what's on the watch, then everything else. */
-.mg .listhead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: -12px; }
+.mg .listhead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: -14px; }
 .mg .listhead h3 { margin: 0; font-size: 15px; font-weight: 650; }
 .mg .listhead span { font-size: 13px; color: var(--muted); }
 .mg .slist, .mg .mlist { list-style: none; margin: 0 -6px; padding: 0; }
@@ -106,20 +151,17 @@
 .mg .srow.dragging { position: relative; z-index: 2; box-shadow: 0 6px 18px rgba(0, 0, 0, .25); border-radius: 10px; }
 .mg .srow.flash { animation: mg-flash 1.4s ease-out; }
 @keyframes mg-flash { from { background: color-mix(in srgb, var(--add) 22%, var(--bg)); } to { background: var(--bg); } }
-.mg .opts { display: grid; gap: 14px; padding: 4px 14px 16px 46px; margin-bottom: 6px; background: var(--card);
-  border-radius: 0 0 12px 12px; border-bottom: 1px solid var(--line); }
-.mg .opts .seg button:not([aria-pressed="true"]) { background: var(--raised); }
+.mg .opts { padding: 0 10px 12px 46px; margin-bottom: 6px; background: var(--card); border-radius: 0 0 12px 12px;
+  border-bottom: 1px solid var(--line); }
+.mg .opts .card { background: var(--raised); }
+.mg .opts .note { padding: 0 2px; }
 .mg .fold { display: flex; align-items: center; gap: 8px; padding: 6px 6px; font-size: 12.5px; font-weight: 600;
   color: var(--accent-ink); }
 .mg .fold::before, .mg .fold::after { content: ""; height: 1px; flex: 1; background: currentColor; opacity: .5; }
 .mg .empty { padding: 14px 6px; color: var(--muted); font-size: 14px; }
-.mg .pinned { border-bottom: 1px solid var(--line); }
-.mg .pinned .main { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 58px; padding: 6px 10px 6px 9px;
-  border: 0; background: none; text-align: left; cursor: pointer; }
-.mg .pinned .calico { width: 22px; margin-right: 9px; color: var(--muted); }
 .mg .mrow { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 54px; padding: 6px 6px 6px 9px;
   border: 0; border-bottom: 1px solid var(--line); background: none; text-align: left; cursor: pointer; }
-.mg .mrow:active, .mg .srow button.main:active, .mg .xlink:active, .mg .crow:active { background: var(--card); }
+.mg .mrow:active, .mg .srow button.main:active, .mg .xlink:active, .mg .crow:active { background: var(--track); }
 .mg .mrow .plus { color: var(--add); margin-right: 9px; }
 .mg .mgroup { padding: 16px 6px 2px; font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
   color: var(--muted); }
@@ -131,20 +173,22 @@
   background: var(--raised); cursor: pointer; font-size: 13px; text-align: center; min-width: 0; }
 .mg .theme canvas { width: 100% !important; height: auto !important; border-radius: 4px; outline: 1px solid var(--line);
   image-rendering: auto; }
-.mg .theme[aria-pressed="true"] { border: 2px solid var(--accent); padding: 5px; font-weight: 600; }
-.mg .custom { display: grid; gap: 8px; }
-.mg .colorfield { display: grid; gap: 8px; }
+.mg .theme[aria-checked="true"] { border: 2px solid var(--accent); padding: 5px; font-weight: 600; }
+.mg .crow { width: 100%; border: 0; background: none; cursor: pointer; }
 .mg .swatch { width: 28px; height: 28px; border-radius: 14px; flex: none; box-shadow: inset 0 0 0 1px rgba(127, 127, 127, .45); }
-.mg .palette { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; padding: 10px;
-  border-radius: 12px; background: var(--card); }
-.mg .pcolor { aspect-ratio: 1; border: 0; border-radius: 6px; cursor: pointer; padding: 0;
+.mg .palrow { padding: 4px 14px 14px; }
+.mg .palrow::before { display: none; }
+.mg .palette { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 5px; width: 100%; max-width: 380px;
+  margin: 0 auto; }
+.mg .pcolor { aspect-ratio: 1; width: 100%; border: 0; border-radius: 50%; cursor: pointer; padding: 0;
   box-shadow: inset 0 0 0 1px rgba(127, 127, 127, .35); }
-.mg .pcolor[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--ink); }
-.mg .cals { display: grid; gap: 8px; }
-.mg .cal { display: flex; gap: 8px; align-items: center; }
-.mg .swatchbtn { width: 48px; height: 44px; display: grid; place-items: center; flex: none; border-radius: 10px;
+.mg .pcolor[aria-checked="true"] { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--ink); }
+.mg .opts .pcolor[aria-checked="true"], .mg .card .pcolor[aria-checked="true"] { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--ink); }
+.mg .cal { gap: 10px; }
+.mg .swatchbtn { width: 44px; height: 40px; display: grid; place-items: center; flex: none; border-radius: 10px;
   border: 1px solid var(--line); background: var(--raised); cursor: pointer; padding: 0; }
-.mg input[type="url"] { flex: 1; min-width: 0; font: inherit; font-size: 15px; min-height: 44px; padding: 8px 12px;
+.mg .calnum { width: 28px; flex: none; text-align: center; color: var(--muted); font-weight: 600; }
+.mg input[type="url"] { flex: 1; min-width: 0; font: inherit; font-size: 15px; min-height: 40px; padding: 8px 12px;
   border-radius: 10px; border: 1px solid var(--line); background: var(--raised); color: var(--ink); }
 
 /* Save, always in reach. */
@@ -158,4 +202,7 @@
 .mg .toast:not(:has(button)) { padding-right: 16px; }
 .mg .toast button { border: 0; background: none; color: inherit; font-weight: 700; padding: 6px 10px; border-radius: 14px;
   cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
-@media (prefers-reduced-motion: reduce) { .mg .chev { transition: none; } .mg .srow.flash { animation: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .mg .chev, .mg .knob, .mg .knob::after { transition: none; }
+  .mg .srow.flash { animation: none; }
+}

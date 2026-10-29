@@ -6,9 +6,6 @@
     "pebble-app"
   ],
   "private": true,
-  "dependencies": {
-    "@rebble/clay": "^1.1.0"
-  },
   "pebble": {
     "displayName": "MonthGrid",
     "uuid": "45829fc0-2bd8-4b99-a273-1cd63d8f5ef5",
@@ -108,7 +105,21 @@
       "FC_HOUR1_DC",
       "FC_HOUR2_DC",
       "FC_HOUR3_DC",
-      "FC_HOURS_START"
+      "FC_HOURS_START",
+      "METRICS",
+      "BATTERY_BELOW",
+      "WEATHER_DETAIL",
+      "STEPS_SHOW",
+      "SLEEP_KIND",
+      "SLEEP_AFTER_WAKE",
+      "ALARM_WITHIN",
+      "READING_LABELS",
+      "EVENT_PLACE",
+      "EVENT_WITHIN",
+      "EVENT_STYLE",
+      "ALLDAY_NAME",
+      "ALLDAY_START",
+      "ALLDAY_END"
     ],
     "resources": {
       "media": [

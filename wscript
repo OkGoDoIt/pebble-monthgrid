@@ -26,6 +26,10 @@ def configure(ctx):
 def build(ctx):
     ctx.load('pebble_sdk')
 
+    # The settings page ships inside the phone code as one HTML document.
+    if ctx.exec_command(['node', 'tools/build_settings_page.js'], cwd=ctx.path.abspath()) != 0:
+        ctx.fatal('tools/build_settings_page.js failed')
+
     build_worker = os.path.exists('worker_src')
     binaries = []
 

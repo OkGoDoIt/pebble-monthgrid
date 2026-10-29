@@ -11,7 +11,7 @@
 
 const path = require('path');
 const fs = require('fs');
-const Face = require('../monthgrid-face.js');
+const Face = require('../../../src/settings/monthgrid-face.js');
 const { readPNG, writePNG } = require('./png.js');
 
 const APP = path.resolve(__dirname, '../../..');
@@ -135,7 +135,8 @@ const CASES = {
     { dir: STORE_DIR }),
 
   // Plugin mockups (README beside them): Tuesday 2026-10-28 21:13, 24-hour
-  // emulator; Next event, Reading 1, Phone battery, Battery, Weather.
+  // emulator; Next event, Reading 1, Phone battery, Battery, Weather. Shot
+  // before the phone battery had its glyph (2026-10-29), so drawn without it.
   'emery-slots-a-text-only': {
     dir: PLUGINS_DIR,
     settings: { METRIC1: M.NEXT_EVENT, METRIC2: M.READING_1, METRIC3: M.PHONE_BATTERY,
@@ -146,6 +147,7 @@ const CASES = {
       event: { name: 'Standup', start: new Date(2026, 9, 28, 21, 36) },
       phoneBattery: 82, readings: [{ label: 'AAPL', text: '$232.14' }],
     },
+    opts: { statusOverrides: { [M.PHONE_BATTERY]: { text: '82%', icon: null } } },
   },
 };
 
@@ -157,6 +159,7 @@ CASES['emery-check-long-event-name'] = {
     event: { name: 'Quarterly planning review', start: new Date(2026, 9, 28, 21, 38) },
     readings: [],
   }),
+  opts: CASES['emery-slots-a-text-only'].opts,
 };
 
 function compare(name, c, diffDir) {

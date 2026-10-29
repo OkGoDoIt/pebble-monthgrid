@@ -28,7 +28,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PREVIEW = os.path.dirname(HERE)
 APP = os.path.abspath(os.path.join(PREVIEW, '..', '..'))
 PEBBLEOS = os.path.abspath(os.path.join(APP, '..', '..', 'PebbleOS'))
-OUT = os.path.join(PREVIEW, 'monthgrid-fonts.js')
+OUT = os.path.join(PREVIEW, '..', '..', 'src', 'settings', 'monthgrid-fonts.js')
 
 WILDCARD = 0x25AF
 ELLIPSIS = 0x2026

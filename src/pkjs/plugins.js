@@ -157,9 +157,10 @@ function booleanOf(payloads) {
 }
 
 // calendar/event lists upcoming events soonest first, including any under
-// way. The next event is the first timed one that hasn't started (or only
-// just has); all-day events only count when no timed event is coming.
-function pickNextEvent(instances, nowSec) {
+// way. The watch gets two: the next timed event that hasn't started (or only
+// just has), and the first all-day event that hasn't ended. It decides
+// which to show, and when, from the settings and its own clock.
+function pickEvents(instances, nowSec) {
   var timed = null, allDay = null;
   for (var i = 0; i < (instances || []).length; i++) {
     var p = instances[i].properties || {};
@@ -179,18 +180,29 @@ function pickNextEvent(instances, nowSec) {
       if (!timed || ev.start < timed.start) { timed = ev; }
     }
   }
-  return timed || allDay;
+  return { timed: timed, allDay: allDay };
 }
 
-function eventDict(ev) {
-  if (!ev) {
-    return { EVENT_NAME: '', EVENT_START: 0, EVENT_END: 0, EVENT_ALL_DAY: 0 };
-  }
+// A name too long for the watch is cut at a word where it can be, and says
+// so with an ellipsis.
+function cutName(name, maxBytes) {
+  if (utf8Length(name) <= maxBytes) { return name; }
+  var out = truncateUtf8(name, maxBytes - 3);
+  var space = out.lastIndexOf(' ');
+  if (space >= 8) { out = out.substring(0, space); }
+  return out.replace(/[\s,.;:\u2013\u2014-]+$/, '') + '\u2026';
+}
+
+function eventDict(picked) {
+  var t = picked && picked.timed, a = picked && picked.allDay;
   return {
-    EVENT_NAME: truncateUtf8(ev.name, EVENT_NAME_BYTES),
-    EVENT_START: ev.start,
-    EVENT_END: ev.end,
-    EVENT_ALL_DAY: ev.allDay ? 1 : 0,
+    EVENT_NAME: t ? cutName(t.name, EVENT_NAME_BYTES) : '',
+    EVENT_START: t ? t.start : 0,
+    EVENT_END: t ? t.end : 0,
+    EVENT_ALL_DAY: 0,
+    ALLDAY_NAME: a ? cutName(a.name, EVENT_NAME_BYTES) : '',
+    ALLDAY_START: a ? a.start : 0,
+    ALLDAY_END: a ? a.end : 0,
   };
 }
 
@@ -420,6 +432,8 @@ function Bridge(options) {
   this.selectedMetrics = options.selectedMetrics;
   this.fallbackWeather = options.fallbackWeather;
   this.onUnits = options.onUnits || function() {};
+  // Whether the next event shows anywhere (it needn't be a status item).
+  this.wantsEvent = options.wantsEvent || function() { return this.wants(METRIC_NEXT_EVENT); };
   this.subs = {};
   this.weather = { state: 'off', at: 0 };
   this.units = null;
@@ -502,7 +516,7 @@ Bridge.prototype.answerPluginRequest = function() {
   PLUGIN_GROUPS.forEach(function(name) {
     if (self.outbox.latest(name)) {
       self.outbox.resend([name]);
-    } else if (name === 'event' && chosen.indexOf(METRIC_NEXT_EVENT) !== -1) {
+    } else if (name === 'event' && self.wantsEvent()) {
       self.outbox.offer(name, eventDict(null), true);
     } else if (name === 'phone' && chosen.indexOf(METRIC_PHONE_BATTERY) !== -1) {
       self.outbox.offer(name, { PHONE_BATTERY: -1 }, true);
@@ -642,9 +656,9 @@ Bridge.prototype.answerWeatherRequest = function() {
 var METRIC_NEXT_EVENT = 13;
 
 // calendar/event needs the Calendar permission, so nothing subscribes (and
-// nothing asks) unless the user put the item in their status line.
+// nothing asks) unless the user has the next event showing somewhere.
 Bridge.prototype.syncEvent = function() {
-  if (!this.wants(METRIC_NEXT_EVENT)) {
+  if (!this.wantsEvent()) {
     this.unsubscribe('event');
     this.events = null;
     this.scheduleEventPick(null);
@@ -671,11 +685,14 @@ Bridge.prototype.onEventsError = function(code) {
 };
 
 Bridge.prototype.pickEvent = function() {
-  var ev = pickNextEvent(this.events, Math.floor(nowMs() / 1000));
-  this.outbox.offer('event', eventDict(ev));
+  var picked = pickEvents(this.events, Math.floor(nowMs() / 1000));
+  this.outbox.offer('event', eventDict(picked));
   // The calendar only updates when its list changes, which an event
-  // starting doesn't do: move on to the following one ourselves.
-  this.scheduleEventPick(ev && !ev.allDay ? (ev.start + EVENT_GRACE_SEC) * 1000 : null);
+  // starting (or an all-day one ending) doesn't do: move on ourselves.
+  var next = [];
+  if (picked.timed) { next.push((picked.timed.start + EVENT_GRACE_SEC) * 1000); }
+  if (picked.allDay && picked.allDay.end) { next.push(picked.allDay.end * 1000); }
+  this.scheduleEventPick(next.length ? Math.min.apply(null, next) : null);
 };
 
 Bridge.prototype.scheduleEventPick = function(atMs) {
@@ -882,16 +899,30 @@ Bridge.prototype.offerReadings = function() {
   });
 };
 
-// "Seattle temperature (14°C)": what reading n is, for the settings page.
-Bridge.prototype.describeReading = function(n) {
+// What reading n is, for the settings page: {n, label, what, text}, or
+// null while the Pebble app has no such reading.
+Bridge.prototype.readingInfo = function(n) {
   var slot = this.slots && this.slots[n - 1];
-  if (!slot) { return null; }
+  if (!slot || !slot.category) { return null; }
   var envelope = this.readingData[sourceKey(slot)];
   var instance = envelope && envelope.instances && envelope.instances[slot.index];
   var p = (instance && instance.properties) || {};
-  var what = plainText(textOf(p.name) || '') || words(slot.category);
-  var value = instance ? readingText(p[slot.property]) : '';
-  return what + ' ' + words(slot.property) + (value ? ' (' + value + ')' : '');
+  var label = plainText(textOf(p.name) || '');
+  return {
+    n: n,
+    label: truncateUtf8(label, READING_LABEL_BYTES),
+    what: (label || words(slot.category)) + ' ' + words(slot.property),
+    text: instance ? readingText(p[slot.property]) : '',
+  };
+};
+
+Bridge.prototype.readingList = function() {
+  var out = [];
+  for (var n = 1; n <= NUM_READINGS; n++) {
+    var info = this.readingInfo(n);
+    if (info) { out.push(info); }
+  }
+  return out;
 };
 
 // --- settings page -------------------------------------------------------------
@@ -918,24 +949,10 @@ function served(category, item) {
   return false;
 }
 
-// Status-line choices that come from the Pebble app's plugins, for the
-// settings page: offered while something can serve them, and always when
-// already chosen, so saving the page never quietly drops a choice.
-Bridge.prototype.metricOptions = function(chosen) {
-  var out = [];
+// What the Pebble app's plugins can serve, for the settings page.
+Bridge.prototype.served = function() {
   var api = available();
-  function add(value, label, ok) {
-    if ((api && ok) || chosen.indexOf(value) !== -1) {
-      out.push({ label: label, value: value });
-    }
-  }
-  add(METRIC_NEXT_EVENT, 'Next calendar event', served('calendar', 'event'));
-  add(METRIC_PHONE_BATTERY, 'Phone battery', served('phone', 'phone_state'));
-  for (var n = 1; n <= NUM_READINGS; n++) {
-    var what = this.describeReading(n);
-    add(METRIC_READING_1 + n - 1, 'Reading ' + n + (what ? ': ' + what : ''), what !== null);
-  }
-  return out;
+  return { event: api && served('calendar', 'event'), phone: api && served('phone', 'phone_state') };
 };
 
 module.exports = {
@@ -948,7 +965,9 @@ module.exports = {
     tempTenthsC: tempTenthsC,
     conditionOf: conditionOf,
     weatherDict: weatherDict,
-    pickNextEvent: pickNextEvent,
+    pickEvents: pickEvents,
+    cutName: cutName,
+    eventDict: eventDict,
     readingText: readingText,
     forecastDict: forecastDict,
     plainText: plainText,

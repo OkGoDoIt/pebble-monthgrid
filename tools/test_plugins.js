@@ -36,10 +36,9 @@ function messageKeys() {
 var origLoad = Module._load;
 Module._load = function(request, parent, isMain) {
   if (request === 'message_keys') { return messageKeys(); }
-  // The SDK bundles Clay's prebuilt dist, not its source entry point.
-  if (request === '@rebble/clay') {
-    return origLoad.call(this, path.join(ROOT, 'node_modules/@rebble/clay/dist/js/index.js'),
-                         parent, isMain);
+  // The build generates the settings page; a stand-in carries the boot mark.
+  if (/settings_page$/.test(request)) {
+    return { html: '<script>var MG_BOOT=/*MG_BOOT*/;</script>', boot: '/*MG_BOOT*/' };
   }
   return origLoad.apply(this, arguments);
 };
@@ -482,15 +481,18 @@ function unitsEnvelope(temperature, distance) {
   };
 }
 
-// The settings page Clay would open, as the config array it was built from.
-function openedConfig() {
+// What the settings page opens with: {state, ctx}.
+function openedBoot() {
   fire('showConfiguration');
   assert.ok(env.openedUrl, 'a settings page was opened');
-  return decodeURIComponent(env.openedUrl.replace(/^data:text\/html;charset=utf-8,/, ''));
+  var html = decodeURIComponent(env.openedUrl.replace(/^data:text\/html;charset=utf-8,/, ''));
+  var m = /var MG_BOOT=(.*);<\/script>/.exec(html);
+  assert.ok(m, 'the page carries its state');
+  return JSON.parse(m[1]);
 }
 
-// A settings-page item in Clay's serialized config (not its stored values).
-function field(key) { return new RegExp('messageKey:\\s*"' + key + '"'); }
+// What the phone keeps of the settings page's state.
+function storedState() { return JSON.parse(env.store['monthgrid-state']); }
 
 var UNIT_KEYS = /^(TEMP_UNIT|DIST_UNIT)$/;
 
@@ -510,43 +512,33 @@ test('preferences/units sets the units, once per change', function() {
   advance(100);
   assert.deepStrictEqual(take(UNIT_KEYS), [{ TEMP_UNIT: 1, DIST_UNIT: 1 }]);
   // Stored, so the settings page tells the truth if the plugin goes away.
-  var stored = JSON.parse(env.store['clay-settings']);
-  assert.strictEqual(stored.TEMP_UNIT, '1');
-  assert.strictEqual(stored.DIST_UNIT, '1');
+  assert.strictEqual(storedState().opts.weather.unit, 'f');
+  assert.strictEqual(storedState().opts.distance.unit, 'mi');
 });
 
-test('the settings page drops the unit fields while the Pebble app decides them', function() {
+test('the settings page hides the unit choices while the Pebble app decides them', function() {
   setup({ plugins: [] });
   ready();
-  var before = openedConfig();
-  assert.ok(field('TEMP_UNIT').test(before) && field('DIST_UNIT').test(before),
-            'fields shown before units are known');
+  assert.strictEqual(openedBoot().ctx.units, null, 'choices shown before units are known');
   sub('preferences', 'units').data(unitsEnvelope('°F', 'mi'));
   advance(100);
-  var after = openedConfig();
-  assert.ok(!field('TEMP_UNIT').test(after) && !field('DIST_UNIT').test(after), 'fields hidden');
-  assert.ok(field('METRIC1').test(after), 'the rest of the page is intact');
+  assert.deepStrictEqual(openedBoot().ctx.units, { fahrenheit: true, miles: true });
 });
 
-test('saving the settings page keeps the Pebble app\'s units and sends none', function() {
+test('saving the settings page sends the Pebble app\'s units, not the page\'s', function() {
   setup({ plugins: [] });
   ready();
   sub('preferences', 'units').data(unitsEnvelope('°C', 'km'));
   advance(100);
   resetTake();
-  // What Clay's page returns: only the fields it showed.
-  fire('webviewclosed', { response: encodeURIComponent(JSON.stringify({
-    METRIC1: { value: '1' }, METRIC2: { value: '2' }, THEME: { value: '3' },
-  })) });
+  var state = openedBoot().state;
+  state.look.THEME = 3;
+  state.opts.weather = { unit: 'f', detail: 'range' };
+  fire('webviewclosed', { response: encodeURIComponent(JSON.stringify(state)) });
   advance(100);
-  var sent = take();
-  var keys = messageKeys();
-  sent.forEach(function(d) {
-    assert.ok(!(keys.TEMP_UNIT in d) && !('TEMP_UNIT' in d), 'no TEMP_UNIT sent');
-  });
-  var stored = JSON.parse(env.store['clay-settings']);
-  assert.strictEqual(stored.TEMP_UNIT, '0');
-  assert.strictEqual(stored.THEME, '3');
+  var sent = take(/^(TEMP_UNIT|DIST_UNIT|THEME|WEATHER_DETAIL)$/);
+  assert.deepStrictEqual(sent, [{ THEME: 3, TEMP_UNIT: 0, DIST_UNIT: 0, WEATHER_DETAIL: 1 }]);
+  assert.strictEqual(storedState().look.THEME, 3);
 });
 
 test('1.15 (no preferences source): units stay on the settings page', function() {
@@ -554,8 +546,28 @@ test('1.15 (no preferences source): units stay on the settings page', function()
   ready();
   sub('preferences', 'units').error('PLUGIN_UNAVAILABLE');
   advance(100);
-  assert.ok(field('TEMP_UNIT').test(openedConfig()));
+  assert.strictEqual(openedBoot().ctx.units, null);
   assert.deepStrictEqual(take(UNIT_KEYS), []);
+});
+
+test('the old settings page\'s choices carry over, and reach the watch once', function() {
+  setup({ plugins: [], settings: { THEME: '3', METRIC1: '10', METRIC2: '1', METRIC3: '14', METRIC4: '7',
+    TEMP_UNIT: '0', VIBE_DISCONNECT: true, CAL1_URL: 'https://example.com/a.ics', CAL1_COLOR: '0xAA00FF' } });
+  resetTake();
+  ready();
+  var state = storedState();
+  assert.deepStrictEqual(state.status, ['conn', 'battery', 'calories']);
+  assert.strictEqual(state.opts.battery.source, 'both');
+  assert.strictEqual(state.event.place, 'off', 'no event for someone who never chose one');
+  assert.strictEqual(state.calendars[0], 'https://example.com/a.ics');
+  var sent = take(/^(THEME|METRICS|TEMP_UNIT|VIBE_DISCONNECT|CAL1_COLOR|EVENT_PLACE|CAL1_URL)$/);
+  assert.deepStrictEqual(sent, [{ THEME: 3, METRICS: [10, 1, 14, 7], TEMP_UNIT: 0, VIBE_DISCONNECT: 1,
+    CAL1_COLOR: 0xAA00FF, EVENT_PLACE: 0 }]);
+  // Once delivered, the next launch sends nothing new.
+  advance(1000);
+  resetTake();
+  ready();
+  assert.deepStrictEqual(take(/^METRICS$/), []);
 });
 
 // --- A3: next event ----------------------------------------------------------
@@ -580,16 +592,27 @@ function calendarEnvelope(events) {
   };
 }
 
-var EVENT_KEYS = /^EVENT_/;
+var EVENT_KEYS = /^(EVENT_(NAME|START|END|ALL_DAY)|ALLDAY_)/;
+function noAllDay(d) {
+  var o = {};
+  Object.keys(d).forEach(function(k) { o[k] = d[k]; });
+  o.ALLDAY_NAME = ''; o.ALLDAY_START = 0; o.ALLDAY_END = 0;
+  return o;
+}
 var CAL_PLUGIN = [{
   uuid: '00000000-0000-0000-0001-000000000004', name: 'Calendar',
   sources: [{ category: 'calendar', items: ['event'], properties: {} }], actions: [],
 }];
 
-test('no calendar subscription (and no permission prompt) unless the item is chosen', function() {
+test('no calendar subscription (and no permission prompt) while the event is off', function() {
+  setup({ plugins: CAL_PLUGIN, settings: { METRIC1: '1' } });
+  ready();
+  assert.strictEqual(storedState().event.place, 'off');
+  assert.strictEqual(sub('calendar', 'event'), null);
+  // A new install shows it in the month bar.
   setup({ plugins: CAL_PLUGIN });
   ready();
-  assert.strictEqual(sub('calendar', 'event'), null);
+  assert.ok(sub('calendar', 'event'));
 });
 
 test('next event: the first timed event, re-sent only when it changes', function() {
@@ -608,6 +631,7 @@ test('next event: the first timed event, re-sent only when it changes', function
   advance(100);
   assert.deepStrictEqual(take(EVENT_KEYS), [{
     EVENT_NAME: 'Standup', EVENT_START: t + 23 * 60, EVENT_END: t + 38 * 60, EVENT_ALL_DAY: 0,
+    ALLDAY_NAME: 'Company holiday', ALLDAY_START: t - 3600 * 10, ALLDAY_END: t + 3600 * 14,
   }]);
   s.data(calendarEnvelope(events));   // the calendar's minute tick, unchanged
   advance(100);
@@ -618,6 +642,7 @@ test('next event: the first timed event, re-sent only when it changes', function
   assert.deepStrictEqual(take(EVENT_KEYS), [{
     EVENT_NAME: 'Lunch with Sam', EVENT_START: t + 65 * 60, EVENT_END: t + 125 * 60,
     EVENT_ALL_DAY: 0,
+    ALLDAY_NAME: 'Company holiday', ALLDAY_START: t - 3600 * 10, ALLDAY_END: t + 3600 * 14,
   }]);
   // The watch asks after half an hour of silence: the same event again.
   fromWatch({ PLUGIN_REQUEST: 1 });
@@ -625,7 +650,7 @@ test('next event: the first timed event, re-sent only when it changes', function
   assert.strictEqual(take(EVENT_KEYS).length, 1);
 });
 
-test('next event: all-day only when nothing timed is coming; titles cleaned and cut', function() {
+test('next event: the all-day one rides along; titles cleaned and cut at a word', function() {
   setup({ plugins: CAL_PLUGIN, settings: { METRIC1: '13' } });
   resetTake();
   ready();
@@ -636,16 +661,20 @@ test('next event: all-day only when nothing timed is coming; titles cleaned and 
   advance(100);
   var got = take(EVENT_KEYS);
   assert.strictEqual(got.length, 1);
-  assert.strictEqual(got[0].EVENT_NAME, 'Mom’s birthday');
-  assert.strictEqual(got[0].EVENT_ALL_DAY, 1);
+  assert.strictEqual(got[0].EVENT_NAME, '');
+  assert.strictEqual(got[0].ALLDAY_NAME, 'Mom’s birthday');
   sub('calendar', 'event').data(calendarEnvelope([
     { name: 'Quarterly planning review with the whole team', start: t + 600, end: t + 4200 },
   ]));
   advance(100);
   got = take(EVENT_KEYS);
-  assert.strictEqual(got[0].EVENT_NAME, 'Quarterly planning revi');
+  assert.strictEqual(got[0].EVENT_NAME, 'Quarterly planning…');
   var plugins = require(path.join(PKJS, 'plugins.js'));
-  assert.ok(plugins._test.truncateUtf8 && got[0].EVENT_NAME.length <= 23);
+  assert.ok(plugins._test.utf8Length(got[0].EVENT_NAME) <= 23);
+  // A name with no word break in reach is cut anywhere, still marked.
+  assert.strictEqual(plugins._test.cutName('Supercalifragilisticexpialidocious', 23),
+                     'Supercalifragilistic…');
+  assert.strictEqual(plugins._test.cutName('Café avec Zoë et les autres', 23), 'Café avec Zoë et…');
 });
 
 test('next event: refused or gone clears the item', function() {
@@ -655,27 +684,23 @@ test('next event: refused or gone clears the item', function() {
   sub('calendar', 'event').error('PERMISSION_DENIED');
   advance(100);
   assert.deepStrictEqual(take(EVENT_KEYS),
-    [{ EVENT_NAME: '', EVENT_START: 0, EVENT_END: 0, EVENT_ALL_DAY: 0 }]);
+    [noAllDay({ EVENT_NAME: '', EVENT_START: 0, EVENT_END: 0, EVENT_ALL_DAY: 0 })]);
   // A passing error keeps what the watch has.
   sub('calendar', 'event').error('TIMEOUT');
   advance(100);
   assert.deepStrictEqual(take(EVENT_KEYS), []);
 });
 
-test('settings page offers Next calendar event only where it can work', function() {
+test('the settings page knows whether the calendar can be read', function() {
   setup({ plugins: CAL_PLUGIN });
   ready();
-  assert.ok(/Next calendar event/.test(openedConfig()));
+  assert.strictEqual(openedBoot().ctx.served.event, true);
   setup({ plugins: [] });   // plugin API, but no calendar source
   ready();
-  assert.ok(!/Next calendar event/.test(openedConfig()));
+  assert.strictEqual(openedBoot().ctx.served.event, false);
   setup();                  // no plugin API at all
   ready();
-  assert.ok(!/Next calendar event/.test(openedConfig()));
-  // Already chosen: kept on the page so saving doesn't drop it.
-  setup({ settings: { METRIC1: '13' } });
-  ready();
-  assert.ok(/Next calendar event/.test(openedConfig()));
+  assert.strictEqual(openedBoot().ctx.served.event, false);
 });
 
 // --- A4: phone battery -------------------------------------------------------
@@ -729,7 +754,7 @@ test('phone battery: sent when the level changes, not when the network does', fu
 test('phone battery: offered on the settings page when phone_state is served', function() {
   setup({ plugins: PHONE_PLUGIN });
   ready();
-  assert.ok(/Phone battery/.test(openedConfig()));
+  assert.strictEqual(openedBoot().ctx.served.phone, true);
   assert.strictEqual(sub('phone', 'phone_state'), null, 'not subscribed until chosen');
 });
 
@@ -758,7 +783,7 @@ var DEFAULT_SLOTS = [
   { category: 'finance', item: 'stock', property: 'price' },
 ];
 
-var READING_KEYS = /^READING/;
+var READING_KEYS = /^READING\d_/;
 
 function subCount(category, item) {
   return env.subs.filter(function(x) {
@@ -860,8 +885,9 @@ test('readings: on 1.15 (no preferences source) chosen readings are empty', func
   sub('preferences', 'complications').error('PLUGIN_UNAVAILABLE');
   advance(100);
   assert.deepStrictEqual(take(READING_KEYS), [{ READING1_TEXT: '', READING1_LABEL: '' }]);
-  assert.ok(/Reading 1/.test(openedConfig()), 'still listed: it is chosen');
-  assert.ok(!/Reading 2/.test(openedConfig()), 'nothing to offer otherwise');
+  var boot = openedBoot();
+  assert.deepStrictEqual(boot.state.status, ['reading1'], 'still chosen');
+  assert.deepStrictEqual(boot.ctx.readings, [], 'nothing to offer');
 });
 
 test('readings: the settings page says what each one is', function() {
@@ -870,11 +896,11 @@ test('readings: the settings page says what each one is', function() {
   sub('preferences', 'complications').data(complicationsEnvelope(DEFAULT_SLOTS));
   sub('phone', 'phone_state').data(phoneEnvelope(82, true));
   advance(100);
-  var page = openedConfig();
-  assert.ok(/Reading 1: phone battery level \(82%\)/.test(page), 'reading 1 described with its value');
-  assert.ok(/Reading 2: weather temperature/.test(page), 'reading 2 described');
-  assert.ok(/Reading 4: finance price/.test(page), 'reading 4 described');
-  assert.ok(!/Reading 5/.test(page), 'no fifth reading in the list');
+  var readings = openedBoot().ctx.readings;
+  assert.deepStrictEqual(readings.map(function(r) { return r.n; }), [1, 2, 3, 4], 'no fifth reading');
+  assert.deepStrictEqual(readings[0], { n: 1, label: '', what: 'phone battery level', text: '82%' });
+  assert.strictEqual(readings[1].what, 'weather temperature');
+  assert.strictEqual(readings[3].what, 'finance price');
 });
 
 test('readings: the watch\'s request re-sends them; none chosen sends none', function() {
@@ -904,13 +930,13 @@ test('without the plugin API, the watch\'s request is answered empty', function(
   fromWatch({ PLUGIN_REQUEST: 1 });
   advance(100);
   var got = {};
-  take(/^(PHONE|EVENT|READING)/).forEach(function(d) {
+  take(/^(PHONE_BATTERY|EVENT_(NAME|START|END|ALL_DAY)|ALLDAY_|READING\d_)/).forEach(function(d) {
     Object.keys(d).forEach(function(k) { got[k] = d[k]; });
   });
-  assert.deepStrictEqual(got, {
+  assert.deepStrictEqual(got, noAllDay({
     PHONE_BATTERY: -1, EVENT_NAME: '', EVENT_START: 0, EVENT_END: 0, EVENT_ALL_DAY: 0,
     READING2_TEXT: '', READING2_LABEL: '',
-  });
+  }));
 });
 
 test('a source that never answers stops showing whatever it showed last', function() {
@@ -1046,6 +1072,21 @@ test('a full update stays inside the watch\'s 512-byte inbox', function() {
   all.forEach(function(d) { Object.keys(d).forEach(function(k) { keys[k] = true; }); });
   ['WEATHER_TEMP_DC', 'TEMP_UNIT', 'EVENT_NAME', 'PHONE_BATTERY', 'READING5_TEXT', 'FC_HOUR3_DC']
       .forEach(function(k) { assert.ok(keys[k], k + ' delivered'); });
+});
+
+test('the largest settings message fits the watch\'s inbox', function() {
+  setup();
+  var Model = require(path.join(PKJS, 'model.js'));
+  var plugins = require(path.join(PKJS, 'plugins.js'));
+  var state = Model.defaultState();
+  state.status = Model.ITEMS.map(function(it) { return it.id; }).concat(['event']);
+  state.event.place = 'line';
+  state.opts.battery = { source: 'both' };
+  var dict = Model.toWatch(Model.normalize(state), null);
+  assert.strictEqual(dict.METRICS.length, 18, 'every item, none dropped');
+  // Byte arrays count their length; everything else as dictBytes does.
+  var bytes = 1 + plugins._test.dictBytes(Object.assign({}, dict, { METRICS: 0 })) - 4 + dict.METRICS.length;
+  assert.ok(bytes <= 512, 'settings message of ' + bytes + ' bytes');
 });
 
 // ---------------------------------------------------------------------------

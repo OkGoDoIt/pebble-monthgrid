@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 'use strict';
-// Runs the next-event month bar (settings/bar.js) through every combination
+// Runs the next-event month bar (src/settings/bar.js) through every combination
 // of watch, bar content, language, date, event name, event time, clock and
 // stale-calendar mark, and checks what must always hold:
 //   - nothing overlaps or runs past the room (the circle's edge on Round 2)
@@ -13,7 +13,7 @@
 //   node tools/bar-cases.js          # summary
 //   node tools/bar-cases.js --json   # the summary as JSON, for the review page
 
-const Bar = require('../../settings/bar.js');
+const Bar = require('../../../src/settings/bar.js');
 
 const NAMES = ['', 'Gym', 'Standup', 'Design review', 'Dentist – Dr. Okafor', 'Café with Zoë',
   Bar.cutName('Quarterly planning with the leadership team'), Bar.cutBytes('Quarterly planning with the leadership team'),

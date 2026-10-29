@@ -1,142 +1,39 @@
-// MonthGrid phone-side logic: Clay settings page, weather fetch, and
+// MonthGrid phone-side logic: the settings page, weather fetch, and
 // calendar-dot computation. Calendar URLs live only in phone localStorage —
 // the watch only ever receives a per-day bitmask.
 
-var Clay = require('@rebble/clay');
-var clayConfig = require('./config');
-var messageKeys = require('message_keys');
+var Model = require('./model');
+var page = require('./settings_page');
 var weather = require('./weather');
 var ics = require('./ics');
 var plugins = require('./plugins');
 
-function clayCustomFn() {
-  var clayConfig = this;
-  var MAX_SLOTS = 8;
-  var updating = false;
-
-  function slotItems() {
-    var out = [];
-    for (var i = 1; i <= MAX_SLOTS; i++) {
-      var item = clayConfig.getItemByMessageKey('METRIC' + i);
-      if (item) { out.push(item); }
-    }
-    return out;
-  }
-
-  function refresh() {
-    if (updating) { return; }
-    updating = true;
-    try {
-      var items = slotItems();
-      var filled = [];
-      items.forEach(function(item) {
-        var v = parseInt(item.get(), 10) || 0;
-        if (v) { filled.push(v); }
-      });
-      // Compact: removing a row pulls the ones below it up.
-      items.forEach(function(item, i) {
-        var want = i < filled.length ? filled[i] : 0;
-        if ((parseInt(item.get(), 10) || 0) !== want) { item.set(want); }
-      });
-      // Show every filled row plus one empty row to grow into.
-      var visible = Math.min(filled.length + 1, MAX_SLOTS);
-      items.forEach(function(item, i) {
-        if (i < visible) { item.show(); } else { item.hide(); }
-      });
-      // A row that holds an item offers to remove it; the trailing empty
-      // row is simply "None" — there is nothing there to remove yet.
-      items.forEach(function(item, i) {
-        var sel = item.$manipulatorTarget && item.$manipulatorTarget[0];
-        if (!sel || !sel.options) { return; }
-        var label = i < filled.length ? '\u2014 Remove \u2014' : 'None';
-        var zero = null;
-        for (var oi = 0; oi < sel.options.length; oi++) {
-          if (sel.options[oi].value === '0') { zero = sel.options[oi]; break; }
-        }
-        if (!zero) { return; }
-        if (zero.text !== label) { zero.text = label; }
-        // Clay mirrors the selected option's label into a .value element and
-        // only refreshes it on change, so update it directly when this row
-        // is the one displaying the relabelled option.
-        if (sel.value === '0') {
-          var node = sel.parentNode;
-          while (node && !(node.className &&
-                 String(node.className).indexOf('component') !== -1)) {
-            node = node.parentNode;
-          }
-          var disp = node && node.querySelector ? node.querySelector('.value') : null;
-          if (disp && disp.innerHTML !== label) { disp.innerHTML = label; }
-        }
-      });
-    } finally {
-      updating = false;
-    }
-  }
-
-  // The three custom-color pickers only appear when the Custom theme is
-  // selected, so the page stays short for everyone else.
-  function refreshGrid() {
-    var t = clayConfig.getItemByMessageKey('GRID_LINES');
-    var c = clayConfig.getItemByMessageKey('GRID_COLOR');
-    if (!t || !c) { return; }
-    if (t.get()) { c.show(); } else { c.hide(); }
-  }
-
-  function refreshTheme() {
-    var themeItem = clayConfig.getItemByMessageKey('THEME');
-    if (!themeItem) { return; }
-    var custom = (parseInt(themeItem.get(), 10) || 0) === 10;
-    ['CUSTOM_BG', 'CUSTOM_FG', 'CUSTOM_ACCENT'].forEach(function(key) {
-      var item = clayConfig.getItemByMessageKey(key);
-      if (!item) { return; }
-      if (custom) { item.show(); } else { item.hide(); }
-    });
-  }
-
-  clayConfig.on(clayConfig.EVENTS.AFTER_BUILD, function() {
-    slotItems().forEach(function(item) { item.on('change', refresh); });
-    refresh();
-    var themeItem = clayConfig.getItemByMessageKey('THEME');
-    if (themeItem) { themeItem.on('change', refreshTheme); }
-    refreshTheme();
-    var gridItem = clayConfig.getItemByMessageKey('GRID_LINES');
-    if (gridItem) { gridItem.on('change', refreshGrid); }
-    refreshGrid();
-
-    // Pin the submit button to the bottom of the viewport so settings can
-    // be saved from anywhere on the page.
-    var style = document.createElement('style');
-    style.innerHTML =
-        '.section--submit, .component-submit, .item-submit {' +
-        ' position: sticky; position: -webkit-sticky; bottom: 0; z-index: 50; }' +
-        '.section--submit button, .component-submit button, .item-submit button {' +
-        ' box-shadow: 0 -2px 10px rgba(0,0,0,0.45); }';
-    document.head.appendChild(style);
-    var btn = document.querySelector('button[type=submit], .item-submit button, input[type=submit]');
-    if (btn) {
-      var host = btn.closest('div, section') || btn.parentNode;
-      if (host && host.style) {
-        host.style.position = 'sticky';
-        host.style.bottom = '0';
-        host.style.zIndex = '50';
-      }
-    }
-  });
-}
-
-// Constructed once at module load so Clay's own 'ready' listener fires and
-// fills clay.meta (watch platform, tokens). Rebuilding Clay later would
-// leave meta empty, which downgrades the color pickers to black & white.
-var clay = new Clay(clayConfig, clayCustomFn, { autoHandleEvents: false });
-
 var DOTS_REFRESH_MS = 6 * 60 * 60 * 1000;
 
-function claySettings() {
+// ---------------------------------------------------------------------------
+// Settings
+// ---------------------------------------------------------------------------
+
+// The settings page's state (model.js), kept whole on the phone. The first
+// time, it comes from what the old settings page (Clay) stored.
+var STATE_KEY = 'monthgrid-state';
+
+function loadState() {
   try {
-    return JSON.parse(localStorage.getItem('clay-settings')) || {};
+    var saved = localStorage.getItem(STATE_KEY);
+    if (saved) { return Model.normalize(JSON.parse(saved)); }
   } catch (e) {
-    return {};
+    console.log('monthgrid: stored settings unreadable: ' + e);
   }
+  var clay = null;
+  try { clay = JSON.parse(localStorage.getItem('clay-settings')); } catch (e) {}
+  var state = clay ? Model.fromClay(clay) : Model.defaultState();
+  saveState(state);
+  return state;
+}
+
+function saveState(state) {
+  try { localStorage.setItem(STATE_KEY, JSON.stringify(state)); } catch (e) {}
 }
 
 function sendWithRetry(dict, what) {
@@ -171,49 +68,33 @@ function pushWeather() {
       WEATHER_TEMP_DC: result.temp_dc,
       WEATHER_COND: result.cond,
     }, true);
+    if (result.forecast) { outbox.offer('forecast', result.forecast); }
   });
 }
 
-// The status-line items the user has picked (defaults: battery, weather).
+// The watch metrics the status line stands for.
 function selectedMetrics() {
-  var settings = claySettings();
-  var out = [];
-  for (var i = 1; i <= 8; i++) {
-    var v = settings['METRIC' + i];
-    if (v === undefined || v === null || v === '') {
-      v = (i === 1) ? 1 : (i === 2) ? 2 : 0;
-    }
-    v = parseInt(v, 10) || 0;
-    if (v) { out.push(v); }
-  }
-  return out;
+  return Model.metricsOf(loadState());
 }
 
-// Units from the Pebble app also update the stored settings, so the settings
-// page shows the truth if the Pebble app ever stops providing them.
+// Units from the Pebble app also go into the stored settings, so the
+// settings page shows the truth if the Pebble app ever stops providing them.
 function rememberUnits(units) {
-  var settings = claySettings();
-  settings.TEMP_UNIT = units.fahrenheit ? '1' : '0';
-  settings.DIST_UNIT = units.miles ? '1' : '0';
-  try { localStorage.setItem('clay-settings', JSON.stringify(settings)); } catch (e) {}
+  var state = loadState();
+  state.opts.weather = state.opts.weather || {};
+  state.opts.distance = state.opts.distance || {};
+  state.opts.weather.unit = units.fahrenheit ? 'f' : 'c';
+  state.opts.distance.unit = units.miles ? 'mi' : 'km';
+  saveState(state);
 }
 
 var bridge = new plugins.Bridge({
   outbox: outbox,
   selectedMetrics: selectedMetrics,
+  wantsEvent: function() { return Model.wantsEvent(loadState()); },
   fallbackWeather: pushWeather,
   onUnits: rememberUnits,
 });
-
-// Settings-page items the Pebble app now decides, by messageKey.
-function decidedByApp() {
-  var out = {};
-  if (bridge.unitsFromApp()) {
-    out.TEMP_UNIT = true;
-    out.DIST_UNIT = true;
-  }
-  return out;
-}
 
 // Subscribe to whatever the Pebble app can provide, then fetch the weather
 // ourselves only if no subscription is going to.
@@ -276,15 +157,13 @@ function currentMonthkey() {
 }
 
 function pushDots(monthkey) {
-  var settings = claySettings();
+  var state = loadState();
   if (!monthkey) { monthkey = currentMonthkey(); }
   var year = monthkey >> 4;
   var month0 = (monthkey & 15) - 1;
   if (month0 < 0 || month0 > 11) { return; }
 
-  var urls = settings.DOTS_ENABLED
-      ? [settings.CAL1_URL, settings.CAL2_URL, settings.CAL3_URL]
-      : [];
+  var urls = state.look.DOTS_ENABLED ? state.calendars : [];
   var bytes = [];
   var daysInMonth = new Date(year, month0 + 1, 0).getDate();
   for (var i = 0; i < 31; i++) { bytes.push(0); }
@@ -336,11 +215,10 @@ function pushDots(monthkey) {
             }
           }
           entry.ok = true;
-          entry.detail = 'OK — ' + Math.round(res.text.length / 1024) + 'kB, ' +
-              matched + ' day(s) marked this month';
+          entry.detail = Math.round(res.text.length / 1024) + ' KB, ' + matched + ' days marked this month';
         } catch (e) {
           entry.ok = false;
-          entry.detail = 'parse error: ' + e;
+          entry.detail = 'couldn’t read it: ' + e;
           failed = true;
         }
       } else {
@@ -359,19 +237,19 @@ function pushDots(monthkey) {
 // Events
 // ---------------------------------------------------------------------------
 
-// Settings saved while the watch was unreachable are kept pending in
-// localStorage and re-sent on the next launch, so phone and watch cannot
-// permanently disagree.
-var PENDING_SETTINGS_KEY = 'monthgrid-pending-settings';
+// Settings saved while the watch was unreachable stay marked unsent and
+// go again on the next launch, so phone and watch cannot permanently disagree.
+var UNSENT_KEY = 'monthgrid-settings-unsent';
 
-function sendSettings(dict) {
-  try { localStorage.setItem(PENDING_SETTINGS_KEY, JSON.stringify(dict)); } catch (e) {}
-  var clearPending = function() {
-    try { localStorage.removeItem(PENDING_SETTINGS_KEY); } catch (e) {}
+function sendSettings() {
+  var dict = Model.toWatch(loadState(), bridge.units);
+  try { localStorage.setItem(UNSENT_KEY, '1'); } catch (e) {}
+  var sent = function() {
+    try { localStorage.removeItem(UNSENT_KEY); } catch (e) {}
   };
-  Pebble.sendAppMessage(dict, clearPending, function() {
+  Pebble.sendAppMessage(dict, sent, function() {
     setTimeout(function() {
-      Pebble.sendAppMessage(dict, clearPending, function() {
+      Pebble.sendAppMessage(dict, sent, function() {
         console.log('monthgrid: settings undelivered, will retry on next launch');
       });
     }, 2000);
@@ -380,11 +258,15 @@ function sendSettings(dict) {
 
 Pebble.addEventListener('ready', function() {
   console.log('monthgrid: pkjs ready');
-  var pending = null;
-  try { pending = localStorage.getItem(PENDING_SETTINGS_KEY); } catch (e) {}
-  if (pending) {
-    console.log('monthgrid: re-sending pending settings');
-    try { sendSettings(JSON.parse(pending)); } catch (e) {}
+  var unsent = null;
+  try { unsent = localStorage.getItem(UNSENT_KEY); } catch (e) {}
+  // The first launch after the old settings page: the watch gets the new
+  // settings (item options, event placement) once.
+  var migrating = !localStorage.getItem(STATE_KEY) && localStorage.getItem('clay-settings');
+  loadState();
+  if (unsent || migrating) {
+    console.log('monthgrid: sending settings the watch hasn’t confirmed');
+    sendSettings();
   }
   syncSources();
   pushDots();
@@ -398,118 +280,54 @@ Pebble.addEventListener('appmessage', function(e) {
   if (p.DOTS_REQUEST) { pushDots(p.DOTS_REQUEST); }
 });
 
-// The settings page explains the calendar sync state: a quiet one-liner when
-// things are fine, and a prominent callout (matching the "!" the watch shows)
-// when the last refresh failed.
-function dotsStatusItems() {
-  var entries = loadDotsStatus();
-  if (!entries.length) {
-    return [{
-      type: 'text',
-      defaultValue: 'Calendar sync: nothing fetched yet in this session. Markers appear ' +
-          'a few seconds after the watchface starts.',
-    }];
-  }
-  var newest = 0;
-  var failures = [];
-  var lines = [];
-  for (var i = 0; i < entries.length; i++) {
-    if (entries[i].ts > newest) { newest = entries[i].ts; }
-    lines.push('Calendar ' + entries[i].cal + ': ' + entries[i].detail);
-    if (!entries[i].ok) { failures.push(entries[i]); }
-  }
-  var mins = Math.max(0, Math.round((Date.now() - newest) / 60000));
-  var ago = mins < 1 ? 'just now' : (mins + ' min ago');
+// What the settings page needs to know about this watch and phone.
+function watchInfo() {
+  var platform = 'emery';
+  try {
+    var info = Pebble.getActiveWatchInfo && Pebble.getActiveWatchInfo();
+    if (info && info.platform) { platform = info.platform; }
+  } catch (e) {}
+  var bw = ['aplite', 'diorite', 'flint'].indexOf(platform) >= 0;
+  return {
+    platform: platform,
+    color: !bw,
+    shape: platform === 'chalk' || platform === 'gabbro' ? 'round' : 'rect',
+    health: platform !== 'aplite',
+    // Heart-rate sensors: Pebble 2 HR, Pebble Time 2, Pebble Round 2.
+    hrm: ['diorite', 'emery', 'gabbro'].indexOf(platform) >= 0,
+    // Older platforms can't read the watch's alarms.
+    alarms: ['emery', 'flint', 'gabbro'].indexOf(platform) >= 0,
+  };
+}
 
-  if (!failures.length) {
-    return [{
-      type: 'text',
-      defaultValue: 'Calendar sync OK (' + ago + '). ' + lines.join(' · '),
-    }];
-  }
-
-  var which = failures.map(function(f) { return 'Calendar ' + f.cal + ' — ' + f.detail; });
-  return [
-    { type: 'heading', defaultValue: '\u26A0 Calendar sync problem' },
-    {
-      type: 'text',
-      defaultValue: 'Your watch is showing a “!” next to the month because the last ' +
-          'calendar refresh failed (' + ago + '): ' + which.join('; ') + '. ' +
-          'The markers on screen are from the last successful refresh, so they may be ' +
-          'out of date — nothing was erased.',
-    },
-    {
-      type: 'text',
-      defaultValue: 'What to try: check the URL below is the full “Secret address in iCal ' +
-          'format” (it should start with https:// and end in .ics), and that your phone ' +
-          'has a connection. MonthGrid retries automatically every few hours and whenever ' +
-          'the watchface restarts; the “!” clears itself once a refresh succeeds.',
-    },
-  ];
+function pageContext() {
+  var ctx = watchInfo();
+  ctx.served = bridge.served();
+  ctx.units = bridge.units;
+  ctx.readings = bridge.readingList();
+  ctx.calendarSync = loadDotsStatus();
+  ctx.returnTo = 'pebblejs://close#';
+  return ctx;
 }
 
 Pebble.addEventListener('showConfiguration', function() {
-  // Rebuild the page with the current diagnostics injected under the
-  // markers toggle, and without what the Pebble app now decides.
-  var config = JSON.parse(JSON.stringify(clayConfig));
-  var hidden = decidedByApp();
-  var extra = bridge.metricOptions(selectedMetrics());
-  config.forEach(function(section) {
-    if (!section.items) { return; }
-    section.items = section.items.filter(function(item) {
-      return !hidden[item.messageKey];
-    });
-    section.items.forEach(function(item) {
-      if (/^METRIC\d$/.test(item.messageKey)) {
-        item.options = item.options.concat(extra);
-      }
-    });
-  });
-  for (var s = 0; s < config.length; s++) {
-    var items = config[s].items;
-    if (!items) { continue; }
-    for (var i = 0; i < items.length; i++) {
-      if (items[i].messageKey === 'DOTS_ENABLED') {
-        var status = dotsStatusItems();
-        items.splice.apply(items, [i + 1, 0].concat(status));
-        s = config.length;
-        break;
-      }
-    }
-  }
-  clay.config = config;
-  // Clay only auto-populates meta in autoHandleEvents mode; do it here so the
-  // color pickers see the real watch platform every time the page opens.
-  try {
-    clay.meta = {
-      activeWatchInfo: Pebble.getActiveWatchInfo ? Pebble.getActiveWatchInfo() : null,
-      accountToken: Pebble.getAccountToken(),
-      watchToken: Pebble.getWatchToken(),
-      userData: {},
-    };
-  } catch (e) {
-    console.log('monthgrid: could not read watch info: ' + e);
-  }
-  Pebble.openURL(clay.generateUrl());
+  var boot = JSON.stringify({ state: loadState(), ctx: pageContext() }).replace(/</g, '\\u003c');
+  var html = page.html.replace(page.boot, boot);
+  Pebble.openURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
 });
 
 Pebble.addEventListener('webviewclosed', function(e) {
   if (!e || !e.response) { return; }
-  var dict;
+  var state;
   try {
-    dict = clay.getSettings(e.response);
+    var text = e.response;
+    state = Model.normalize(JSON.parse(/^\{/.test(text) ? text : decodeURIComponent(text)));
   } catch (err) {
-    console.log('monthgrid: bad config response: ' + err);
+    console.log('monthgrid: bad settings from the page: ' + err);
     return;
   }
-  // Clay just rewrote the stored settings from the page, which no longer
-  // carries the units the Pebble app decides; put them back.
-  if (bridge.unitsFromApp()) { rememberUnits(bridge.units); }
-  // Phone-only keys: never send calendar URLs to the watch.
-  delete dict[messageKeys.CAL1_URL];
-  delete dict[messageKeys.CAL2_URL];
-  delete dict[messageKeys.CAL3_URL];
-  sendSettings(dict);
+  saveState(state);
+  sendSettings();
   // Refresh data under the new settings.
   syncSources();
   pushDots();
