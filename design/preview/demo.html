@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MonthGrid Preview</title>
+<style>
+  :root {
+    --bg: #f4f3f0; --panel: #ffffff; --text: #1c1c1e; --muted: #6b6b70; --line: #dcdad5;
+    --accent: #0a84ff; --zone: rgba(255, 0, 128, 0.85);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #141416; --panel: #1f1f22; --text: #f2f2f4; --muted: #9a9aa2; --line: #333338; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 16px; background: var(--bg); color: var(--text);
+    font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  main { max-width: 760px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 24px; }
+  .watch { flex: 0 0 auto; position: relative; width: 400px; max-width: 100%; }
+  .watch canvas {
+    display: block; width: 100%; height: auto; image-rendering: pixelated;
+    border-radius: 14px; box-shadow: 0 0 0 10px #2a2a2c, 0 8px 28px rgba(0, 0, 0, 0.35);
+  }
+  .watch canvas.zones { position: absolute; inset: 0; box-shadow: none; pointer-events: none; }
+  form { flex: 1 1 260px; display: grid; gap: 12px; align-content: start; }
+  label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+  select {
+    font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px; min-height: 40px;
+  }
+  .check { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 15px; }
+  .check input { width: 18px; height: 18px; }
+  .fit { font-size: 13px; color: var(--muted); }
+  .fit b { color: var(--text); font-weight: 600; }
+  @media (max-width: 460px) { .watch { width: 100%; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="watch">
+    <canvas id="face" width="200" height="228"></canvas>
+    <canvas id="zones" class="zones" width="400" height="456" hidden></canvas>
+  </div>
+  <form id="controls">
+    <label>Theme <select name="THEME"></select></label>
+    <label>Time font <select name="TIME_FONT"></select></label>
+    <label>Status item 1 <select name="METRIC1" class="metric"></select></label>
+    <label>Status item 2 <select name="METRIC2" class="metric"></select></label>
+    <label>Status item 3 <select name="METRIC3" class="metric"></select></label>
+    <label>Status item 4 <select name="METRIC4" class="metric"></select></label>
+    <label class="check"><input type="checkbox" name="corrected" checked> Watch colors</label>
+    <label class="check"><input type="checkbox" name="zones"> Show zones</label>
+    <p class="fit" id="fit"></p>
+  </form>
+</main>
+<script src="monthgrid-fonts.js"></script>
+<script src="monthgrid-face.js"></script>
+<script>
+(function () {
+  'use strict';
+  var Face = window.MonthGridFace;
+  var form = document.getElementById('controls');
+  var METRICS = ['None', 'Battery', 'Weather', 'Steps', 'Distance walked', 'Heart rate',
+    'Active minutes', 'Calories (active)', 'Sleep last night', 'Week number',
+    'Disconnected alert', 'Next alarm', 'Calories (total)', 'Next event', 'Phone battery',
+    'Reading 1', 'Reading 2', 'Reading 3', 'Reading 4', 'Reading 5'];
+  var FONTS = ['Roboto', 'Digital', 'Pixel', 'Bitham bold', 'Bitham light'];
+
+  function fill(select, labels, value) {
+    labels.forEach(function (label, i) { select.add(new Option(label, i)); });
+    select.value = value;
+  }
+  fill(form.THEME, Face.THEME_NAMES.slice(0, 10), 0);
+  fill(form.TIME_FONT, FONTS, 0);
+  [1, 2, 0, 0].forEach(function (v, i) { fill(form['METRIC' + (i + 1)], METRICS, v); });
+
+  // Sample data, the shape a settings page would pass on.
+  var start = new Date();
+  var dots = [];
+  [3, 8, 12, 16, 21, 25].forEach(function (d, i) { dots[d - 1] = [i % 2, 1 - (i % 2), i === 3 ? 1 : 0]; });
+  function sampleData() {
+    var now = new Date();
+    return {
+      now: now,
+      battery: { percent: 72, charging: false },
+      weather: { tempF: 56, cond: Face.COND.PARTLY },
+      health: { steps: 6792, distanceM: 5200, heartRate: 64, activeSec: 2700,
+                activeKcal: 420, restingKcal: 1380, sleepSec: 25920 },
+      nextAlarm: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 6, 30),
+      phoneBattery: 82,
+      readings: [{ label: 'AAPL', text: '$232.14' }, { label: 'Seattle', text: '54°' }],
+      event: { name: 'Standup', start: new Date(start.getTime() + 23 * 60000) },
+      dots: { days: dots },
+    };
+  }
+
+  function settings() {
+    var s = {};
+    ['THEME', 'TIME_FONT', 'METRIC1', 'METRIC2', 'METRIC3', 'METRIC4'].forEach(function (k) {
+      s[k] = Number(form[k].value);
+    });
+    s.DOTS_ENABLED = 1;
+    return s;
+  }
+
+  function drawZones(layout) {
+    var c = document.getElementById('zones'), ctx = c.getContext('2d');
+    c.hidden = !form.zones.checked;
+    ctx.clearRect(0, 0, c.width, c.height);
+    if (c.hidden) { return; }
+    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--zone');
+    ctx.lineWidth = 1;
+    ['time', 'status', 'extra', 'banner', 'header', 'grid'].forEach(function (k) {
+      var r = layout[k];
+      if (r) { ctx.strokeRect(r.x * 2 + 0.5, r.y * 2 + 0.5, r.w * 2 - 1, r.h * 2 - 1); }
+    });
+  }
+
+  function describeFit(layout) {
+    var name = function (e) { return METRICS[e.metric]; };
+    var shown = layout.statusItems.map(name);
+    var waiting = layout.statusSkipped.filter(function (e) { return e.reason === 'no-room'; }).map(name);
+    var empty = layout.statusSkipped.filter(function (e) { return e.reason === 'no-data'; }).map(name);
+    var parts = [];
+    if (shown.length) { parts.push('<b>On the watch:</b> ' + shown.join(', ')); }
+    if (waiting.length) { parts.push('<b>Waiting for room:</b> ' + waiting.join(', ')); }
+    if (empty.length) { parts.push('<b>Hidden until there is data:</b> ' + empty.join(', ')); }
+    document.getElementById('fit').innerHTML = parts.join('<br>');
+  }
+
+  function update() {
+    var out = Face.toCanvas(document.getElementById('face'), settings(), sampleData(),
+                            { corrected: form.corrected.checked });
+    drawZones(out.layout);
+    describeFit(out.layout);
+  }
+
+  form.addEventListener('input', update);
+  form.addEventListener('change', update);
+  update();
+  setInterval(update, 1000);
+})();
+</script>
+</body>
+</html>

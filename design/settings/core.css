@@ -1,0 +1,162 @@
+/* Shared look for the settings-page studies: the Pebble app's own palette
+   (core orange on white, or on black in dark mode), system type. */
+.mg {
+  --bg: #ffffff;
+  --card: #f3f2f4;
+  --raised: #ffffff;
+  --ink: #1c1b1f;
+  --muted: #5f5b66;
+  --line: #e2e0e5;
+  --accent: #fa4a36;
+  --accent-ink: #c4301e;
+  --on-accent: #ffffff;
+  --ok: #157a30;
+  --sheet-shadow: 0 -8px 28px rgba(0, 0, 0, .18);
+  --radius: 14px;
+  font: 16px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-tap-highlight-color: transparent;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .mg {
+    --bg: #000000; --card: #141414; --raised: #1f1f1f; --ink: #e6e0e9; --muted: #a39fa8;
+    --line: #2b2930; --accent-ink: #ff7a68; --sheet-shadow: 0 -8px 28px rgba(0, 0, 0, .6);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] .mg {
+  --bg: #000000; --card: #141414; --raised: #1f1f1f; --ink: #e6e0e9; --muted: #a39fa8;
+  --line: #2b2930; --accent-ink: #ff7a68; --sheet-shadow: 0 -8px 28px rgba(0, 0, 0, .6);
+  color-scheme: dark;
+}
+.mg *, .mg *::before, .mg *::after { box-sizing: border-box; }
+.mg button { font: inherit; color: inherit; }
+.mg h2 { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); margin: 0; }
+.mg .pix { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+
+/* Segmented choice: the control every per-item option uses. */
+.mg .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.mg .seg button { min-height: 36px; padding: 6px 12px; border-radius: 18px; border: 1px solid var(--line);
+  background: var(--raised); cursor: pointer; font-size: 14px; }
+.mg .seg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent);
+  color: var(--on-accent); font-weight: 600; }
+.mg .opt { display: grid; gap: 6px; }
+.mg .opt > span { font-size: 13px; color: var(--muted); }
+.mg .note { font-size: 13px; color: var(--muted); margin: 0; }
+
+/* The status list: rows in priority order, with the fold where the watch runs out of room. */
+.mg .slist { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.mg .srow { display: grid; grid-template-columns: 36px 1fr auto; align-items: center; gap: 8px;
+  min-height: 52px; padding: 4px 8px 4px 0; border-bottom: 1px solid var(--line); background: var(--bg);
+  touch-action: pan-y; }
+.mg .srow.dragging { position: relative; z-index: 2; box-shadow: 0 6px 18px rgba(0,0,0,.25);
+  border-radius: 10px; }
+.mg .handle { width: 36px; height: 44px; display: grid; place-items: center; cursor: grab;
+  color: var(--muted); touch-action: none; background: none; border: 0; }
+.mg .srow .main { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0;
+  background: none; border: 0; padding: 6px 0; text-align: left; cursor: pointer; }
+.mg .srow .label { min-width: 0; }
+.mg .srow .chip { max-width: 50%; }
+.mg .srow .name { font-weight: 500; }
+.mg .srow .why { display: block; font-size: 12.5px; color: var(--muted); }
+.mg .srow.off .chip { opacity: .45; }
+.mg .chip { border-radius: 4px; flex: none; }
+.mg .fold { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--accent-ink);
+  padding: 6px 0; font-weight: 600; }
+.mg .fold::before, .mg .fold::after { content: ""; height: 1px; flex: 1; background: currentColor; opacity: .5; }
+.mg .remove { background: none; border: 0; color: var(--muted); width: 40px; height: 40px; cursor: pointer;
+  border-radius: 20px; }
+.mg .add { display: flex; align-items: center; gap: 8px; min-height: 48px; width: 100%; border: 0;
+  background: none; color: var(--accent-ink); font-weight: 600; cursor: pointer; padding: 0; }
+
+/* The add-an-item palette: every item drawn as the watch draws it. */
+.mg .palette { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.mg .tile { display: grid; gap: 6px; justify-items: start; padding: 10px; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--raised); text-align: left; cursor: pointer; min-height: 72px; }
+.mg .tile[disabled] { cursor: default; opacity: .6; }
+.mg .tile .why { font-size: 12px; color: var(--muted); }
+
+.mg .save { min-height: 48px; padding: 0 28px; border-radius: 24px; border: 0; background: var(--accent);
+  color: var(--on-accent); font-weight: 700; font-size: 16px; cursor: pointer; }
+.mg :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mg .toast { position: fixed; z-index: 20; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink);
+  color: var(--bg); padding: 8px 16px; border-radius: 18px; font-size: 14px; pointer-events: none; }
+
+/* Pictured choices: each option drawn as that part of the face. */
+.mg .pics { display: grid; gap: 8px; }
+.mg .pics-row { display: flex; overflow-x: auto; gap: 10px; padding-bottom: 6px; scroll-snap-type: x mandatory; }
+.mg .pic { display: grid; gap: 6px; justify-items: start; padding: 8px; border-radius: 12px; border: 2px solid transparent;
+  background: var(--card); cursor: pointer; text-align: left; font-size: 14px; scroll-snap-align: start; flex: none;
+  max-width: 100%; overflow: hidden; }
+.mg .pic canvas { max-width: 100%; height: auto !important; border-radius: 3px; outline: 1px solid var(--line); }
+.mg .pic[aria-pressed="true"] { border-color: var(--accent); background: var(--raised); font-weight: 600; }
+.mg input[type="url"] { font: inherit; font-size: 15px; min-height: 44px; padding: 8px 12px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--raised); color: var(--ink); width: 100%; }
+
+/* ---- Directions ---------------------------------------------------------- */
+.mg { min-height: 100%; }
+.mg .sec { display: grid; gap: 12px; padding: 18px 16px; border-bottom: 8px solid var(--card); }
+.mg .strip { width: 100% !important; height: auto !important; max-width: 400px; border-radius: 4px;
+  outline: 1px solid var(--line); }
+.mg .savebar { position: sticky; bottom: 0; display: flex; justify-content: center; padding: 12px 16px 16px;
+  background: linear-gradient(to top, var(--bg) 70%, transparent); z-index: 3; }
+.mg .savebar .save { width: 100%; max-width: 360px; }
+.mg .inline-opts { list-style: none; padding: 12px 0 16px 44px; border-bottom: 1px solid var(--line); }
+.mg .srow.open { border-bottom-color: transparent; }
+
+/* B: the face is the menu. */
+.dir-b { display: flex; flex-direction: column; min-height: 100%; }
+.dir-b .facewrap { display: flex; justify-content: center; padding: 20px 16px 8px; position: sticky; top: 0;
+  background: var(--bg); z-index: 2; }
+.dir-b .stage { position: relative; max-width: 100%; }
+.dir-b .stage canvas { width: 100% !important; height: auto !important; border-radius: 6px; }
+.dir-b .hit { position: absolute; border: 0; background: transparent; border-radius: 4px; cursor: pointer;
+  outline: 1.5px dashed rgba(250, 74, 54, .55); outline-offset: 1px; }
+.dir-b.editing .hit { outline-color: transparent; }
+.dir-b .hit.on { outline: 2px solid var(--accent) !important; }
+.dir-b .hint { text-align: center; color: var(--muted); margin: 6px 16px; font-size: 14px; }
+.dir-b .parts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; padding: 8px 16px 16px; }
+.dir-b .part { min-height: 40px; padding: 0 14px; border-radius: 20px; border: 1px solid var(--line);
+  background: var(--raised); cursor: pointer; }
+.dir-b .savebar { margin-top: auto; }
+.dir-b .sheet { display: flex; flex-direction: column; background: var(--raised); border-radius: 18px 18px 0 0;
+  box-shadow: var(--sheet-shadow); min-height: 420px; }
+.dir-b .sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 8px; }
+.dir-b .sheet-body { padding: 4px 16px 24px; display: grid; gap: 12px; align-content: start; }
+.dir-b .sheet .srow { background: var(--raised); }
+.dir-b .done, .dir-b .back { border: 0; background: none; color: var(--accent-ink); font-weight: 600; min-height: 44px;
+  cursor: pointer; padding: 0 4px; justify-self: start; }
+.dir-b h3 { margin: 0; font-size: 18px; }
+
+/* C: a day on your wrist. */
+.dir-c .film { display: grid; gap: 8px; }
+.dir-c .moment { display: grid; grid-template-columns: 1fr; gap: 6px; padding: 8px; border-radius: 12px;
+  border: 2px solid transparent; background: var(--card); cursor: pointer; text-align: left; }
+.dir-c .moment.on { border-color: var(--accent); }
+.dir-c .moment canvas { width: 100% !important; height: auto !important; max-width: 400px; border-radius: 3px; }
+.dir-c .when { font-size: 13px; color: var(--muted); }
+.dir-c .when b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.dir-c .clist { list-style: none; margin: 0; padding: 0; }
+.dir-c .crow, .dir-c .chead { display: grid; grid-template-columns: 1fr repeat(4, 44px); align-items: center;
+  min-height: 48px; border-bottom: 1px solid var(--line); }
+.dir-c .chead { min-height: 28px; font-size: 11.5px; color: var(--muted); text-align: center;
+  font-variant-numeric: tabular-nums; border-bottom: 0; }
+.dir-c .cname { border: 0; background: none; text-align: left; font-weight: 500; min-height: 44px; cursor: pointer; padding: 0; }
+.dir-c .crow.open { border-bottom-color: transparent; }
+.dir-c .mark { width: 14px; height: 14px; border-radius: 7px; justify-self: center; display: inline-block; vertical-align: -2px; }
+.dir-c .m-on { background: var(--accent); }
+.dir-c .m-room { border: 2px solid var(--accent); }
+.dir-c .m-off { border: 2px dotted var(--muted); opacity: .6; }
+.dir-c .legend { font-size: 12.5px; color: var(--muted); margin: 0; display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
+.dir-c .inline-opts { padding-left: 0; }
+.dir-c .row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.dir-c .row-actions button { min-height: 36px; padding: 0 12px; border-radius: 18px; border: 1px solid var(--line);
+  background: var(--raised); cursor: pointer; font-size: 14px; }
+.dir-c .row-actions button[disabled] { opacity: .4; cursor: default; }
+.dir-c .disclose { display: flex; justify-content: space-between; align-items: center; border: 0; background: none;
+  min-height: 44px; padding: 0; cursor: pointer; color: var(--accent-ink); font-weight: 600; }
+.dir-c .look { display: grid; gap: 16px; }
+.dir-c .lookface { display: flex; justify-content: center; }
+.dir-c .lookctl { display: grid; gap: 22px; }

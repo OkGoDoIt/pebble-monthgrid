@@ -1,0 +1,227 @@
+<title>MonthGrid Settings Directions</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=Silkscreen&display=swap">
+<link rel="stylesheet" href="settings/core.css">
+<style>
+  /* A review sheet for a watchface: grey-green like a memory LCD, Pebble orange for the one accent,
+     pixel labels from the face's own Silkscreen. Prototypes sit in phone frames. */
+  :root {
+    --paper: #f2f4f0;
+    --sheet: #ffffff;
+    --ink: #1b1d1a;
+    --muted: #596057;
+    --rule: #d6dbd2;
+    --orange: #fa4a36;
+    --orange-ink: #b8301f;
+    --device: #262825;
+    --display: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+    --pixel: "Silkscreen", "Courier New", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #121411; --sheet: #1b1d1a; --ink: #e5e8e1; --muted: #a2a99e; --rule: #2f332d;
+      --orange-ink: #ff7b69; --device: #3a3d38; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #121411; --sheet: #1b1d1a; --ink: #e5e8e1; --muted: #a2a99e; --rule: #2f332d;
+    --orange-ink: #ff7b69; --device: #3a3d38; color-scheme: dark;
+  }
+  body { background: var(--paper); color: var(--ink); font: 16px/1.5 var(--display); }
+  .page { max-width: 1240px; margin: 0 auto; padding-block: 40px 72px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: grid; gap: 56px; }
+  .eyebrow { font: 12px/1 var(--pixel); letter-spacing: .08em; text-transform: uppercase; color: var(--orange-ink); margin: 0; }
+  h1 { font-size: clamp(30px, 5vw, 46px); line-height: 1.05; margin: 8px 0 12px; text-wrap: balance; letter-spacing: -.01em; }
+  h2.sh { font-size: 26px; line-height: 1.15; margin: 0; text-wrap: balance; letter-spacing: -.005em; }
+  .lede { max-width: 66ch; color: var(--muted); margin: 0; font-size: 17px; }
+  .lede strong { color: var(--ink); font-weight: 600; }
+  section.block { display: grid; gap: 20px; }
+  .intro { max-width: 66ch; color: var(--muted); margin: 0; }
+
+  .findings { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1px; background: var(--rule);
+    border: 1px solid var(--rule); border-radius: 14px; overflow: hidden; }
+  .finding { background: var(--sheet); padding: 18px 18px 20px; display: grid; gap: 6px; align-content: start; min-width: 0; }
+  .finding h3 { margin: 0; font-size: 17px; }
+  .finding p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  .tabs { display: none; gap: 6px; flex-wrap: wrap; }
+  .tabs button { font: 600 15px var(--display); min-height: 44px; padding: 0 16px; border-radius: 22px; border: 1px solid var(--rule);
+    background: var(--sheet); color: var(--ink); cursor: pointer; }
+  .tabs button[aria-selected="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .dirs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 28px; align-items: start; }
+  .dir { display: grid; grid-row: span 2; grid-template-rows: subgrid; gap: 12px; min-width: 0; }
+  .dir header { display: grid; gap: 6px; min-height: 0; }
+  .dir .tag { font: 13px/1 var(--pixel); color: var(--orange-ink); }
+  .dir h3 { margin: 0; font-size: 21px; }
+  .dir p { margin: 0; color: var(--muted); font-size: 15px; }
+  .dir .cost { font-size: 13.5px; color: var(--ink); border-top: 1px solid var(--rule); padding-top: 8px; }
+  .dir .cost b { font-weight: 600; }
+  .phone { position: relative; height: min(760px, 78vh); overflow-y: auto; border: 9px solid var(--device); border-radius: 30px;
+    background: var(--sheet); overscroll-behavior: contain; max-width: 400px; width: 100%; justify-self: center; }
+  .phone .appbar { padding: 12px 16px 10px; background: inherit;
+    border-bottom: 1px solid var(--rule); font: 600 17px var(--display); }
+  .phone .appbar small { display: block; font-weight: 400; font-size: 12.5px; color: var(--muted); }
+  @media (max-width: 600px) {
+    .phone { border-width: 1px; border-color: var(--rule); border-radius: 16px; height: 82vh; }
+  }
+  @media (max-width: 1180px) {
+    .tabs { display: flex; }
+    .dirs { grid-template-columns: minmax(0, 1fr); }
+    .dir { grid-row: auto; grid-template-rows: none; }
+    .dir.off { display: none; }
+  }
+
+  table.items { width: 100%; border-collapse: collapse; font-size: 15px; min-width: 620px; }
+  .tablebox { overflow-x: auto; border: 1px solid var(--rule); border-radius: 14px; background: var(--sheet); }
+  .items th, .items td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  .items th { font: 12px var(--pixel); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 400; }
+  .items tr:last-child td { border-bottom: 0; }
+  .items td:first-child { font-weight: 600; white-space: nowrap; }
+  .items td:last-child { color: var(--muted); }
+
+  .event-ctl { display: grid; gap: 8px; max-width: 560px; position: sticky; top: env(safe-area-inset-top, 0px); z-index: 4;
+    background: var(--paper); padding-block: 10px; }
+  .event-ctl label { font-weight: 600; }
+  .event-ctl output { font: 600 15px var(--display); font-variant-numeric: tabular-nums; color: var(--orange-ink); }
+  .event-ctl input[type="range"] { width: 100%; accent-color: var(--orange); min-height: 32px; }
+  .faces { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
+  .face { display: grid; gap: 8px; align-content: start; justify-items: start; }
+  .face canvas { image-rendering: pixelated; width: 200px; height: 228px; border-radius: 6px; max-width: 100%; }
+  .face h3 { margin: 0; font-size: 17px; }
+  .face p { margin: 0; color: var(--muted); font-size: 14.5px; max-width: 34ch; }
+
+  .pick { display: grid; gap: 12px; max-width: 72ch; }
+  .pick p { margin: 0; }
+  .pick b { font-weight: 600; }
+  .loading { color: var(--muted); padding: 24px; font-size: 15px; }
+  @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<main class="page">
+  <header>
+    <p class="eyebrow">MonthGrid · settings page</p>
+    <h1>Making MonthGrid’s settings show what they do</h1>
+    <p class="lede">Three directions for the settings page, options on each status item, and four places a next
+      event could sit on the face. <strong>Each phone below is a working prototype</strong> that draws the face with the
+      watch’s own fonts. Try them, then tell me which parts work.</p>
+  </header>
+
+  <section class="block" aria-labelledby="possible">
+    <h2 class="sh" id="possible">What the Pebble app lets us do</h2>
+    <div class="findings">
+      <div class="finding"><h3>The whole page is ours</h3>
+        <p>The Pebble app shows a watchface’s settings as a web page under its own App Settings bar. Below that bar we
+          can lay out anything: pictures, a drawn face, drag to reorder. Today’s page is one such web page, built with Clay.</p></div>
+      <div class="finding"><h3>It can draw the face</h3>
+        <p id="fidelity">These prototypes draw MonthGrid with a small JavaScript copy of its layout and the watch’s own
+          font bitmaps. On 43 emulator screenshots of the Pebble Time 2 face it matches every pixel, and it draws a face
+          in under half a millisecond. Round and older watches would each need their own layout added.</p></div>
+      <div class="finding"><h3>It can show your real values</h3>
+        <p>The phone side already has the weather, your next event, the phone’s battery, and readings. Steps, heart rate,
+          and the watch battery live on the watch, which would send them when settings open. The prototypes use examples.</p></div>
+      <div class="finding"><h3>What it costs</h3>
+        <p>The page ships inside the watchface, so there’s nothing new to host, and saving works as it does now. The
+          ongoing cost is the layout copy (about 80 KB with its fonts): it has to follow every layout change on the watch. Pictures made from the
+          emulator at build time avoid that, but can’t show your own colors.</p></div>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="directions">
+    <h2 class="sh" id="directions">Three directions for the page</h2>
+    <p class="intro">All three start from the status line as it is on your watch now (Phone disconnected, Battery,
+      Next alarm, Heart rate, Weather, Phone battery, and Distance walked), with Next event added and the two batteries combined.
+      Tap a status item for its options. The example moment is 9:37 on Thursday, with Standup at 10:00.</p>
+    <div class="tabs" role="tablist" aria-label="Directions">
+      <button type="button" role="tab" id="tab-a" aria-controls="dir-a" aria-selected="true">A · Pictures</button>
+      <button type="button" role="tab" id="tab-b" aria-controls="dir-b" aria-selected="false">B · Tap the face</button>
+      <button type="button" role="tab" id="tab-c" aria-controls="dir-c" aria-selected="false">C · A day</button>
+    </div>
+    <div class="dirs">
+      <article class="dir" id="dir-a" role="tabpanel" aria-labelledby="tab-a">
+        <header><span class="tag">A</span><h3>Pictures beside the controls</h3>
+          <p>Each section opens with that part of the face, and visual choices are pictures instead of names. There’s no
+            separate preview to scroll back to, and it’s still a plain list.</p>
+          <p class="cost"><b>Build:</b> simplest. It could even use pictures made ahead of time instead of the live face.</p></header>
+        <div class="phone"><div class="appbar">App Settings<small>Configuring MonthGrid</small></div><div class="mount" data-dir="pictures"><p class="loading">Drawing…</p></div></div>
+      </article>
+      <article class="dir" id="dir-b" role="tabpanel" aria-labelledby="tab-b">
+        <header><span class="tag">B</span><h3>Tap the face</h3>
+          <p>The face is the menu. Tap the time, the status line, the month bar, or the days, and change that part in a
+            sheet while the face stays in view. Most direct, but every setting is hidden until you tap.</p>
+          <p class="cost"><b>Build:</b> needs the live face, and round watches need their own tap areas.</p></header>
+        <div class="phone"><div class="appbar">App Settings<small>Configuring MonthGrid</small></div><div class="mount" data-dir="tapTheFace"><p class="loading">Drawing…</p></div></div>
+      </article>
+      <article class="dir" id="dir-c" role="tabpanel" aria-labelledby="tab-c">
+        <header><span class="tag">C</span><h3>A day on your wrist</h3>
+          <p>The status line at four moments of one day, with a mark for each item at each moment. Rules like “at 20% or
+            less” or “2 hours before” show up as what appears when. The rest of the page is plain.</p>
+          <p class="cost"><b>Build:</b> needs the live face, drawn four times per change.</p></header>
+        <div class="phone"><div class="appbar">App Settings<small>Configuring MonthGrid</small></div><div class="mount" data-dir="dayOnWrist"><p class="loading">Drawing…</p></div></div>
+      </article>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="options">
+    <h2 class="sh" id="options">Options on each status item</h2>
+    <p class="intro">Choices that only matter to one item move onto that item, and items that were two versions of one
+      thing become one item with a choice. The page loses its separate unit and alert settings.</p>
+    <div class="tablebox">
+      <table class="items">
+        <thead><tr><th scope="col">Item</th><th scope="col">Its options</th><th scope="col">What changes</th></tr></thead>
+        <tbody>
+          <tr><td>Battery</td><td>Watch, phone, or both · Always, or only at 20% or less</td><td>Replaces Battery and Phone battery</td></tr>
+          <tr><td>Weather</td><td>Now; now with high and low; or the next 3 hours · °F or °C</td><td>The unit moves here. High and low and the next hours are the forecast question from last night</td></tr>
+          <tr><td>Next event</td><td>1, 2, or 4 hours before, or all day · Name and time, or time only · Where it goes</td><td>New: today it shows whenever there is an event</td></tr>
+          <tr><td>Steps</td><td>Today’s count, or ahead or behind your usual by this time</td><td>“Usual” is the watch’s own typical-day average</td></tr>
+          <tr><td>Distance walked</td><td>Miles or kilometers</td><td>The unit moves here</td></tr>
+          <tr><td>Calories</td><td>Active, or active and resting</td><td>Replaces the two Calories items</td></tr>
+          <tr><td>Sleep last night</td><td>All sleep, or deep sleep</td><td>Deep sleep is the watch’s restful-sleep figure</td></tr>
+          <tr><td>Next alarm</td><td>Always, or in the 12 hours before</td><td>New</td></tr>
+          <tr><td>Phone disconnected</td><td>Vibrate when it drops</td><td>Moves here from Alerts</td></tr>
+          <tr><td>Readings</td><td>Value, or name and value</td><td>New</td></tr>
+          <tr><td>Heart rate, Active minutes, and Week number</td><td>Nothing to set</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="event">
+    <h2 class="sh" id="event">Where a next event goes</h2>
+    <p class="intro">“Standup 23m” takes two thirds of the status line on a Pebble Time 2. Every option here shows the
+      event only in a window before it starts (2 hours here). Drag the slider to see each face as Standup gets closer.</p>
+    <div class="event-ctl">
+      <label for="ev-min">Time on the watch</label>
+      <input type="range" id="ev-min" min="-180" max="20" step="1" value="-23">
+      <output id="ev-out" for="ev-min">9:37a · Standup in 23 minutes</output>
+    </div>
+    <div class="faces" id="ev-faces"><p class="loading">Drawing…</p></div>
+  </section>
+
+  <section class="block" aria-labelledby="pick">
+    <h2 class="sh" id="pick">What I’d pick</h2>
+    <div class="pick" id="pick-body">
+      <p><b>The page: A, with C’s “What shows when” in its status-line section.</b> A keeps every setting in
+        view as a list, and each choice shows itself, so nobody has to guess what “Ruled” or “Bitham light” means. C’s
+        marks are the clearest way to explain a line that changes through the day, which the new “Show it” rules make
+        more important. B is the most fun to tap, but it hides every setting until you find it.</p>
+      <p><b>The next event: in the month bar, shown 2 hours before.</b> It costs no height, keeps the status line’s
+        room for your other items (four fit instead of three here), and the name stays readable. On the narrower
+        Pebble 2 and Pebble Time screens the name would shorten first.</p>
+      <p><b>The items: the options in the table above.</b> Two batteries and two calories become one item each,
+        units and the disconnect vibration move onto their items, and Battery, Next alarm, and Next event gain a
+        “Show it” rule.</p>
+      <p><b>The build:</b> the fold line and the day marks need the face’s own measuring, so I’d ship the live
+        face rather than pictures made ahead of time, with a test that compares it with the emulator
+        whenever the watch layout changes.</p>
+    </div>
+  </section>
+</main>
+
+<script src="preview/monthgrid-fonts.js"></script>
+<script src="preview/monthgrid-face.js"></script>
+<script src="settings/core.js"></script>
+<script src="settings/event.js"></script>
+<script src="settings/directions.js"></script>
+<script src="review.js"></script>

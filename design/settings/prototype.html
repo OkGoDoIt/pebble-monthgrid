@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MonthGrid settings prototype</title>
+<link rel="stylesheet" href="core.css">
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { background: #fff; }
+  @media (prefers-color-scheme: dark) { body { background: #000; } }
+  #frame { position: relative; height: 100%; overflow-y: auto; }
+</style>
+</head>
+<body>
+<div id="frame"></div>
+<script src="../preview/monthgrid-face.js"></script>
+<script src="core.js"></script>
+<script src="directions.js"></script>
+<script>
+  var d = (location.hash || '#pictures').slice(1);
+  (MGDirections[d] || MGDirections.pictures)(document.getElementById('frame'));
+</script>
+</body>
+</html>
