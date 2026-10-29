@@ -55,7 +55,7 @@ function resetClock(startMs) {
   global.Date = function(a, b, c, d, e, f, g) {
     if (arguments.length === 0) { return new RealDate(clock.now); }
     if (arguments.length === 1) { return new RealDate(a); }
-    return new RealDate(a, b, c || 1, d || 0, e || 0, f || 0, g || 0);
+    return new RealDate(a, b, c === undefined ? 1 : c, d || 0, e || 0, f || 0, g || 0);
   };
   global.Date.now = function() { return clock.now; };
   global.Date.UTC = RealDate.UTC;
@@ -112,6 +112,7 @@ function setup(opts) {
     openedUrl: null,
     store: {},
     plugins: opts.plugins || [],
+    ics: opts.ics || {},  // calendar links that answer, by URL
   };
   global.localStorage = {
     getItem: function(k) { return env.store.hasOwnProperty(k) ? env.store[k] : null; },
@@ -144,6 +145,11 @@ function setup(opts) {
         self.readyState = 4;
         self.responseText = JSON.stringify({ current: { temperature_2m: 12.34, weather_code: 3 } });
         if (self.onload) { self.onload(); }
+      } else if (env.ics[self.url]) {
+        self.status = 200;
+        self.readyState = 4;
+        self.responseText = env.ics[self.url];
+        if (self.onreadystatechange) { self.onreadystatechange(); }
       } else {
         self.status = 404;
         self.readyState = 4;
@@ -568,6 +574,41 @@ test('the old settings page\'s choices carry over, and reach the watch once', fu
   resetTake();
   ready();
   assert.deepStrictEqual(take(/^METRICS$/), []);
+});
+
+test('a Google calendar link survives the import, the page, and Save', function() {
+  var url = 'https://calendar.google.com/calendar/ical/dana.example%40gmail.com/private-0123456789abcdef0123456789abcdef/basic.ics';
+  setup({ plugins: [], settings: { DOTS_ENABLED: true, CAL1_URL: url, CAL1_COLOR: 0x0055AA, CAL3_COLOR: 0x00AA00 } });
+  ready();
+  assert.strictEqual(storedState().calendars[0], url, 'imported from the old settings page');
+  assert.strictEqual(storedState().look.CAL1_COLOR, 6, 'Clay kept colors as numbers');
+  assert.strictEqual(storedState().look.CAL3_COLOR, 0x08);
+  var boot = openedBoot();
+  assert.strictEqual(boot.state.calendars[0], url, 'the page gets it whole');
+  // The Pebble app hands the page's answer back decoded once, or not at all.
+  var json = JSON.stringify(boot.state);
+  fire('webviewclosed', { response: json });
+  assert.strictEqual(storedState().calendars[0], url, 'decoded answer');
+  fire('webviewclosed', { response: encodeURIComponent(json) });
+  assert.strictEqual(storedState().calendars[0], url, 'encoded answer');
+});
+
+test('the settings page gets this month\'s markers as last read, with the links they came from', function() {
+  var url = 'https://calendar.example.com/dana/basic.ics';
+  var ics = ['BEGIN:VCALENDAR',
+    'BEGIN:VEVENT', 'DTSTART;VALUE=DATE:20261003', 'DTEND;VALUE=DATE:20261004', 'SUMMARY:Sam', 'END:VEVENT',
+    'BEGIN:VEVENT', 'DTSTART:20261015T090000Z', 'DTEND:20261015T093000Z', 'SUMMARY:Lunch', 'END:VEVENT',
+    'BEGIN:VEVENT', 'DTSTART:20261015T100000Z', 'DTEND:20261015T101500Z', 'SUMMARY:Call', 'END:VEVENT',
+    'END:VCALENDAR'].join('\r\n');
+  setup({ plugins: [], ics: { [url]: ics }, settings: { DOTS_ENABLED: true, CAL1_URL: url } });
+  ready();
+  advance(1000);
+  var ctx = openedBoot().ctx;
+  assert.deepStrictEqual(ctx.marks.urls, [url, '', '']);
+  assert.strictEqual(ctx.marks.days.length, 31);
+  assert.deepStrictEqual([ctx.marks.days[2], ctx.marks.days[14], ctx.marks.days[15]], [[1, 0, 0], [2, 0, 0], [0, 0, 0]]);
+  var entry = ctx.calendarSync[0];
+  assert.deepStrictEqual([entry.cal, entry.ok, entry.days, entry.url], [1, true, 2, url]);
 });
 
 // --- A3: next event ----------------------------------------------------------

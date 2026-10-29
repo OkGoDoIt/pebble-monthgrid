@@ -23,7 +23,8 @@
     });
     return out;
   }
-  // Event markers on a few days of this month: [calendar 1, 2, 3] counts.
+  // Example event markers, [calendar 1, 2, 3] counts per day: what markers
+  // look like, before any calendar has a link.
   var MARKS = [[0], [1], [0], [0], [1, 1], [2], [0], [1], [0, 0, 1], [0], [0], [1, 1], [3], [1], [0], [1], [0], [0],
     [1], [2, 1], [1], [0], [1], [0], [0], [1, 0, 1], [1], [2], [1], [0], [0]];
   var BASE = {
@@ -31,7 +32,6 @@
     battery: { percent: 90, charging: false },
     connected: true,
     weather: { tempF: 56, cond: 2, highF: 64, lowF: 48, hoursF: [58, 61, 63] },
-    dots: { days: MARKS },
     health: { steps: 4212, usualSteps: 3600, distanceM: 3058, heartRate: 72, activeSec: 2040,
       activeKcal: 210, restingKcal: 930, sleepSec: 25920, deepSleepSec: 6480 },
     wokeAt: at(6, 52),
@@ -172,7 +172,26 @@
   function zone(layout, name) { return layout[name] || null; }
   // Renders the face for these picks at this moment; also works out each
   // row's fit on the watch: 'shown', 'room' (no room left) or 'hidden' (with why).
+  // The event markers the preview shows: only what the phone last read from
+  // each linked calendar this month (a new link shows nothing until it's
+  // read), and the example only while no calendar has a link at all.
+  function dotsFor(state, data, ctx) {
+    var links = state.calendars || [], got = ctx && ctx.marks, now = data.now;
+    var example = !links.some(Boolean);
+    var days = [], n = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    for (var d = 0; d < n; d++) {
+      days.push([0, 1, 2].map(function (i) {
+        if (example) { return (MARKS[d] || [])[i] || 0; }
+        if (links[i] && got && got.urls[i] === links[i]) { return (got.days[d] || [])[i] || 0; }
+        return 0;
+      }));
+    }
+    var failed = ((ctx && ctx.calendarSync) || []).some(function (e) { return !e.ok && e.url && links[e.cal - 1] === e.url; });
+    return { days: days, failed: failed };
+  }
+
   function draw(state, data, ctx, extra) {
+    data = merge(data, { dots: dotsFor(state, data, ctx) });
     var p = plan(state, data, ctx);
     var opts = { statusOverrides: p.overrides, obstruction: data.quickView ? QUICK_VIEW_H : 0 };
     if (extra) { Object.keys(extra).forEach(function (k) { opts[k] = extra[k]; }); }

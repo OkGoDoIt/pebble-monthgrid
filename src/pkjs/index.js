@@ -156,6 +156,27 @@ function currentMonthkey() {
   return now.getFullYear() * 16 + now.getMonth() + 1;
 }
 
+// This month's markers as last fetched, and the links they came from, so the
+// settings page can show them.
+var MARKS_KEY = 'monthgrid-marks';
+
+function saveMarks(monthkey, urls, bytes) {
+  try {
+    localStorage.setItem(MARKS_KEY, JSON.stringify({ month: monthkey, urls: urls, bytes: bytes }));
+  } catch (e) {}
+}
+
+// [[calendar 1, 2, 3 counts] per day], or null when not fetched this month.
+function loadMarks() {
+  var m = null;
+  try { m = JSON.parse(localStorage.getItem(MARKS_KEY)); } catch (e) {}
+  if (!m || m.month !== currentMonthkey()) { return null; }
+  var days = new Date((m.month >> 4), (m.month & 15), 0).getDate();
+  return { urls: m.urls, days: m.bytes.slice(0, days).map(function(b) {
+    return [b & 3, (b >> 2) & 3, (b >> 4) & 3];
+  }) };
+}
+
 function pushDots(monthkey) {
   var state = loadState();
   if (!monthkey) { monthkey = currentMonthkey(); }
@@ -164,6 +185,7 @@ function pushDots(monthkey) {
   if (month0 < 0 || month0 > 11) { return; }
 
   var urls = state.look.DOTS_ENABLED ? state.calendars : [];
+  var links = [0, 1, 2].map(function(i) { return urls[i] || ''; });
   var bytes = [];
   var daysInMonth = new Date(year, month0 + 1, 0).getDate();
   for (var i = 0; i < 31; i++) { bytes.push(0); }
@@ -182,6 +204,7 @@ function pushDots(monthkey) {
       sendWithRetry({ DOTS_STATUS: 1 }, 'dots-status');
       return;
     }
+    if (monthkey === currentMonthkey()) { saveMarks(monthkey, links, bytes); }
     sendWithRetry({ DOTS_MONTH: monthkey, DOTS_DATA: bytes, DOTS_STATUS: 0 }, 'dots');
   };
 
@@ -200,7 +223,7 @@ function pushDots(monthkey) {
   urls.forEach(function(url, cal) {
     if (!url) { return; }
     fetchUrl(url, function(res) {
-      var entry = { cal: cal + 1, ts: Date.now() };
+      var entry = { cal: cal + 1, ts: Date.now(), url: url };
       if (res.ok) {
         try {
           var marks = ics.scanMonth(res.text, year, month0);
@@ -215,6 +238,7 @@ function pushDots(monthkey) {
             }
           }
           entry.ok = true;
+          entry.days = matched;
           entry.detail = Math.round(res.text.length / 1024) + ' KB, ' + matched + ' days marked this month';
         } catch (e) {
           entry.ok = false;
@@ -306,6 +330,7 @@ function pageContext() {
   ctx.units = bridge.units;
   ctx.readings = bridge.readingList();
   ctx.calendarSync = loadDotsStatus();
+  ctx.marks = loadMarks();
   ctx.returnTo = 'pebblejs://close#';
   return ctx;
 }

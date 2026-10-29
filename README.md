@@ -197,8 +197,9 @@ Paste up to three iCal/ICS subscription URLs (e.g. Google Calendar's *Secret
 address in iCal format*) and days with events get a marker under the date, color
 coded per calendar. Two styles: a thin underline that splits into per-calendar
 segments, or up to three small squares reflecting how many events the day holds.
-The settings page shows a diagnostic message (with a "!" on the watch) if a
-calendar fails to refresh.
+The settings page's preview shows the markers the phone last read from your
+links, and says when each calendar was last read and how many days it marked, or
+why it didn't refresh (the watch shows a "!" until it does).
 
 | Underline (default) | Squares |
 |:---:|:---:|

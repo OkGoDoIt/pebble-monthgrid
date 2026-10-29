@@ -458,7 +458,9 @@
       var input = el('input', { type: 'url', inputmode: 'url', autocomplete: 'off', autocapitalize: 'off',
         spellcheck: 'false', placeholder: 'Calendar link (.ics)', value: c.store.state.calendars[i],
         'aria-label': 'Calendar ' + (i + 1) + ' link',
-        oninput: function () { c.store.state.calendars[i] = input.value.trim(); } });
+        oninput: function () { c.store.state.calendars[i] = input.value.trim(); },
+        // Leaving the field redraws, so the preview and the note follow the link.
+        onchange: function () { c.render(); } });
       rows.push(el('div', { class: 'row cal' }, [c.ctx.color
         ? el('button', { type: 'button', class: 'swatchbtn', 'aria-expanded': String(open),
           'aria-label': 'Calendar ' + (i + 1) + ' color: ' + COLOR_NAMES[look[key]],
@@ -468,15 +470,30 @@
     });
     return group(rows, 'Calendars', syncNote(c));
   }
-  // How the last calendar refresh went, when there's something to say.
+  // How the phone's last read of each link went. A link added or changed on
+  // this page is read after Save.
   function syncNote(c) {
-    var entries = c.ctx.calendarSync || [];
-    var bad = entries.filter(function (e) { return !e.ok; });
-    if (bad.length) {
-      return { warn: true, text: bad.map(function (e) { return 'Calendar ' + e.cal + ' didn’t refresh (' + e.detail + ').'; })
-        .join(' ') + ' Check that the link is the calendar’s full iCal address. The watch shows a “!” until it refreshes.' };
+    var links = c.store.state.calendars, sync = c.ctx.calendarSync || [], warn = false;
+    var lines = [0, 1, 2].filter(function (i) { return links[i]; }).map(function (i) {
+      var e = sync.filter(function (x) { return x.cal === i + 1 && x.url === links[i]; })[0];
+      var name = 'Calendar ' + (i + 1);
+      if (!e) { return name + (links[i] === c.opened[i] ? ' hasn’t been read yet.' : ' is read after you save.'); }
+      if (!e.ok) { warn = true; return name + ' didn’t refresh (' + e.detail + ').'; }
+      return name + ': events on ' + e.days + (e.days === 1 ? ' day' : ' days') + ' this month, as of '
+        + whenText(new Date(e.ts)) + '.';
+    });
+    if (!lines.length) { return 'Paste a calendar’s secret iCal address. Links stay on your phone.'; }
+    if (warn) {
+      lines.push('Check that the link is the calendar’s full iCal address. The watch shows a “!” until it refreshes.');
     }
-    return 'Paste a calendar’s secret iCal address. Links stay on your phone.';
+    return { warn: warn, text: lines.join(' ') };
+  }
+  // "10:42 AM" today, else "Oct 28".
+  function whenText(d) {
+    if (d.toDateString() === new Date().toDateString()) {
+      return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    }
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
   }
 
   // ---- Colors ------------------------------------------------------------------
@@ -585,6 +602,7 @@
     function scroller() { return frame.closest('.phone') || frame; }
     var c = {
       store: store, data: data, ui: ui, ctx: ctx,
+      opened: state.calendars.slice(),   // the links as the page opened with them
       setLook: function (key) { return function (v) { store.set(function (s) { s.look[key] = v; }); }; },
       setEvent: function (key) { return function (v) { store.set(function (s) { s.event[key] = v; }); }; },
       // Moving the event into or out of the status line adds or removes its row.
