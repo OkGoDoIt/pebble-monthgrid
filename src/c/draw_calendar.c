@@ -154,24 +154,42 @@ static void prv_draw_dots(GContext *ctx, int day, GRect cell, bool on_today_box)
   }
 }
 
-static void prv_uppercase_ascii(char *p) {
+// Upper-cases ASCII and the Latin-1 letters the watch's languages use
+// ("März" -> "MÄRZ", "décembre" -> "DÉCEMBRE"): U+00E0..U+00FE except U+00F7
+// (the division sign) are 0xC3 0xA0..0xBE in UTF-8, and their capitals are
+// 0x20 lower.
+static void prv_uppercase(char *p) {
   for (; *p; p++) {
-    if (*p >= 'a' && *p <= 'z') { *p -= 32; }
+    if (*p >= 'a' && *p <= 'z') {
+      *p -= 32;
+    } else if ((uint8_t) p[0] == 0xC3 && (uint8_t) p[1] >= 0xA0 && (uint8_t) p[1] <= 0xBE
+               && (uint8_t) p[1] != 0xB7) {
+      p[1] -= 0x20;
+      p++;
+    }
   }
 }
 
-static bool prv_text_fits(const char *s, GFont font, int16_t max_w) {
-  GSize size = graphics_text_layout_get_content_size(
-      s, font, GRect(0, 0, 32767, 64), GTextOverflowModeFill, GTextAlignmentLeft);
-  return size.w <= max_w;
+static int16_t prv_text_w(const char *s, GFont font) {
+  if (!s[0]) { return 0; }
+  return graphics_text_layout_get_content_size(
+      s, font, GRect(0, 0, 32767, 64), GTextOverflowModeFill, GTextAlignmentLeft).w;
 }
 
-// Compose the rectangular banner text per the user's BANNER_CONTENT setting.
-// Candidates are tried longest-first and the first one that fits wins, so
-// nothing ever clips: e.g. WEDNESDAY, SEPTEMBER 30 -> WED, SEP 30 -> SEP 30.
-// Month/weekday order follows the watch region (en_US: month first;
-// elsewhere: day first), names are localized by the system locale.
-static void prv_banner_text(char *buf, size_t len, GFont font, int16_t max_w) {
+static bool prv_text_fits(const char *s, GFont font, int16_t max_w) {
+  return prv_text_w(s, font) <= max_w;
+}
+
+#define DATE_CANDIDATES 4
+#define DATE_LEN 40
+typedef char DateCandidates[DATE_CANDIDATES][DATE_LEN];
+
+// The banner's date texts per the user's BANNER_CONTENT setting, longest
+// first, upper-cased and without repeats. Month/weekday order follows the
+// watch region (en_US: month first; elsewhere: day first), names are
+// localized by the system locale. With an event in the bar one more rung
+// follows: the month alone (the grid still marks today).
+static int prv_date_candidates(DateCandidates cand, bool with_event) {
   char wd_full[16], wd_ab[8], mon_full[16], mon_ab[8];
   strftime(wd_full, sizeof(wd_full), "%A", &g_now);
   strftime(wd_ab, sizeof(wd_ab), "%a", &g_now);
@@ -182,7 +200,6 @@ static void prv_banner_text(char *buf, size_t len, GFont font, int16_t max_w) {
   const char *locale = i18n_get_system_locale();
   bool day_first = !(locale && strncmp(locale, "en_US", 5) == 0);
 
-  char cand[4][40];
   int n = 0;
   switch (g_settings.banner_content) {
     case BANNER_MONTH_DAY:
@@ -242,8 +259,31 @@ static void prv_banner_text(char *buf, size_t len, GFont font, int16_t max_w) {
       break;
   }
 
+  if (with_event && g_settings.banner_content != BANNER_MONTH
+      && g_settings.banner_content != BANNER_NUMERIC && n < DATE_CANDIDATES) {
+    snprintf(cand[n++], DATE_LEN, "%s", mon_ab);
+  }
+  int kept = 0;
   for (int i = 0; i < n; i++) {
-    prv_uppercase_ascii(cand[i]);
+    prv_uppercase(cand[i]);
+    bool repeat = false;
+    for (int j = 0; j < kept; j++) {
+      if (strcmp(cand[j], cand[i]) == 0) { repeat = true; break; }
+    }
+    if (!repeat) {
+      if (kept != i) { memcpy(cand[kept], cand[i], DATE_LEN); }
+      kept++;
+    }
+  }
+  return kept;
+}
+
+// The banner on its own: the first date that fits wins, so nothing ever
+// clips: e.g. WEDNESDAY, SEPTEMBER 30 -> WED, SEP 30 -> SEP 30.
+static void prv_banner_text(char *buf, size_t len, GFont font, int16_t max_w) {
+  static DateCandidates cand;
+  int n = prv_date_candidates(cand, false);
+  for (int i = 0; i < n; i++) {
     if (i == n - 1 || prv_text_fits(cand[i], font, max_w)) {
       strncpy(buf, cand[i], len - 1);
       buf[len - 1] = 0;
@@ -253,10 +293,136 @@ static void prv_banner_text(char *buf, size_t len, GFont font, int16_t max_w) {
   buf[0] = 0;
 }
 
+#if defined(EVENT_IN_BAR)
+// ---- The next event in the bar ------------------------------------------
+// The date on the left in the bar's bold, the event on the right in the
+// status line's regular weight. A ladder of (date, event) texts is tried in
+// order and the first that fits wins (src/settings/bar.js is the same ladder,
+// checked against every combination by design/preview/tools/bar-cases.js):
+//   1. every date, longest first, each with the event as a sentence
+//      ("Standup in 12m") and then short ("Standup 12m");
+//   2. the shortest date, the name losing letters from its end ("Quarte… 9m");
+//   3. the shortest date and the time alone, after a calendar mark.
+// BAR_GLYPH_S: the status line's icon box, so the calendar mark is the
+// status line's (9x9, 7x7 on the small screens).
+#if PBL_DISPLAY_WIDTH >= 200
+  #define BAR_PAD (PBL_IF_ROUND_ELSE(6, 5))
+  #define BAR_GAP 8
+  #define BAR_LIFT 3
+  #define BAR_GLYPH_S 13
+#else
+  #define BAR_PAD 4
+  #define BAR_GAP 6
+  #define BAR_LIFT 2
+  #define BAR_GLYPH_S 9
+#endif
+#define MIN_NAME 3   // a name shorter than this, plus "…", says nothing
+
+typedef struct {
+  char date[DATE_LEN];
+  char event[48];
+  bool glyph;
+} BarText;
+
+// The span of the bar text may use, [left, right). On the round watch the
+// bar runs edge to edge and the circle clips it, so the room is the circle's
+// width at the letters' top edge.
+static void prv_bar_span(GRect bz, int16_t *x0, int16_t *x1) {
+#if defined(PBL_ROUND)
+  const int32_t r = PBL_DISPLAY_WIDTH / 2;
+  int32_t dy = r - (bz.origin.y + 3), v = r * r - dy * dy, half = 0;
+  while ((half + 1) * (half + 1) <= v) { half++; }
+  *x0 = (int16_t) (r - half + BAR_PAD);
+  *x1 = (int16_t) (r + half - BAR_PAD);
+#else
+  *x0 = bz.origin.x + BAR_PAD;
+  *x1 = bz.origin.x + bz.size.w - BAR_PAD;
+#endif
+}
+
+static bool prv_bar_fits(const char *date, const char *event, bool glyph, int16_t avail) {
+  int16_t glyph_w = glyph ? status_icon_width(METRIC_NEXT_EVENT, BAR_GLYPH_S) - 2 + 3 : 0;
+  return prv_text_w(date, g_font_banner) + BAR_GAP + glyph_w
+      + prv_text_w(event, g_font_small) <= avail;
+}
+
+static void prv_bar_compose(BarText *out, const EventView *ev, int16_t avail) {
+  static DateCandidates dates;
+  int n_dates = prv_date_candidates(dates, true);
+  EventWhen w;
+  event_when(ev, &w, false);
+  static char forms[2][48];
+  snprintf(forms[0], sizeof(forms[0]), "%s%s%s", ev->name, w.full[0] ? " " : "", w.full);
+  snprintf(forms[1], sizeof(forms[1]), "%s%s%s", ev->name, w.text[0] ? " " : "", w.text);
+  int n_forms = strcmp(forms[0], forms[1]) == 0 ? 1 : 2;
+  out->glyph = false;
+  for (int i = 0; i < n_dates; i++) {
+    for (int j = 0; j < n_forms; j++) {
+      if (prv_bar_fits(dates[i], forms[j], false, avail)) {
+        snprintf(out->date, sizeof(out->date), "%s", dates[i]);
+        memcpy(out->event, forms[j], sizeof(out->event));
+        return;
+      }
+    }
+  }
+  const char *shortest = dates[n_dates - 1];
+  snprintf(out->date, sizeof(out->date), "%s", shortest);
+  char name[EVENT_NAME_LEN];
+  snprintf(name, sizeof(name), "%s", ev->name);
+  trim_name_end(name);
+  for (int n = utf8_count(name) - 1; n >= MIN_NAME; n--) {
+    char cut[EVENT_NAME_LEN];
+    size_t bytes = utf8_prefix(name, n);
+    memcpy(cut, name, bytes);
+    cut[bytes] = '\0';
+    trim_name_end(cut);
+    snprintf(out->event, sizeof(out->event), "%s\xe2\x80\xa6%s%s", cut, w.text[0] ? " " : "", w.text);
+    if (prv_bar_fits(shortest, out->event, false, avail)) { return; }
+  }
+  if (w.text[0] && prv_bar_fits(shortest, w.text, true, avail)) {
+    snprintf(out->event, sizeof(out->event), "%s", w.text);
+    out->glyph = true;
+    return;
+  }
+  // Nothing else fits (no watch gets here): the date steps aside.
+  out->date[0] = '\0';
+  snprintf(out->event, sizeof(out->event), "%s", w.text[0] ? w.text : ev->name);
+  out->glyph = w.text[0] != '\0';
+}
+
+// Draws the date and the event into the bar zone (its fill or rules are
+// already drawn). stale_w: room kept at the right for the "!".
+static void prv_bar_draw_event(GContext *ctx, GRect bz, const EventView *ev, int16_t stale_w,
+                               GColor date_color, GColor event_color) {
+  int16_t x0, x1;
+  prv_bar_span(bz, &x0, &x1);
+  static BarText bt;
+  prv_bar_compose(&bt, ev, x1 - x0 - stale_w);
+  const int16_t ty = bz.origin.y - BAR_LIFT, th = bz.size.h + 6;
+  if (bt.date[0]) {
+    graphics_context_set_text_color(ctx, date_color);
+    graphics_draw_text(ctx, bt.date, g_font_banner, GRect(x0, ty, x1 - x0, th),
+                       GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+  }
+  int16_t right = x1 - stale_w, ew = prv_text_w(bt.event, g_font_small);
+  graphics_context_set_text_color(ctx, event_color);
+  graphics_draw_text(ctx, bt.event, g_font_small, GRect(right - ew, ty, ew + 1, th),
+                     GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+  if (bt.glyph) {
+    int16_t gw = status_icon_width(METRIC_NEXT_EVENT, BAR_GLYPH_S) - 2;
+    status_icon_draw(ctx, METRIC_NEXT_EVENT,
+                     GPoint(right - ew - 3 - gw, bz.origin.y + (bz.size.h - BAR_GLYPH_S) / 2),
+                     BAR_GLYPH_S, event_color, theme_bg());
+  }
+}
+#endif
+
 void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
   (void) layer;
   const GColor fg = theme_fg();
   graphics_context_set_antialiased(ctx, false);
+  // Whether the next event is drawn in the month bar this time.
+  bool bar_event = false;
 
   // ---- Month banner / month column ------------------------------------
   if (g_layout.banner_visible && g_layout.banner_column) {
@@ -295,6 +461,29 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
                          GTextOverflowModeFill, GTextAlignmentCenter, NULL);
     }
   } else if (g_layout.banner_visible) {
+#if defined(EVENT_IN_BAR)
+    GRect bz = g_layout.banner_zone;
+    bool filled = g_settings.banner_style == BANNER_STYLE_FILLED;
+    EventView ev;
+    if (event_in_bar() && event_current(&ev)) {
+      if (filled) {
+        graphics_context_set_fill_color(ctx, theme_accent());
+        graphics_fill_rect(ctx, bz, 0, GCornerNone);
+      } else if (g_settings.banner_style == BANNER_STYLE_RULED) {
+        graphics_context_set_fill_color(ctx, theme_accent());
+        graphics_fill_rect(ctx, GRect(bz.origin.x, bz.origin.y, bz.size.w, 1), 0, GCornerNone);
+        graphics_fill_rect(ctx, GRect(bz.origin.x, bz.origin.y + bz.size.h - 1, bz.size.w, 1),
+                           0, GCornerNone);
+      }
+      int16_t stale_w = (g_settings.dots_enabled && g_dots.status != 0)
+          ? prv_text_w("!", g_font_banner) + 4 : 0;
+      prv_bar_draw_event(ctx, bz, &ev, stale_w, filled ? theme_on_accent() : theme_accent(),
+                         filled ? theme_on_accent() : fg);
+      bar_event = true;
+    }
+#endif
+  }
+  if (g_layout.banner_visible && !g_layout.banner_column && !bar_event) {
     char banner_buf[40];
     prv_banner_text(banner_buf, sizeof(banner_buf), g_font_banner,
                     g_layout.banner_zone.size.w - 6);
@@ -335,9 +524,17 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
                          GTextOverflowModeFill, GTextAlignmentCenter, NULL);
     } else if (g_layout.banner_visible) {
       // Right edge of the banner; on a round display the bar is full-bleed,
-      // so inset far enough to stay inside the circle's chord.
+      // so inset far enough to stay inside the circle's chord. With the event
+      // in the bar it sits at the end of the text's span, after the event.
       GRect bz = g_layout.banner_zone;
       int16_t inset = PBL_IF_ROUND_ELSE(24, 5);
+#if defined(EVENT_IN_BAR)
+      if (bar_event) {
+        int16_t x0, x1;
+        prv_bar_span(bz, &x0, &x1);
+        inset = bz.origin.x + bz.size.w - x1;
+      }
+#endif
       graphics_context_set_text_color(ctx, g_settings.banner_style == BANNER_STYLE_FILLED
                                            ? theme_on_accent() : theme_accent());
       graphics_draw_text(ctx, "!", g_font_banner,
@@ -371,9 +568,7 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
       }
       char inbuf[16];
       strftime(inbuf, sizeof(inbuf), "%B", &g_now);
-      for (char *ip = inbuf; *ip; ip++) {
-        if (*ip >= 'a' && *ip <= 'z') { *ip -= 32; }
-      }
+      prv_uppercase(inbuf);
       if (!prv_text_fits(inbuf, g_font_small_bold, bar.size.w - 4)) {
         strncpy(inbuf, MONTH_ABBR[g_now.tm_mon], sizeof(inbuf) - 1);
         inbuf[sizeof(inbuf) - 1] = 0;

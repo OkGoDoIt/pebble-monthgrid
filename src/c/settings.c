@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include "common.h"
 
 // bg, fg, accent, on_accent, dim — chosen for legibility with the
@@ -75,11 +76,13 @@ void settings_set_defaults(Settings *s) {
     .vibe_disconnect = 0,
     .temp_fahrenheit = 1,
     .dist_miles = 1,
-    .metrics = { METRIC_BATTERY, METRIC_WEATHER, METRIC_NONE, METRIC_NONE, METRIC_NONE,
-                 METRIC_NONE, METRIC_NONE, METRIC_NONE },
+    .metrics = { METRIC_BATTERY, METRIC_WEATHER },
     .cal_colors = { GColorRedARGB8, GColorBlueMoonARGB8, GColorIslamicGreenARGB8 },
     .grid_lines = 0,
     .grid_color = GColorDarkGrayARGB8,
+    .weather_detail = WEATHER_NOW,
+    .event_place = EVENT_BAR,
+    .event_within = 120,
   };
 }
 
@@ -96,6 +99,40 @@ void settings_sanitize(Settings *s) {
   for (int i = 0; i < NUM_METRIC_SLOTS; i++) {
     if (s->metrics[i] >= METRIC_TYPE_COUNT) { s->metrics[i] = METRIC_NONE; }
   }
+  if (s->battery_below > 100) { s->battery_below = 0; }
+  if (s->weather_detail >= WEATHER_DETAIL_COUNT) { s->weather_detail = WEATHER_NOW; }
+  if (s->event_place >= EVENT_PLACE_COUNT) { s->event_place = EVENT_BAR; }
+  if (s->event_within > 24 * 60) { s->event_within = 24 * 60; }
+}
+
+// Version 1 (MonthGrid 1.3 and earlier): eight status slots and none of the
+// item options. Read once after an update, then saved as version 2.
+typedef struct __attribute__((__packed__)) {
+  uint8_t version;
+  uint8_t theme, time_format, time_size, time_font, start_day, show_seconds, show_adjacent;
+  uint8_t dots_enabled, dots_style, banner_content, banner_style, header_label;
+  uint8_t custom_bg, custom_fg, custom_accent;
+  uint8_t vibe_disconnect, temp_fahrenheit, dist_miles;
+  uint8_t metrics[8];
+  uint8_t cal_colors[NUM_CALENDARS];
+  uint8_t grid_lines, grid_color;
+} SettingsV1;
+
+static void prv_from_v1(Settings *s, const SettingsV1 *v) {
+  // The fields before the status slots are laid out the same.
+  memcpy(s, v, offsetof(SettingsV1, metrics));
+  s->version = SETTINGS_VERSION;
+  memset(s->metrics, METRIC_NONE, sizeof(s->metrics));
+  bool had_event = false;
+  for (int i = 0; i < 8; i++) {
+    s->metrics[i] = v->metrics[i];
+    if (v->metrics[i] == METRIC_NEXT_EVENT) { had_event = true; }
+  }
+  memcpy(s->cal_colors, v->cal_colors, sizeof(s->cal_colors));
+  s->grid_lines = v->grid_lines;
+  s->grid_color = v->grid_color;
+  // The event stays where it was: in the status line, or nowhere.
+  s->event_place = had_event ? EVENT_LINE : EVENT_OFF;
 }
 
 void settings_load(Settings *s) {
@@ -105,6 +142,8 @@ void settings_load(Settings *s) {
     int read = persist_read_data(PERSIST_KEY_SETTINGS, &loaded, sizeof(loaded));
     if (read == (int) sizeof(loaded) && loaded.version == SETTINGS_VERSION) {
       *s = loaded;
+    } else if (read == (int) sizeof(SettingsV1) && loaded.version == 1) {
+      prv_from_v1(s, (const SettingsV1 *) &loaded);
     }
   }
   settings_sanitize(s);

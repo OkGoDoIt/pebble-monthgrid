@@ -196,6 +196,9 @@ static bool prv_any_metric_selected(void) {
   return false;
 }
 
+// The next event's own line is as tall as the status line.
+#define EVENT_LINE_H STATUS_H
+
 #if defined(PBL_ROUND)
 static void prv_layout_round(Layout *l, GRect ub) {
   const TimeFontSpec *spec = &TIME_FONTS[g_settings.time_font][g_settings.time_size];
@@ -203,7 +206,9 @@ static void prv_layout_round(Layout *l, GRect ub) {
   l->time_font_h = spec->height;
   l->time_trim = spec->trim;
   l->side_columns = true;
-  l->status_visible = prv_any_metric_selected();
+  // The column also carries the next event when it has nowhere else to go.
+  l->status_visible = prv_any_metric_selected() || event_leads_status()
+      || g_settings.event_place == EVENT_TAKE;
   l->banner_visible = true;
   l->header_visible = true;
   l->row_pitch = R_PITCH;
@@ -265,20 +270,15 @@ static void prv_layout_round(Layout *l, GRect ub) {
 }
 #endif
 
-void layout_compute(Layer *root_layer) {
-  GRect full = layer_get_bounds(root_layer);
-  GRect ub = layer_get_unobstructed_bounds(root_layer);
-  Layout *l = &g_layout;
+#if !defined(PBL_ROUND)
+// The rectangular layout. extra_h reserves a band under the status line (the
+// next event's own line) that travels with it through the cascade.
+static void prv_layout_rect(Layout *l, GRect ub, int16_t extra_h) {
   memset(l, 0, sizeof(*l));
   l->bounds = ub;
-
-#if defined(PBL_ROUND)
-  prv_layout_round(l, ub);
-  (void) full;
-  return;
-#endif
-
-  bool want_status = prv_any_metric_selected();
+  // An event taking over the status line needs one, even with no items.
+  bool want_status = prv_any_metric_selected() || event_takeover() || event_leads_status();
+  bool extra_visible = false;
   int16_t avail = ub.size.h - TOP_INSET - BOTTOM_INSET;
   // The grid only needs as many rows as this month occupies (6 with
   // adjacent-days fill); short months bottom-align rather than floating.
@@ -321,9 +321,11 @@ void layout_compute(Layer *root_layer) {
       time_idx = g_settings.time_size + STAGES[stage].shrink;
       if (time_idx > 2) { time_idx = 2; }
       l->status_visible = want_status && STAGES[stage].stat;
+      extra_visible = extra_h && STAGES[stage].stat;
+      int16_t status_block = (l->status_visible ? STATUS_H : 0) + (extra_visible ? extra_h : 0);
 
       int16_t fixed_h = (*family)[time_idx].height + SECTION_GAP;
-      if (l->status_visible) { fixed_h += STATUS_H + SECTION_GAP; }
+      if (status_block) { fixed_h += status_block + SECTION_GAP; }
       if (l->banner_visible) { fixed_h += BANNER_H + SECTION_GAP; }
       if (l->header_visible) { fixed_h += HEADER_H; }
       if (fixed_h + PITCH_MIN * rows > avail) { continue; }   // doesn't fit at all
@@ -337,6 +339,7 @@ void layout_compute(Layer *root_layer) {
     if (pass >= 2) { break; }
   }
   if (stage > last_stage) { stage = last_stage; }
+  l->stage = (uint8_t) stage;
   l->banner_inline = banner_inline;
 
 #if PBL_DISPLAY_WIDTH < 200
@@ -357,8 +360,9 @@ void layout_compute(Layer *root_layer) {
 
   // Fixed height excluding the grid, then give the grid what remains
   // (capped so the calendar doesn't get too airy).
+  int16_t status_block = (l->status_visible ? STATUS_H : 0) + (extra_visible ? extra_h : 0);
   int16_t fixed = spec->height + SECTION_GAP;
-  if (l->status_visible) { fixed += STATUS_H + SECTION_GAP; }
+  if (status_block) { fixed += status_block + SECTION_GAP; }
   if (l->banner_visible) { fixed += BANNER_H + SECTION_GAP; }
   if (l->header_visible) { fixed += HEADER_H; }
 
@@ -381,8 +385,8 @@ void layout_compute(Layer *root_layer) {
   int16_t block_h = (int16_t) (pitch * rows)
       + (l->header_visible ? HEADER_H : 0)
       + (l->banner_visible ? BANNER_H + SECTION_GAP : 0);
-  int16_t stack_min = spec->height + (l->status_visible ? STATUS_H : 0) + block_h;
-  int nseams = 2 + (l->status_visible ? 1 : 0);
+  int16_t stack_min = spec->height + status_block + block_h;
+  int nseams = 2 + (status_block ? 1 : 0);
   int16_t slack = ub.size.h - BOTTOM_INSET - stack_min;
   if (slack < 0) { slack = 0; }
   int16_t gap = slack / nseams;
@@ -390,10 +394,17 @@ void layout_compute(Layer *root_layer) {
   int16_t y = ub.origin.y + gap + (slack % nseams);
   l->time_zone = GRect(ub.origin.x, y, ub.size.w, spec->height);
   y += spec->height;
-  if (l->status_visible) {
+  if (status_block) {
     y += gap;
-    l->status_zone = GRect(ub.origin.x, y, ub.size.w, STATUS_H);
-    y += STATUS_H;
+    if (l->status_visible) {
+      l->status_zone = GRect(ub.origin.x, y, ub.size.w, STATUS_H);
+      y += STATUS_H;
+    }
+    if (extra_visible) {
+      l->event_zone = GRect(ub.origin.x, y, ub.size.w, extra_h);
+      l->event_line = true;
+      y += extra_h;
+    }
   }
   y += gap;
   if (l->banner_visible) {
@@ -405,6 +416,26 @@ void layout_compute(Layer *root_layer) {
     y += HEADER_H;
   }
   l->grid_zone = GRect(l->grid_x, y, l->cell_w * 7, pitch * rows);
+}
+#endif
 
-  (void) full;
+void layout_compute(Layer *root_layer) {
+  GRect ub = layer_get_unobstructed_bounds(root_layer);
+  Layout *l = &g_layout;
+#if defined(PBL_ROUND)
+  memset(l, 0, sizeof(*l));
+  l->bounds = ub;
+  prv_layout_round(l, ub);
+#else
+  prv_layout_rect(l, ub, 0);
+#if defined(EVENT_OWN_LINE)
+  // The event's own line shows only while it costs the face nothing else
+  // (weekday letters, the bar, a time size); otherwise it goes in the bar.
+  if (event_own_line_wanted()) {
+    static Layout with;
+    prv_layout_rect(&with, ub, EVENT_LINE_H);
+    if (with.stage == l->stage) { *l = with; }
+  }
+#endif
+#endif
 }

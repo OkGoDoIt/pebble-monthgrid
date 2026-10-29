@@ -1,8 +1,9 @@
 #include "common.h"
 
-// The status line: up to NUM_METRIC_SLOTS user-prioritized metrics. Items
-// are measured first and appended in priority order while they fit; metrics
-// with no meaningful data are skipped entirely.
+// The status line: the user's metrics in priority order. Items are measured
+// first and appended while they fit; metrics with no meaningful data are
+// skipped entirely. The next calendar event can be one of them, take the
+// whole line in its last minutes, or have a line of its own under it.
 //
 // Rectangular watches render one horizontal line under the time with a
 // dotted rule. Round watches render a vertical icon-over-value column in the
@@ -24,15 +25,19 @@
 
 typedef struct {
   uint8_t metric;
-  char text[40];            // room for an event name plus its time
+  char text[48];            // room for an event name plus its time in a sentence
   int16_t icon_w;
   int16_t text_w;
 } StatusItem;
 
+// The most items one redraw can show: the line (or the two round columns)
+// never fits more. The list itself has no limit; items past what fits wait.
+#define MAX_SHOWN 8
+
 // One redraw's items. Static, not on the stack: apps get a 2 KB stack on
 // most platforms, and measuring text (the event name is measured repeatedly)
 // runs deep enough that eight of these on the stack can overflow it.
-static StatusItem s_items[NUM_METRIC_SLOTS];
+static StatusItem s_items[MAX_SHOWN];
 
 // Live readings from the phone stop showing once it has been silent for an
 // hour (it answers the watch's requests every half hour while it's there).
@@ -41,17 +46,11 @@ static bool prv_plugin_stale(void) {
       || time(NULL) - g_plugin.received_at > PLUGIN_STALE_SECONDS;
 }
 
-static bool prv_use_24h(void) {
-  return (g_settings.time_format == TIME_FMT_24H)
-      || (g_settings.time_format == TIME_FMT_SYSTEM && clock_is_24h_style());
-}
-
-// A moment as the status line shows a time of day: "9:30a" / "21:30", or
-// bare "9:30" in the narrow round column.
+// "9:30a" / "21:30", or bare "9:30" in the narrow round column.
 static bool prv_format_clock(char *buf, size_t len, time_t when, bool compact) {
   struct tm *lt = localtime(&when);
   if (!lt) { return false; }
-  if (prv_use_24h() || compact) {
+  if (use_24h() || compact) {
     snprintf(buf, len, "%d:%02d", lt->tm_hour, lt->tm_min);
   } else {
     int hour = lt->tm_hour % 12;
@@ -61,69 +60,35 @@ static bool prv_format_clock(char *buf, size_t len, time_t when, bool compact) {
   return true;
 }
 
-// When the next calendar event starts, as the status line says it: a
-// countdown while it's close ("23m", "1h05"), the time later today
-// ("2:30p"), the weekday after that ("Fri"), "now" once it has begun. An
-// all-day event says nothing on its day and its weekday before. Worked out
-// here from the start time, so it keeps counting while the phone is away.
-// Returns false when there is no event to show.
-static bool prv_event_when(char *when, size_t len, bool compact) {
-  when[0] = '\0';
-  if (!g_plugin.event_start) { return false; }
-  time_t now = time(NULL);
-  time_t start = (time_t) g_plugin.event_start;
-  if (g_plugin.event_end && now >= (time_t) g_plugin.event_end) { return false; }
-  if (g_plugin.event_all_day) {
-    if (now < start) {
-      struct tm *lt = localtime(&start);
-      if (lt) { strftime(when, len, "%a", lt); }
-    }
-    return true;
-  }
-  if (now >= start) {
-    snprintf(when, len, "now");
-    return true;
-  }
-  int32_t minutes = (int32_t) ((start - now + 59) / 60);
-  if (minutes < 60) {
-    snprintf(when, len, "%dm", (int) minutes);
-  } else if (minutes < 120) {
-    snprintf(when, len, "%dh%02d", (int) (minutes / 60), (int) (minutes % 60));
-  } else if (minutes < 20 * 60) {
-    prv_format_clock(when, len, start, compact);
-  } else {
-    struct tm *lt = localtime(&start);
-    if (lt) { strftime(when, len, "%a", lt); }
-  }
-  return true;
+static int16_t prv_text_w(const char *text) {
+  if (!text[0]) { return 0; }
+  return graphics_text_layout_get_content_size(text, g_font_small, GRect(0, 0, 32767, 32767),
+                                               GTextOverflowModeFill, GTextAlignmentLeft).w;
 }
 
-// "Standup 23m". A name too long for max_w loses characters from its end,
-// marked with an ellipsis, so the time always shows.
-static void prv_event_text_fitted(StatusItem *item, const char *when, int16_t max_w) {
-  const GRect measure_box = GRect(0, 0, 32767, 32767);
+// "Standup 23m" (or a whole sentence: "Standup in 23m"). A name too long
+// for max_w loses characters from its end, marked with an ellipsis, so the
+// time always shows.
+static void prv_event_text_fitted(char *out, size_t len, int16_t *out_w, const char *full_name,
+                                  const char *when, int16_t max_w) {
   char name[EVENT_NAME_LEN];
-  strncpy(name, g_plugin.event_name, sizeof(name) - 1);
+  strncpy(name, full_name, sizeof(name) - 1);
   name[sizeof(name) - 1] = '\0';
   size_t n = strlen(name);
   bool cut = false;
   for (;;) {
     if (n == 0) {
-      snprintf(item->text, sizeof(item->text), "%s", when);
+      snprintf(out, len, "%s", when);
     } else {
-      snprintf(item->text, sizeof(item->text), "%s%s%s%s", name, cut ? "\xe2\x80\xa6" : "",
-               when[0] ? " " : "", when);
+      snprintf(out, len, "%s%s%s%s", name, cut ? "\xe2\x80\xa6" : "", when[0] ? " " : "", when);
     }
-    item->text_w = item->text[0]
-        ? graphics_text_layout_get_content_size(item->text, g_font_small, measure_box,
-                                                GTextOverflowModeFill,
-                                                GTextAlignmentLeft).w
-        : 0;
-    if (max_w <= 0 || item->text_w <= max_w || n == 0) { return; }
-    // Drop one UTF-8 character (and any space it leaves at the end).
+    *out_w = prv_text_w(out);
+    if (max_w <= 0 || *out_w <= max_w || n == 0) { return; }
+    // Drop one UTF-8 character (and any space or punctuation it leaves).
     do { n--; } while (n > 0 && ((uint8_t) name[n] & 0xC0) == 0x80);
-    while (n > 0 && name[n - 1] == ' ') { n--; }
     name[n] = '\0';
+    trim_name_end(name);
+    n = strlen(name);
     cut = true;
   }
 }
@@ -170,7 +135,58 @@ static int32_t prv_distance_tenths(int32_t meters, bool miles) {
   const int32_t denom = miles ? METERS_PER_MILE : METERS_PER_KM;
   return (meters * 100 + denom * 5) / (denom * 10);
 }
+
+// Steps compared with a usual day by this time: "+612", "-1.2k".
+static bool prv_steps_vs_usual(char *buf, size_t len, HealthValue steps) {
+  time_t now = time(NULL), start = time_start_of_today();
+  HealthServiceAccessibilityMask mask = health_service_metric_averaged_accessible(
+      HealthMetricStepCount, start, now, HealthServiceTimeScopeDailyWeekdayOrWeekend);
+  if (!(mask & HealthServiceAccessibilityMaskAvailable)) { return false; }
+  HealthValue usual = health_service_sum_averaged(HealthMetricStepCount, start, now,
+                                                  HealthServiceTimeScopeDailyWeekdayOrWeekend);
+  if (usual <= 0) { return false; }
+  int32_t diff = steps - usual;
+  char count[12];
+  prv_format_count(count, sizeof(count), diff < 0 ? -diff : diff);
+  snprintf(buf, len, "%c%s", diff < 0 ? '-' : '+', count);
+  return true;
+}
+
+// When the last sleep ended (0 = not known, or still asleep). Asked of the
+// health service at most every five minutes.
+static bool prv_sleep_ended(HealthActivity activity, time_t start, time_t end, void *context) {
+  (void) activity;
+  (void) start;
+  *(time_t *) context = end;
+  return false;   // the newest session is all we need
+}
+
+static time_t prv_woke_at(void) {
+  static time_t s_woke, s_checked;
+  time_t now = time(NULL);
+  if (now - s_checked >= 5 * 60) {
+    s_checked = now;
+    s_woke = 0;
+    if (!(health_service_peek_current_activities() & HealthActivitySleep)) {
+      health_service_activities_iterate(HealthActivitySleep, now - 24 * 3600, now,
+                                        HealthIterationDirectionPast, prv_sleep_ended, &s_woke);
+    }
+  }
+  return s_woke;
+}
 #endif
+
+// Each battery shows on its own once it is at the user's threshold or below.
+static bool prv_battery_low_enough(int percent) {
+  return g_settings.battery_below == 0 || percent <= g_settings.battery_below;
+}
+
+// Today's high and low, if the forecast is from today.
+static bool prv_forecast_today(void) {
+  return g_forecast.received_at != 0
+      && time(NULL) - g_forecast.received_at < 12 * 3600
+      && g_forecast.high_dc != TEMP_NONE && g_forecast.low_dc != TEMP_NONE;
+}
 
 // Returns false if this metric has no meaningful data right now (hidden).
 // compact drops unit suffixes for the narrow round-crescent column, where
@@ -180,6 +196,7 @@ static bool prv_metric_text(uint8_t metric, char *buf, size_t len, bool compact)
   switch (metric) {
     case METRIC_BATTERY: {
       BatteryChargeState st = battery_state_service_peek();
+      if (!prv_battery_low_enough(st.charge_percent)) { return false; }
       snprintf(buf, len, compact ? "%d" : "%d%%", st.charge_percent);
       return true;
     }
@@ -188,10 +205,22 @@ static bool prv_metric_text(uint8_t metric, char *buf, size_t len, bool compact)
       time_t now = time(NULL);
       if (now - g_weather.fetched_at > WEATHER_STALE_SECONDS) { return false; }
       int t = temp_dc_display(g_weather.temp_dc);
-      if (g_settings.temp_fahrenheit) {
-        snprintf(buf, len, compact ? "%d°" : "%d°F", t);
+      char unit = g_settings.temp_fahrenheit ? 'F' : 'C';
+      if (compact) {
+        snprintf(buf, len, "%d°", t);
+      } else if (g_settings.weather_detail == WEATHER_RANGE && prv_forecast_today()) {
+        snprintf(buf, len, "%d°%c %d/%d", t, unit, temp_dc_display(g_forecast.high_dc),
+                 temp_dc_display(g_forecast.low_dc));
+      } else if (g_settings.weather_detail == WEATHER_HOURS && g_forecast.hours_start) {
+        // Now, then the hours still ahead of the forecast's three.
+        int n = snprintf(buf, len, "%d°", t);
+        for (int h = 0; h < FORECAST_HOURS && n < (int) len; h++) {
+          if (g_forecast.hour_dc[h] == TEMP_NONE
+              || g_forecast.hours_start + h * 3600 <= now) { continue; }
+          n += snprintf(buf + n, len - n, " %d°", temp_dc_display(g_forecast.hour_dc[h]));
+        }
       } else {
-        snprintf(buf, len, compact ? "%d°" : "%d°C", t);
+        snprintf(buf, len, "%d°%c", t, unit);
       }
       return true;
     }
@@ -200,6 +229,7 @@ static bool prv_metric_text(uint8_t metric, char *buf, size_t len, bool compact)
       if (!prv_health_ok(HealthMetricStepCount)) { return false; }
       HealthValue steps = health_service_sum_today(HealthMetricStepCount);
       if (steps < 10) { return false; }   // not meaningful yet
+      if (g_settings.steps_vs_usual && prv_steps_vs_usual(buf, len, steps)) { return true; }
       prv_format_count(buf, len, steps);
       return true;
     }
@@ -250,8 +280,14 @@ static bool prv_metric_text(uint8_t metric, char *buf, size_t len, bool compact)
       return true;
     }
     case METRIC_SLEEP: {
-      if (!prv_health_ok(HealthMetricSleepSeconds)) { return false; }
-      int32_t sec = health_service_sum_today(HealthMetricSleepSeconds);
+      HealthMetric which = g_settings.sleep_deep ? HealthMetricSleepRestfulSeconds
+                                                 : HealthMetricSleepSeconds;
+      if (!prv_health_ok(which)) { return false; }
+      if (g_settings.sleep_after_wake) {
+        time_t woke = prv_woke_at();
+        if (!woke || time(NULL) - woke > 3600) { return false; }
+      }
+      int32_t sec = health_service_sum_today(which);
       if (sec <= 0) { return false; }
       snprintf(buf, len, "%dh%02d", (int) (sec / 3600), (int) ((sec % 3600) / 60));
       return true;
@@ -265,12 +301,15 @@ static bool prv_metric_text(uint8_t metric, char *buf, size_t len, bool compact)
     case METRIC_NEXT_ALARM: {
       time_t when = 0;
       if (!alarm_service_peek_next(&when)) { return false; }
+      if (g_settings.alarm_within_h
+          && when - time(NULL) > (time_t) g_settings.alarm_within_h * 3600) { return false; }
       return prv_format_clock(buf, len, when, compact);
     }
     // The watch can't read the phone's battery; the phone tells it.
     case METRIC_PHONE_BATTERY:
-      if (g_plugin.phone_battery < 0 || prv_plugin_stale()) { return false; }
-      snprintf(buf, len, "%d%%", (int) g_plugin.phone_battery);
+      if (g_plugin.phone_battery < 0 || prv_plugin_stale()
+          || !prv_battery_low_enough(g_plugin.phone_battery)) { return false; }
+      snprintf(buf, len, compact ? "%d" : "%d%%", (int) g_plugin.phone_battery);
       return true;
     // Text only: a reading from any plugin has no glyph of its own.
     case METRIC_READING_1:
@@ -278,19 +317,20 @@ static bool prv_metric_text(uint8_t metric, char *buf, size_t len, bool compact)
     case METRIC_READING_3:
     case METRIC_READING_4:
     case METRIC_READING_5: {
-      const char *text = g_plugin.reading_text[metric - METRIC_READING_1];
+      int r = metric - METRIC_READING_1;
+      const char *text = g_plugin.reading_text[r];
+      const char *label = g_plugin.reading_label[r];
       if (!text[0] || prv_plugin_stale()) { return false; }
-      snprintf(buf, len, "%s", text);
+      if (!compact && (g_settings.reading_labels & (1 << r)) && label[0]) {
+        snprintf(buf, len, "%s %s", label, text);
+      } else {
+        snprintf(buf, len, "%s", text);
+      }
       return true;
     }
-    // The full "name time" text is assembled in prv_collect_items, which can
-    // measure it; the narrow round column shows the time alone.
-    case METRIC_NEXT_EVENT: {
-      char when[12];
-      if (!prv_event_when(when, sizeof(when), compact)) { return false; }
-      snprintf(buf, len, "%s", (compact && when[0]) ? when : g_plugin.event_name);
-      return buf[0] != '\0';
-    }
+    // Worded in prv_event_item, which can measure it.
+    case METRIC_NEXT_EVENT:
+      return false;
     case METRIC_CONNECTION:
       // Shows only as a warning: icon when disconnected, hidden when fine.
       return !g_connected;
@@ -299,13 +339,41 @@ static bool prv_metric_text(uint8_t metric, char *buf, size_t len, bool compact)
   }
 }
 
-// Collects up to NUM_METRIC_SLOTS displayable items in priority order
-// (deduped, no-data metrics skipped). Returns the count. max_event_w caps
-// the next-event item's width (0 = no cap).
-static int prv_collect_items(StatusItem *items, bool compact, int16_t max_event_w) {
-  const GRect measure_box = GRect(0, 0, 32767, 32767);
+// The next event as a status item: "Standup 23m", or its calendar mark and
+// the time alone (time only, the round column). takeover: the whole line,
+// worded as a sentence ("Standup in 12m"). max_w caps its width (0 = none).
+static bool prv_event_item(StatusItem *item, bool compact, bool takeover, int16_t max_w) {
+  EventView ev;
+  if (!event_current(&ev)) { return false; }
+  EventWhen w;
+  event_when(&ev, &w, compact);
+  item->metric = METRIC_NEXT_EVENT;
+  item->icon_w = 0;
+  bool time_only = compact || (!takeover && g_settings.event_time_only);
+  if (takeover || time_only) { item->icon_w = status_icon_width(METRIC_NEXT_EVENT, ICON_S); }
+  if (time_only && w.text[0]) {
+    snprintf(item->text, sizeof(item->text), "%s", w.text);
+    item->text_w = prv_text_w(item->text);
+    return true;
+  }
+  if (max_w > 0 && item->icon_w) { max_w -= item->icon_w + ICON_TEXT_GAP; }
+  prv_event_text_fitted(item->text, sizeof(item->text), &item->text_w, ev.name,
+                        takeover ? w.full : w.text, max_w);
+  return item->text[0] != '\0';
+}
+
+// Collects the displayable items in priority order (deduped, no-data
+// metrics skipped). Returns the count. max_event_w caps the next event's
+// width (0 = no cap); line_w is the whole line, for a takeover.
+static int prv_collect_items(StatusItem *items, bool compact, int16_t max_event_w, int16_t line_w) {
+  if (event_takeover()) {
+    return prv_event_item(&items[0], compact, true, compact ? 0 : line_w) ? 1 : 0;
+  }
   int n = 0;
-  for (int slot = 0; slot < NUM_METRIC_SLOTS; slot++) {
+  // Where there's no month bar (or no room for the event in it), an event
+  // set to show there leads the status items instead.
+  if (event_leads_status() && prv_event_item(&items[n], compact, false, max_event_w)) { n++; }
+  for (int slot = 0; slot < NUM_METRIC_SLOTS && n < MAX_SHOWN; slot++) {
     uint8_t metric = g_settings.metrics[slot];
     if (metric == METRIC_NONE || metric >= METRIC_TYPE_COUNT) { continue; }
     bool dup = false;
@@ -314,21 +382,16 @@ static int prv_collect_items(StatusItem *items, bool compact, int16_t max_event_
     }
     if (dup) { continue; }
     StatusItem *item = &items[n];
+    if (metric == METRIC_NEXT_EVENT) {
+      if (g_settings.event_place == EVENT_LINE && prv_event_item(item, compact, false, max_event_w)) {
+        n++;
+      }
+      continue;
+    }
     item->metric = metric;
     if (!prv_metric_text(metric, item->text, sizeof(item->text), compact)) { continue; }
     item->icon_w = status_icon_width(metric, ICON_S);
-    if (metric == METRIC_NEXT_EVENT && !compact) {
-      char when[12];
-      prv_event_when(when, sizeof(when), compact);
-      prv_event_text_fitted(item, when, max_event_w);
-      n++;
-      continue;
-    }
-    item->text_w = item->text[0]
-        ? graphics_text_layout_get_content_size(item->text, g_font_small, measure_box,
-                                                GTextOverflowModeFill,
-                                                GTextAlignmentLeft).w
-        : 0;
+    item->text_w = prv_text_w(item->text);
     n++;
   }
   return n;
@@ -340,7 +403,7 @@ static void prv_draw_horizontal(GContext *ctx, const GRect zone) {
   StatusItem *items = s_items;
   const int16_t max_w = zone.size.w - 4;
   // An event name may take two thirds of the line, never all of it.
-  int n_all = prv_collect_items(items, false, (max_w * 2) / 3);
+  int n_all = prv_collect_items(items, false, (max_w * 2) / 3, max_w);
 
   // Append in priority order while the line still fits.
   int n = 0;
@@ -424,9 +487,9 @@ static void prv_draw_column(GContext *ctx, const GRect zone,
 
   // Vertical fit: entries stack while there is room; entries wider than the
   // crescent are skipped (they would clip against the bezel).
-  StatusItem *fit[NUM_METRIC_SLOTS];
-  int16_t icon_x[NUM_METRIC_SLOTS], text_x[NUM_METRIC_SLOTS];
-  int16_t item_h[NUM_METRIC_SLOTS];
+  StatusItem *fit[MAX_SHOWN];
+  int16_t icon_x[MAX_SHOWN], text_x[MAX_SHOWN];
+  int16_t item_h[MAX_SHOWN];
   int n = 0;
   int16_t total_h = 0;
   // Tight icon-over-value pairs with generous space BETWEEN entries, so
@@ -530,27 +593,58 @@ static void prv_draw_column(GContext *ctx, const GRect zone,
   }
 }
 
+#if defined(EVENT_OWN_LINE)
+// The event's own line: its calendar mark and the whole sentence, else the
+// short form, else the name shortened; the time always stays.
+static void prv_draw_event_line(GContext *ctx, const GRect band) {
+  EventView ev;
+  if (!event_current(&ev)) { return; }
+  EventWhen w;
+  event_when(&ev, &w, false);
+  const int16_t mark = status_icon_width(METRIC_NEXT_EVENT, ICON_S) + ICON_TEXT_GAP;
+  const int16_t room = band.size.w - mark - 12;
+  static char text[48];
+  int16_t text_w;
+  snprintf(text, sizeof(text), "%s%s%s", ev.name, w.full[0] ? " " : "", w.full);
+  text_w = prv_text_w(text);
+  if (text_w > room) {
+    prv_event_text_fitted(text, sizeof(text), &text_w, ev.name, w.text, room);
+  }
+  int16_t x = band.origin.x + (band.size.w - mark - text_w) / 2;
+  status_icon_draw(ctx, METRIC_NEXT_EVENT, GPoint(x, band.origin.y + (band.size.h - 2 - ICON_S) / 2),
+                   ICON_S, theme_fg(), theme_bg());
+  graphics_context_set_text_color(ctx, theme_fg());
+  graphics_draw_text(ctx, text, g_font_small,
+                     GRect(x + mark, band.origin.y + (band.size.h - 2 - SMALL_DIGIT_H) / 2 - SMALL_TOP_PAD,
+                           text_w + 2, SMALL_DIGIT_H + SMALL_TOP_PAD + TEXT_BOX_SLACK),
+                     GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+}
+#endif
+
 void draw_status_update_proc(Layer *layer, GContext *ctx) {
   (void) layer;
-  if (!g_layout.status_visible) { return; }
   graphics_context_set_antialiased(ctx, false);
+#if defined(EVENT_OWN_LINE)
+  if (g_layout.event_line) { prv_draw_event_line(ctx, g_layout.event_zone); }
+#endif
+  if (!g_layout.status_visible) { return; }
   if (!g_layout.side_columns) {
     prv_draw_horizontal(ctx, g_layout.status_zone);
     return;
   }
 
   StatusItem *items = s_items;
-  int n_all = prv_collect_items(items, true, 0);
+  int n_all = prv_collect_items(items, true, 0, 0);
+  StatusItem *all[MAX_SHOWN];
   if (!g_layout.status_two_columns) {
-    StatusItem *all[NUM_METRIC_SLOTS];
     for (int i = 0; i < n_all; i++) { all[i] = &items[i]; }
     prv_draw_column(ctx, g_layout.status_zone, all, n_all, false);
     return;
   }
 
   // Two crescents: priority order alternates left, right, left, right...
-  StatusItem *left[NUM_METRIC_SLOTS];
-  StatusItem *right[NUM_METRIC_SLOTS];
+  StatusItem *left[MAX_SHOWN];
+  StatusItem *right[MAX_SHOWN];
   int nl = 0, nr = 0;
   for (int i = 0; i < n_all; i++) {
     if (i % 2 == 0) { left[nl++] = &items[i]; } else { right[nr++] = &items[i]; }

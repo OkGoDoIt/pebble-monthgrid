@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include "common.h"
 
 // ---------------------------------------------------------------------------
@@ -34,12 +35,15 @@ static bool prv_metric_selected(uint8_t metric) {
   return false;
 }
 
-// Status items whose data the phone reads from the Pebble app's plugins.
+// Things the phone reads from the Pebble app's plugins: the next event
+// (wherever it shows), the phone's battery, readings.
 static bool prv_plugin_metric_selected(void) {
+  if (g_settings.event_place != EVENT_OFF) { return true; }
   for (int i = 0; i < NUM_METRIC_SLOTS; i++) {
     uint8_t m = g_settings.metrics[i];
-    if (m == METRIC_NEXT_EVENT || m == METRIC_PHONE_BATTERY
-        || (m >= METRIC_READING_1 && m <= METRIC_READING_5)) { return true; }
+    if (m == METRIC_PHONE_BATTERY || (m >= METRIC_READING_1 && m <= METRIC_READING_5)) {
+      return true;
+    }
   }
   return false;
 }
@@ -53,9 +57,19 @@ static uint16_t prv_current_monthkey(void) {
   return (uint16_t) ((g_now.tm_year + 1900) * 16 + g_now.tm_mon + 1);
 }
 
+// What the layout depends on besides the settings and the screen: whether
+// the next event wants its own line, and whether it is taking over the
+// status line. Checked every minute; a change re-lays the face out.
+static uint8_t s_layout_key;
+
+static uint8_t prv_layout_key(void) {
+  return (event_own_line_wanted() ? 1 : 0) | (event_takeover() ? 2 : 0);
+}
+
 static void prv_relayout(void) {
   Layer *root = window_get_root_layer(s_window);
   window_set_background_color(s_window, theme_bg());
+  s_layout_key = prv_layout_key();
   layout_compute(root);
   layer_mark_dirty(root);
 }
@@ -148,6 +162,78 @@ static bool prv_read_reading(const Tuple *t) {
   return false;
 }
 
+// Each setting the phone sends, where it goes in Settings, and how it is
+// read: a number, a yes/no, a color (0xRRGGBB), or a 16-bit number.
+typedef enum { SET_NUM, SET_FLAG, SET_COLOR, SET_NUM16 } SettingKind;
+#define SETTING(key, field, kind) { &MESSAGE_KEY_##key, offsetof(Settings, field), kind }
+static const struct {
+  const uint32_t *key;
+  uint8_t offset;
+  uint8_t kind;
+} SETTING_KEYS[] = {
+  SETTING(THEME, theme, SET_NUM),
+  SETTING(TIME_FORMAT, time_format, SET_NUM),
+  SETTING(TIME_SIZE, time_size, SET_NUM),
+  SETTING(TIME_FONT, time_font, SET_NUM),
+  SETTING(SHOW_SECONDS, show_seconds, SET_FLAG),
+  SETTING(START_DAY, start_day, SET_NUM),
+  SETTING(SHOW_ADJACENT, show_adjacent, SET_FLAG),
+  SETTING(DOTS_ENABLED, dots_enabled, SET_FLAG),
+  SETTING(DOTS_STYLE, dots_style, SET_NUM),
+  SETTING(HEADER_LABEL, header_label, SET_NUM),
+  SETTING(BANNER_STYLE, banner_style, SET_NUM),
+  SETTING(BANNER_CONTENT, banner_content, SET_NUM),
+  SETTING(CUSTOM_BG, custom_bg, SET_COLOR),
+  SETTING(CUSTOM_FG, custom_fg, SET_COLOR),
+  SETTING(CUSTOM_ACCENT, custom_accent, SET_COLOR),
+  SETTING(VIBE_DISCONNECT, vibe_disconnect, SET_FLAG),
+  SETTING(TEMP_UNIT, temp_fahrenheit, SET_FLAG),
+  SETTING(DIST_UNIT, dist_miles, SET_FLAG),
+  SETTING(GRID_LINES, grid_lines, SET_FLAG),
+  SETTING(GRID_COLOR, grid_color, SET_COLOR),
+  SETTING(CAL1_COLOR, cal_colors[0], SET_COLOR),
+  SETTING(CAL2_COLOR, cal_colors[1], SET_COLOR),
+  SETTING(CAL3_COLOR, cal_colors[2], SET_COLOR),
+  SETTING(BATTERY_BELOW, battery_below, SET_NUM),
+  SETTING(WEATHER_DETAIL, weather_detail, SET_NUM),
+  SETTING(STEPS_SHOW, steps_vs_usual, SET_FLAG),
+  SETTING(SLEEP_KIND, sleep_deep, SET_FLAG),
+  SETTING(SLEEP_AFTER_WAKE, sleep_after_wake, SET_FLAG),
+  SETTING(ALARM_WITHIN, alarm_within_h, SET_NUM),
+  SETTING(READING_LABELS, reading_labels, SET_NUM),
+  SETTING(EVENT_PLACE, event_place, SET_NUM),
+  SETTING(EVENT_WITHIN, event_within, SET_NUM16),
+  SETTING(EVENT_STYLE, event_time_only, SET_FLAG),
+};
+
+// A setting from the phone: true when t was one (settings_sanitize checks
+// the values afterwards).
+static bool prv_read_setting(const Tuple *t) {
+  uint8_t *base = (uint8_t *) &g_settings;
+  if (t->key == MESSAGE_KEY_METRICS) {
+    // The whole status list, most important first.
+    if (t->type == TUPLE_BYTE_ARRAY) {
+      memset(g_settings.metrics, METRIC_NONE, sizeof(g_settings.metrics));
+      memcpy(g_settings.metrics, t->value->data,
+             t->length < NUM_METRIC_SLOTS ? t->length : NUM_METRIC_SLOTS);
+    }
+    return true;
+  }
+  for (unsigned i = 0; i < ARRAY_LENGTH(SETTING_KEYS); i++) {
+    if (t->key != *SETTING_KEYS[i].key) { continue; }
+    int32_t v = prv_tuple_int(t);
+    uint8_t *field = base + SETTING_KEYS[i].offset;
+    switch (SETTING_KEYS[i].kind) {
+      case SET_FLAG: *field = v ? 1 : 0; break;
+      case SET_COLOR: *field = GColorFromHEX(v).argb; break;
+      case SET_NUM16: { uint16_t w = (uint16_t) v; memcpy(field, &w, sizeof(w)); break; }
+      default: *field = (uint8_t) v; break;
+    }
+    return true;
+  }
+  return false;
+}
+
 // FC_* keys: true when t was one of them.
 static bool prv_read_forecast(const Tuple *t) {
   const uint32_t hour_keys[FORECAST_HOURS] = {
@@ -187,68 +273,8 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
   bool dots_data_seen = false;
 
   for (Tuple *t = dict_read_first(iter); t; t = dict_read_next(iter)) {
-    if (t->key == MESSAGE_KEY_THEME) {
-      g_settings.theme = prv_tuple_int(t); settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_TIME_FORMAT) {
-      g_settings.time_format = prv_tuple_int(t); settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_TIME_SIZE) {
-      g_settings.time_size = prv_tuple_int(t); settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_TIME_FONT) {
-      g_settings.time_font = prv_tuple_int(t); settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_SHOW_SECONDS) {
-      g_settings.show_seconds = prv_tuple_int(t) ? 1 : 0; settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_START_DAY) {
-      g_settings.start_day = prv_tuple_int(t); settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_SHOW_ADJACENT) {
-      g_settings.show_adjacent = prv_tuple_int(t) ? 1 : 0; settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_DOTS_ENABLED) {
-      g_settings.dots_enabled = prv_tuple_int(t) ? 1 : 0; settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_HEADER_LABEL) {
-      g_settings.header_label = prv_tuple_int(t); settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_BANNER_STYLE) {
-      g_settings.banner_style = prv_tuple_int(t); settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_CUSTOM_BG) {
-      g_settings.custom_bg = GColorFromHEX(prv_tuple_int(t)).argb; settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_CUSTOM_FG) {
-      g_settings.custom_fg = GColorFromHEX(prv_tuple_int(t)).argb; settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_CUSTOM_ACCENT) {
-      g_settings.custom_accent = GColorFromHEX(prv_tuple_int(t)).argb; settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_BANNER_CONTENT) {
-      g_settings.banner_content = prv_tuple_int(t); settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_DOTS_STYLE) {
-      g_settings.dots_style = prv_tuple_int(t); settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_VIBE_DISCONNECT) {
-      g_settings.vibe_disconnect = prv_tuple_int(t) ? 1 : 0; settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_TEMP_UNIT) {
-      g_settings.temp_fahrenheit = prv_tuple_int(t) ? 1 : 0; settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_DIST_UNIT) {
-      g_settings.dist_miles = prv_tuple_int(t) ? 1 : 0; settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_METRIC1) {
-      g_settings.metrics[0] = prv_tuple_int(t); settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_METRIC2) {
-      g_settings.metrics[1] = prv_tuple_int(t); settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_METRIC3) {
-      g_settings.metrics[2] = prv_tuple_int(t); settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_METRIC4) {
-      g_settings.metrics[3] = prv_tuple_int(t); settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_METRIC5) {
-      g_settings.metrics[4] = prv_tuple_int(t); settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_METRIC6) {
-      g_settings.metrics[5] = prv_tuple_int(t); settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_METRIC7) {
-      g_settings.metrics[6] = prv_tuple_int(t); settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_METRIC8) {
-      g_settings.metrics[7] = prv_tuple_int(t); settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_GRID_LINES) {
-      g_settings.grid_lines = prv_tuple_int(t) ? 1 : 0; settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_GRID_COLOR) {
-      g_settings.grid_color = GColorFromHEX(prv_tuple_int(t)).argb; settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_CAL1_COLOR) {
-      g_settings.cal_colors[0] = GColorFromHEX(prv_tuple_int(t)).argb; settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_CAL2_COLOR) {
-      g_settings.cal_colors[1] = GColorFromHEX(prv_tuple_int(t)).argb; settings_changed = true;
-    } else if (t->key == MESSAGE_KEY_CAL3_COLOR) {
-      g_settings.cal_colors[2] = GColorFromHEX(prv_tuple_int(t)).argb; settings_changed = true;
+    if (prv_read_setting(t)) {
+      settings_changed = true;
     } else if (t->key == MESSAGE_KEY_WEATHER_TEMP_C) {
       temp_c = prv_tuple_int(t); weather_changed = true;
     } else if (t->key == MESSAGE_KEY_WEATHER_TEMP_DC) {
@@ -264,6 +290,13 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
       g_plugin.event_end = prv_tuple_int(t); plugin_changed = true;
     } else if (t->key == MESSAGE_KEY_EVENT_ALL_DAY) {
       g_plugin.event_all_day = prv_tuple_int(t) ? 1 : 0; plugin_changed = true;
+    } else if (t->key == MESSAGE_KEY_ALLDAY_NAME) {
+      prv_copy_cstring(g_plugin.allday_name, EVENT_NAME_LEN, t);
+      plugin_changed = true;
+    } else if (t->key == MESSAGE_KEY_ALLDAY_START) {
+      g_plugin.allday_start = prv_tuple_int(t); plugin_changed = true;
+    } else if (t->key == MESSAGE_KEY_ALLDAY_END) {
+      g_plugin.allday_end = prv_tuple_int(t); plugin_changed = true;
     } else if (t->key == MESSAGE_KEY_PHONE_BATTERY) {
       int32_t pct = prv_tuple_int(t);
       g_plugin.phone_battery = (pct < 0 || pct > 100) ? -1 : (int8_t) pct;
@@ -306,10 +339,12 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
   }
   if (plugin_changed) {
     // Any of it arriving means the phone is answering; it sends the rest
-    // only when it changes.
+    // only when it changes. The event may be in the bar, or need its own line.
     g_plugin.version = PLUGIN_VERSION;
     g_plugin.received_at = time(NULL);
+    if (prv_layout_key() != s_layout_key) { prv_relayout(); }
     layer_mark_dirty(s_status_layer);
+    layer_mark_dirty(s_calendar_layer);
   }
   if (weather_changed) {
     if (temp_dc != INT32_MIN) {
@@ -348,6 +383,9 @@ static void prv_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   layer_mark_dirty(s_time_layer);
   if (units_changed & MINUTE_UNIT) {
     layer_mark_dirty(s_status_layer);
+    // The next event's countdown, in the bar or on its own line.
+    if (g_settings.event_place != EVENT_OFF) { layer_mark_dirty(s_calendar_layer); }
+    if (prv_layout_key() != s_layout_key && !(units_changed & DAY_UNIT)) { prv_relayout(); }
     prv_periodic_requests();
   }
   if (units_changed & DAY_UNIT) {

@@ -116,6 +116,35 @@ typedef enum {
   DOTS_STYLE_SQUARES = 1,
 } DotsStyleOpt;
 
+// Where the next calendar event shows (settings page: Event › Where).
+typedef enum {
+  EVENT_OFF = 0,
+  EVENT_BAR = 1,    // right side of the month bar (default)
+  EVENT_OWN = 2,    // its own line under the status line, while that costs nothing
+  EVENT_LINE = 3,   // a status item (METRIC_NEXT_EVENT in the list)
+  EVENT_TAKE = 4,   // the status line's only item in its last EVENT_TAKE_MIN minutes
+  EVENT_PLACE_COUNT = 5,
+} EventPlace;
+#define EVENT_TAKE_MIN 15
+
+// Where the next event can go besides the status line. Pebble Time Round has
+// no month bar, and the original Pebble's 24 KB has no room for the bar's
+// ladder or the own line: there an event set to show in either leads the
+// status items instead (event_leads_status).
+#if !defined(PBL_PLATFORM_APLITE) && !(defined(PBL_ROUND) && PBL_DISPLAY_WIDTH < 200)
+  #define EVENT_IN_BAR 1
+#endif
+#if !defined(PBL_PLATFORM_APLITE) && !defined(PBL_ROUND)
+  #define EVENT_OWN_LINE 1
+#endif
+
+typedef enum {
+  WEATHER_NOW = 0,      // 56°F
+  WEATHER_RANGE = 1,    // 56°F 64/48
+  WEATHER_HOURS = 2,    // 56° 58° 61° 63°
+  WEATHER_DETAIL_COUNT = 3,
+} WeatherDetail;
+
 typedef enum {
   COND_UNKNOWN = 0,
   COND_CLEAR = 1,
@@ -128,10 +157,11 @@ typedef enum {
   COND_WIND = 8,
 } WeatherCond;
 
-#define NUM_METRIC_SLOTS 8
+// Room for every metric: the settings page has no limit on the list.
+#define NUM_METRIC_SLOTS METRIC_TYPE_COUNT
 #define NUM_CALENDARS 3
 
-#define SETTINGS_VERSION 1
+#define SETTINGS_VERSION 2
 #define WEATHER_VERSION 2
 #define DOTS_VERSION 2
 
@@ -141,7 +171,7 @@ typedef enum {
 #define PERSIST_KEY_PLUGIN 4
 #define PERSIST_KEY_FORECAST 5
 
-#define PLUGIN_VERSION 1
+#define PLUGIN_VERSION 2
 #define FORECAST_VERSION 1
 
 // Weather older than this is treated as "no data" (metric hidden).
@@ -176,6 +206,18 @@ typedef struct __attribute__((__packed__)) {
   uint8_t cal_colors[NUM_CALENDARS];   // GColor8 .argb per calendar
   uint8_t grid_lines;       // draw borders around the month grid cells
   uint8_t grid_color;       // GColor8 .argb for the borders (color platforms)
+  // Status items' own options.
+  uint8_t battery_below;    // 0 = always; else each battery shows at this % or less
+  uint8_t weather_detail;   // WeatherDetail
+  uint8_t steps_vs_usual;   // 1 = ahead or behind the usual count by now
+  uint8_t sleep_deep;       // 1 = deep sleep only
+  uint8_t sleep_after_wake; // 1 = only in the hour after waking
+  uint8_t alarm_within_h;   // 0 = whenever one is set; else only this many hours before
+  uint8_t reading_labels;   // bit n: reading n + 1 shows its name before its value
+  // The next calendar event.
+  uint8_t event_place;      // EventPlace
+  uint16_t event_within;    // minutes before it starts it may show; 0 = any time today
+  uint8_t event_time_only;  // in the status line: the time and a calendar mark
 } Settings;
 
 // Tenths of a degree Celsius, so a whole-degree Fahrenheit reading from the
@@ -198,12 +240,16 @@ typedef struct __attribute__((__packed__)) {
 typedef struct __attribute__((__packed__)) {
   uint8_t version;
   int32_t received_at;      // when the phone last sent any of this (0 = never)
-  // Next calendar event (event_start 0 = none). The countdown is worked
-  // out here from the start time, so it keeps counting without the phone.
+  // Next timed calendar event (event_start 0 = none). The countdown is
+  // worked out here from the start time, so it keeps counting without the phone.
   char event_name[EVENT_NAME_LEN];
   int32_t event_start;      // epoch seconds
   int32_t event_end;        // epoch seconds, 0 = unknown
   uint8_t event_all_day;
+  // The first all-day event that hasn't ended (allday_start 0 = none).
+  char allday_name[EVENT_NAME_LEN];
+  int32_t allday_start;
+  int32_t allday_end;
   int8_t phone_battery;     // percent, -1 = unknown
   // Readings 1-5 as the phone formatted them ("" = nothing to show), and
   // what each is of (the reading's instance name: "Seattle", "AAPL").
@@ -254,6 +300,9 @@ typedef struct {
   GRect status_zone_left;
   bool status_two_columns;
   GRect banner_zone;
+  // The next event's own line, under the status line (event_line).
+  GRect event_zone;
+  bool event_line;
   GRect header_zone;
   GRect grid_zone;          // holds rows_max * row_pitch
   bool status_visible;
@@ -268,6 +317,7 @@ typedef struct {
   // Round layout only: true = month drawn as a vertical column in the left
   // crescent (chalk), false = ordinary horizontal bar (gabbro has room).
   bool banner_column;
+  uint8_t stage;            // compression stage chosen (rectangular watches)
   int16_t row_pitch;
   int16_t cell_w;
   int16_t grid_x;           // left edge of the 7 * cell_w block
@@ -320,6 +370,31 @@ static inline GColor theme_dim(void) {
   return theme_fg();
 #endif
 }
+
+// event.c — which calendar event shows now, and how it is worded.
+typedef struct {
+  const char *name;
+  time_t start, end;
+  bool all_day;
+} EventView;
+
+typedef struct {
+  char text[16];   // after the name, short: "12m", "2:30p", "tmrw 9:00a", "now"
+  char full[24];   // after the name, in a sentence: "in 12m", "tomorrow at 9:00a"
+} EventWhen;
+
+bool event_current(EventView *ev);
+void event_when(const EventView *ev, EventWhen *w, bool compact);
+bool event_takeover(void);
+bool event_own_line_wanted(void);
+bool event_in_bar(void);
+bool event_leads_status(void);
+bool use_24h(void);
+// UTF-8 helpers for cutting names: bytes in the first n characters, and
+// the character count.
+size_t utf8_prefix(const char *s, int n);
+int utf8_count(const char *s);
+void trim_name_end(char *s);
 
 // settings.c
 void settings_set_defaults(Settings *s);

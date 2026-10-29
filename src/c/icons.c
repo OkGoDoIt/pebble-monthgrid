@@ -331,6 +331,20 @@ static void prv_icon_disconnected(GContext *ctx, GPoint o, int s, GColor fg, GCo
   graphics_draw_line(ctx, s0, s1);
 }
 
+// The next event's calendar mark (9x9, 7x7 on the small screens) and the
+// phone, for the phone's battery (7x11, 5x9).
+static const uint16_t s_cal_large[9] = { 0x1FF, 0x145, 0x1FF, 0x101, 0x155, 0x101, 0x155, 0x101, 0x1FF };
+static const uint16_t s_cal_small[7] = { 0x7F, 0x55, 0x7F, 0x41, 0x55, 0x41, 0x7F };
+static const uint16_t s_phone_large[11] = { 0x3E, 0x7F, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x7F,
+                                            0x77, 0x3E };
+static const uint16_t s_phone_small[9] = { 0x1F, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1F, 0x1B, 0x1F };
+
+static void prv_icon_glyph(GContext *ctx, GPoint o, int s, const uint16_t *rows, int n_rows,
+                           int w, GColor fg) {
+  graphics_context_set_fill_color(ctx, fg);
+  prv_blit(ctx, GPoint(o.x, o.y + (s - n_rows) / 2), rows, n_rows, w);
+}
+
 int status_icon_width(uint8_t metric, int s) {
   switch (metric) {
     case METRIC_BATTERY:
@@ -349,8 +363,12 @@ int status_icon_width(uint8_t metric, int s) {
     case METRIC_NEXT_ALARM:
     case METRIC_CONNECTION:
       return s + 2;
+    case METRIC_NEXT_EVENT:
+      return (s >= 12 ? 9 : 7) + 2;
+    case METRIC_PHONE_BATTERY:
+      return (s >= 12 ? 7 : 5) + 2;
     default:
-      return 0;  // distance, week number: text only
+      return 0;  // distance, week number, readings: text only
   }
 }
 
@@ -372,6 +390,14 @@ void status_icon_draw(GContext *ctx, uint8_t metric, GPoint origin, int s,
     case METRIC_ACTIVE_MIN:   prv_icon_active(ctx, origin, s, fg); break;
     case METRIC_NEXT_ALARM:   prv_icon_alarm(ctx, origin, s, fg, bg); break;
     case METRIC_CONNECTION:   prv_icon_disconnected(ctx, origin, s, fg, bg); break;
+    case METRIC_NEXT_EVENT:
+      if (s >= 12) { prv_icon_glyph(ctx, origin, s, s_cal_large, 9, 9, fg); }
+      else { prv_icon_glyph(ctx, origin, s, s_cal_small, 7, 7, fg); }
+      break;
+    case METRIC_PHONE_BATTERY:
+      if (s >= 12) { prv_icon_glyph(ctx, origin, s, s_phone_large, 11, 7, fg); }
+      else { prv_icon_glyph(ctx, origin, s, s_phone_small, 9, 5, fg); }
+      break;
     default: break;
   }
 }
