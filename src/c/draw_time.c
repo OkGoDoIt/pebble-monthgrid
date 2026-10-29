@@ -4,11 +4,7 @@
 // AM/PM (and the optional seconds) render as a small side column to the
 // right of the digits, and the whole group is centered.
 
-#if PBL_DISPLAY_WIDTH >= 200
-  #define SIDE_GAP 4
-#else
-  #define SIDE_GAP 3
-#endif
+#define SIDE_GAP TIME_SIDE_GAP
 // Side labels use the small bold Gothic; box tall enough for its line box.
 #define SIDE_TEXT_H (SMALL_DIGIT_H + SMALL_TOP_PAD + 8)
 

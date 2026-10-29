@@ -486,7 +486,7 @@
 
   var STAGES = [[1, 0, 1, 0], [0, 0, 1, 0], [0, 1, 1, 0], [0, 1, 1, 1], [0, 1, 0, 1], [0, 2, 0, 1], [0, 2, 0, 2]];
 
-  function computeLayout(P, s, now, extra, obstruction) {
+  function computeLayout(P, s, now, extra, obstruction, h24) {
     var ub = rect(0, 0, P.width, P.height - (obstruction || 0));
     var wantStatus = s.metrics.some(function (m) { return m !== M.NONE; });
     var extraH = extra ? extra.height + (extra.gap || 0) : 0;
@@ -528,6 +528,14 @@
     if (chosen < 0) { chosen = fallback >= 0 ? fallback : STAGES.length - 1; }
     apply(STAGES[chosen]);
 
+    // In 12-hour mode a size whose "12:00" leaves AM/PM no room steps down
+    // one, all day (layout.c prv_size_with_ampm).
+    if (!h24) {
+      var ampm = measureText('PM', P.fonts.smallBold).w;
+      while (l.timeIdx < 2 && measureText('12:00', family[l.timeIdx][0]).w + P.SIDE_GAP + ampm > P.width - 2) {
+        l.timeIdx++;
+      }
+    }
     var spec = family[l.timeIdx];
     l.timeFont = spec[0];
     l.timeFontH = spec[1];
@@ -1191,7 +1199,7 @@
     var s = normalizeSettings(settings);
     var th = themeColors(s);
     var sf = createSurface(P.width, P.height, th.bg);
-    var l = computeLayout(P, s, data.now, opts.extras, opts.obstruction);
+    var l = computeLayout(P, s, data.now, opts.extras, opts.obstruction, use24h(s, data));
     // Layer order on the watch: calendar, then status, then time on top.
     drawCalendar(P, sf, l, s, data, th);
     drawStatus(P, sf, l, s, data, th, opts);

@@ -82,7 +82,8 @@ const CASES = {
   th_newsprint: aug({ THEME: 9 }),
   th_custom: aug({ THEME: 10 }),
   font_digital: aug({ TIME_FONT: 1 }),
-  font_pixel: aug({ TIME_FONT: 2 }),
+  // Re-shot 2026-10-29 (12-hour Pixel steps down a size), with today's icons.
+  font_pixel: { settings: { TIME_FONT: 2 }, data: AUG },
   font_bithamb: aug({ TIME_FONT: 3 }),
   font_bithaml: aug({ TIME_FONT: 4 }),
   size_medium: aug({ TIME_SIZE: 1 }),

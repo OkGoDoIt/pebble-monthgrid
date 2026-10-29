@@ -187,6 +187,22 @@ void layout_unload_fonts(void) {
   }
 }
 
+// In 12-hour mode AM/PM sits beside the digits, and Pixel's digits are wide
+// enough that "12:00" leaves it no room on some screens. There the size steps
+// down one, for the whole day, so the face doesn't change size at 10 o'clock.
+static int prv_size_with_ampm(const TimeFontSpec (*family)[3], int idx, int16_t width) {
+  if (use_24h()) { return idx; }
+  const GRect box = GRect(0, 0, 32767, 32767);
+  int16_t ampm = graphics_text_layout_get_content_size("PM", g_font_small_bold, box,
+      GTextOverflowModeFill, GTextAlignmentLeft).w;
+  for (; idx < 2; idx++) {
+    int16_t digits = graphics_text_layout_get_content_size("12:00", prv_resolve_font(&(*family)[idx]),
+        box, GTextOverflowModeFill, GTextAlignmentLeft).w;
+    if (digits + TIME_SIDE_GAP + ampm <= width - 2) { break; }
+  }
+  return idx;
+}
+
 static bool prv_any_metric_selected(void) {
   for (int i = 0; i < NUM_METRIC_SLOTS; i++) {
     if (g_settings.metrics[i] != METRIC_NONE) {
@@ -201,7 +217,8 @@ static bool prv_any_metric_selected(void) {
 
 #if defined(PBL_ROUND)
 static void prv_layout_round(Layout *l, GRect ub) {
-  const TimeFontSpec *spec = &TIME_FONTS[g_settings.time_font][g_settings.time_size];
+  const TimeFontSpec (*family)[3] = &TIME_FONTS[g_settings.time_font];
+  const TimeFontSpec *spec = &(*family)[prv_size_with_ampm(family, g_settings.time_size, ub.size.w)];
   l->time_font = prv_resolve_font(spec);
   l->time_font_h = spec->height;
   l->time_trim = spec->trim;
@@ -352,6 +369,7 @@ static void prv_layout_rect(Layout *l, GRect ub, int16_t extra_h) {
     time_idx++;
   }
 #endif
+  time_idx = prv_size_with_ampm(family, time_idx, ub.size.w);
 
   const TimeFontSpec *spec = &(*family)[time_idx];
   l->time_font = prv_resolve_font(spec);

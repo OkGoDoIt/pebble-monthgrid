@@ -358,6 +358,8 @@ extern GFont g_font_banner;       // month banner (GOTHIC_14_BOLD / _18_BOLD)
   #define SMALL_DIGIT_H 9
   #define SMALL_TOP_PAD 5
 #endif
+// Between the time's digits and the AM/PM and seconds beside them.
+#define TIME_SIDE_GAP (PBL_DISPLAY_WIDTH >= 200 ? 4 : 3)
 
 static inline GColor theme_bg(void) { return (GColor) { .argb = theme_spec()->bg }; }
 static inline GColor theme_fg(void) { return (GColor) { .argb = theme_spec()->fg }; }
