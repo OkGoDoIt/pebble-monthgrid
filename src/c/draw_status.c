@@ -61,9 +61,7 @@ static bool prv_format_clock(char *buf, size_t len, time_t when, bool compact) {
 }
 
 static int16_t prv_text_w(const char *text) {
-  if (!text[0]) { return 0; }
-  return graphics_text_layout_get_content_size(text, g_font_small, GRect(0, 0, 32767, 32767),
-                                               GTextOverflowModeFill, GTextAlignmentLeft).w;
+  return text_width(text, g_font_small);
 }
 
 // "Standup 23m" (or a whole sentence: "Standup in 23m"). A name too long

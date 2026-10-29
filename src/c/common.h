@@ -325,6 +325,12 @@ typedef struct {
   GFont time_font;
   int16_t time_font_h;      // visual digit height for vertical placement
   int16_t time_trim;        // px to nudge digits up (per-font internal padding)
+  // How the time fits beside its labels (layout.c plans it for the widest
+  // time of the day): the font's blank side bearing, the px every gap between
+  // its glyphs gives up, and AM/PM as one letter.
+  int16_t time_pad;
+  int16_t time_tight;
+  bool time_letter;
 } Layout;
 
 // ---------------------------------------------------------------------------
@@ -412,7 +418,19 @@ void settings_save(const Settings *s);
 void layout_compute(Layer *root_layer);
 void layout_unload_fonts(void);
 
-// draw_time.c
+// draw_time.c — the digits sit centered, AM/PM and the seconds beside them.
+// time_place puts digits w px wide (ink to ink) in zone with labels ampm_w
+// and sec_w px wide (0 = none), and says whether the labels clear the edge
+// of the screen (the circle, on round watches).
+typedef struct {
+  int16_t x;                // left edge of the digits' ink
+  int16_t side_x;           // left edge of the labels
+  int16_t ampm_top;         // labels' visual tops
+  int16_t sec_top;
+  bool sec_shown;           // false when the zone is too short for them
+} TimePlace;
+bool time_place(GRect zone, int16_t w, int16_t ampm_w, int16_t sec_w, TimePlace *out);
+int16_t text_width(const char *text, GFont font);
 void draw_time_update_proc(Layer *layer, GContext *ctx);
 
 // draw_status.c

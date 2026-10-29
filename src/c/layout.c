@@ -74,8 +74,11 @@
 typedef struct {
   const char *font_key;     // system font, or NULL when resource_id is used
   uint32_t resource_id;
-  int16_t height;           // vertical zone the digits occupy
-  int16_t trim;             // px to nudge up (internal top padding of the font)
+  int8_t height;            // vertical zone the digits occupy
+  int8_t trim;              // px to nudge up (internal top padding of the font)
+  // Silkscreen's design pixel, which is also the blank space its glyphs keep
+  // on each side (0 for the system fonts, which keep about 1px).
+  int8_t px;
 } TimeFontSpec;
 
 // Family order matches TimeFontOpt: Roboto (default), Digital, Pixel,
@@ -84,71 +87,71 @@ typedef struct {
 // blocky — deliberate options, but Roboto renders natively there.
 static const TimeFontSpec TIME_FONTS[TIME_FONT_COUNT][3] = {
 #if PBL_DISPLAY_WIDTH >= 200 && !defined(PBL_ROUND)      // emery
-  { { FONT_KEY_ROBOTO_BOLD_SUBSET_49, 0, 40, 13 },
-    { FONT_KEY_GOTHIC_28_BOLD, 0, 24, 10 },
-    { FONT_KEY_GOTHIC_24_BOLD, 0, 21, 8 } },
-  { { FONT_KEY_LECO_60_BOLD_NUMBERS_AM_PM, 0, 48, 17 },
-    { FONT_KEY_LECO_42_NUMBERS, 0, 34, 12 },
-    { FONT_KEY_LECO_36_BOLD_NUMBERS, 0, 30, 10 } },
-  { { NULL, RESOURCE_ID_FONT_SILKTIME_48, 34, 17 },
-    { NULL, RESOURCE_ID_FONT_SILKTIME_32, 24, 11 },
-    { NULL, RESOURCE_ID_FONT_SILKTIME_24, 19, 8 } },
-  { { FONT_KEY_BITHAM_42_BOLD, 0, 35, 12 },
-    { FONT_KEY_BITHAM_42_BOLD, 0, 35, 12 },
-    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9 } },
-  { { FONT_KEY_BITHAM_42_LIGHT, 0, 35, 12 },
-    { FONT_KEY_BITHAM_42_LIGHT, 0, 35, 12 },
-    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9 } },
+  { { FONT_KEY_ROBOTO_BOLD_SUBSET_49, 0, 40, 13, 0 },
+    { FONT_KEY_GOTHIC_28_BOLD, 0, 24, 10, 0 },
+    { FONT_KEY_GOTHIC_24_BOLD, 0, 21, 8, 0 } },
+  { { FONT_KEY_LECO_60_BOLD_NUMBERS_AM_PM, 0, 48, 17, 0 },
+    { FONT_KEY_LECO_42_NUMBERS, 0, 34, 12, 0 },
+    { FONT_KEY_LECO_36_BOLD_NUMBERS, 0, 30, 10, 0 } },
+  { { NULL, RESOURCE_ID_FONT_SILKTIME_48, 34, 17, 6 },
+    { NULL, RESOURCE_ID_FONT_SILKTIME_32, 24, 11, 4 },
+    { NULL, RESOURCE_ID_FONT_SILKTIME_24, 19, 8, 3 } },
+  { { FONT_KEY_BITHAM_42_BOLD, 0, 35, 12, 0 },
+    { FONT_KEY_BITHAM_42_BOLD, 0, 35, 12, 0 },
+    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9, 0 } },
+  { { FONT_KEY_BITHAM_42_LIGHT, 0, 35, 12, 0 },
+    { FONT_KEY_BITHAM_42_LIGHT, 0, 35, 12, 0 },
+    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9, 0 } },
 #elif PBL_DISPLAY_WIDTH >= 200 && defined(PBL_ROUND)     // gabbro
-  { { FONT_KEY_ROBOTO_BOLD_SUBSET_49, 0, 40, 13 },
-    { FONT_KEY_GOTHIC_28_BOLD, 0, 24, 10 },
-    { FONT_KEY_GOTHIC_24_BOLD, 0, 21, 8 } },
-  { { FONT_KEY_LECO_42_NUMBERS, 0, 34, 12 },
-    { FONT_KEY_LECO_36_BOLD_NUMBERS, 0, 30, 10 },
-    { FONT_KEY_LECO_32_BOLD_NUMBERS, 0, 27, 8 } },
-  { { NULL, RESOURCE_ID_FONT_SILKTIME_32, 24, 11 },
-    { NULL, RESOURCE_ID_FONT_SILKTIME_24, 19, 8 },
-    { NULL, RESOURCE_ID_FONT_SILKTIME_24, 19, 8 } },
-  { { FONT_KEY_BITHAM_42_BOLD, 0, 35, 12 },
-    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9 },
-    { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8 } },
-  { { FONT_KEY_BITHAM_42_LIGHT, 0, 35, 12 },
-    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9 },
-    { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8 } },
+  { { FONT_KEY_ROBOTO_BOLD_SUBSET_49, 0, 40, 13, 0 },
+    { FONT_KEY_GOTHIC_28_BOLD, 0, 24, 10, 0 },
+    { FONT_KEY_GOTHIC_24_BOLD, 0, 21, 8, 0 } },
+  { { FONT_KEY_LECO_42_NUMBERS, 0, 34, 12, 0 },
+    { FONT_KEY_LECO_36_BOLD_NUMBERS, 0, 30, 10, 0 },
+    { FONT_KEY_LECO_32_BOLD_NUMBERS, 0, 27, 8, 0 } },
+  { { NULL, RESOURCE_ID_FONT_SILKTIME_32, 24, 11, 4 },
+    { NULL, RESOURCE_ID_FONT_SILKTIME_24, 19, 8, 3 },
+    { NULL, RESOURCE_ID_FONT_SILKTIME_24, 19, 8, 3 } },
+  { { FONT_KEY_BITHAM_42_BOLD, 0, 35, 12, 0 },
+    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9, 0 },
+    { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8, 0 } },
+  { { FONT_KEY_BITHAM_42_LIGHT, 0, 35, 12, 0 },
+    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9, 0 },
+    { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8, 0 } },
 #elif defined(PBL_ROUND)                                 // chalk
   // Roboto-49 is too tall for the 180px circle (the grid band would sink
   // into the bezel); the classic medium numbers carry the look instead.
-  { { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9 },
-    { FONT_KEY_GOTHIC_28_BOLD, 0, 24, 10 },
-    { FONT_KEY_GOTHIC_24_BOLD, 0, 21, 8 } },
-  { { FONT_KEY_LECO_36_BOLD_NUMBERS, 0, 30, 10 },
-    { FONT_KEY_LECO_32_BOLD_NUMBERS, 0, 27, 8 },
-    { FONT_KEY_LECO_28_LIGHT_NUMBERS, 0, 24, 7 } },
-  { { NULL, RESOURCE_ID_FONT_SILKTIME_24, 19, 8 },
-    { NULL, RESOURCE_ID_FONT_SILKTIME_24, 19, 8 },
-    { NULL, RESOURCE_ID_FONT_SILKTIME_16, 14, 5 } },
-  { { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9 },
-    { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8 },
-    { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8 } },
-  { { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9 },
-    { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8 },
-    { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8 } },
+  { { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9, 0 },
+    { FONT_KEY_GOTHIC_28_BOLD, 0, 24, 10, 0 },
+    { FONT_KEY_GOTHIC_24_BOLD, 0, 21, 8, 0 } },
+  { { FONT_KEY_LECO_36_BOLD_NUMBERS, 0, 30, 10, 0 },
+    { FONT_KEY_LECO_32_BOLD_NUMBERS, 0, 27, 8, 0 },
+    { FONT_KEY_LECO_28_LIGHT_NUMBERS, 0, 24, 7, 0 } },
+  { { NULL, RESOURCE_ID_FONT_SILKTIME_24, 19, 8, 3 },
+    { NULL, RESOURCE_ID_FONT_SILKTIME_24, 19, 8, 3 },
+    { NULL, RESOURCE_ID_FONT_SILKTIME_16, 14, 5, 2 } },
+  { { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9, 0 },
+    { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8, 0 },
+    { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8, 0 } },
+  { { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9, 0 },
+    { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8, 0 },
+    { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8, 0 } },
 #else                                                    // 144x168 rect
-  { { FONT_KEY_ROBOTO_BOLD_SUBSET_49, 0, 40, 13 },
-    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9 },
-    { FONT_KEY_GOTHIC_28_BOLD, 0, 24, 10 } },
-  { { FONT_KEY_LECO_38_BOLD_NUMBERS, 0, 32, 10 },
-    { FONT_KEY_LECO_32_BOLD_NUMBERS, 0, 27, 8 },
-    { FONT_KEY_LECO_28_LIGHT_NUMBERS, 0, 24, 7 } },
-  { { NULL, RESOURCE_ID_FONT_SILKTIME_32, 24, 11 },
-    { NULL, RESOURCE_ID_FONT_SILKTIME_24, 19, 8 },
-    { NULL, RESOURCE_ID_FONT_SILKTIME_16, 14, 5 } },
-  { { FONT_KEY_BITHAM_42_BOLD, 0, 35, 12 },
-    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9 },
-    { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8 } },
-  { { FONT_KEY_BITHAM_42_LIGHT, 0, 35, 12 },
-    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9 },
-    { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8 } },
+  { { FONT_KEY_ROBOTO_BOLD_SUBSET_49, 0, 40, 13, 0 },
+    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9, 0 },
+    { FONT_KEY_GOTHIC_28_BOLD, 0, 24, 10, 0 } },
+  { { FONT_KEY_LECO_38_BOLD_NUMBERS, 0, 32, 10, 0 },
+    { FONT_KEY_LECO_32_BOLD_NUMBERS, 0, 27, 8, 0 },
+    { FONT_KEY_LECO_28_LIGHT_NUMBERS, 0, 24, 7, 0 } },
+  { { NULL, RESOURCE_ID_FONT_SILKTIME_32, 24, 11, 4 },
+    { NULL, RESOURCE_ID_FONT_SILKTIME_24, 19, 8, 3 },
+    { NULL, RESOURCE_ID_FONT_SILKTIME_16, 14, 5, 2 } },
+  { { FONT_KEY_BITHAM_42_BOLD, 0, 35, 12, 0 },
+    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9, 0 },
+    { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8, 0 } },
+  { { FONT_KEY_BITHAM_42_LIGHT, 0, 35, 12, 0 },
+    { FONT_KEY_BITHAM_34_MEDIUM_NUMBERS, 0, 28, 9, 0 },
+    { FONT_KEY_BITHAM_30_BLACK, 0, 25, 8, 0 } },
 #endif
 };
 
@@ -187,20 +190,52 @@ void layout_unload_fonts(void) {
   }
 }
 
-// In 12-hour mode AM/PM sits beside the digits, and Pixel's digits are wide
-// enough that "12:00" leaves it no room on some screens. There the size steps
-// down one, for the whole day, so the face doesn't change size at 10 o'clock.
-static int prv_size_with_ampm(const TimeFontSpec (*family)[3], int idx, int16_t width) {
-  if (use_24h()) { return idx; }
-  const GRect box = GRect(0, 0, 32767, 32767);
-  int16_t ampm = graphics_text_layout_get_content_size("PM", g_font_small_bold, box,
-      GTextOverflowModeFill, GTextAlignmentLeft).w;
-  for (; idx < 2; idx++) {
-    int16_t digits = graphics_text_layout_get_content_size("12:00", prv_resolve_font(&(*family)[idx]),
-        box, GTextOverflowModeFill, GTextAlignmentLeft).w;
-    if (digits + TIME_SIDE_GAP + ampm <= width - 2) { break; }
+// The widest time of the day in font f: in 12-hour mode one of 10, 11 or 12
+// o'clock, in 24-hour mode any hour, with the widest minute digits.
+static int16_t prv_widest_time(GFont f, bool h12) {
+  char d[2] = "0";
+  int16_t w[10], widest = 0;
+  for (int i = 0; i < 10; i++) {
+    d[0] = (char) ('0' + i);
+    w[i] = text_width(d, f);
+    if (w[i] > widest) { widest = w[i]; }
   }
-  return idx;
+  int16_t lead = w[0] > w[1] ? w[0] : w[1];
+  if (w[2] > lead) { lead = w[2]; }
+  return (h12 ? w[1] : widest) + lead + text_width(":", f) + 2 * widest;
+}
+
+// AM/PM and the seconds sit beside the digits. The plan is made for the
+// widest time of the day, so nothing changes at 10 o'clock. When they don't
+// fit, Pixel's glyphs close up, a pixel at a time and evenly, up to one of its
+// design pixels; then AM/PM shortens to one letter; only a font that still
+// can't fit steps down a size.
+static int prv_plan_time(const TimeFontSpec (*family)[3], int idx, GRect zone, Layout *l) {
+  const bool h12 = !use_24h();
+  // Gothic's digits share one width, and so do AM and PM.
+  const int16_t sec_w = g_settings.show_seconds ? text_width("00", g_font_small_bold) : 0;
+  const int16_t ampm_w = h12 ? text_width("PM", g_font_small_bold) : 0;
+  const int16_t letter_w = h12 ? text_width("P", g_font_small_bold) : 0;
+  for (;; idx++) {
+    const TimeFontSpec *spec = &(*family)[idx];
+    const int16_t widest = prv_widest_time(prv_resolve_font(spec), h12);
+    l->time_pad = spec->px ? spec->px : 1;
+    zone.size.h = spec->height;
+    for (int step = 0; step <= spec->px + 1; step++) {
+      const bool letter = step > spec->px;
+      if (letter && !h12) { break; }
+      l->time_tight = letter ? spec->px : step;
+      l->time_letter = letter;
+      // "12:59": five glyphs, four gaps.
+      TimePlace place;
+      if (time_place(zone, widest - 4 * l->time_tight - 2 * l->time_pad,
+                     letter ? letter_w : ampm_w, sec_w, &place)) {
+        return idx;
+      }
+    }
+    // Nothing fits: the smallest size, as tight as it goes.
+    if (idx == 2) { return idx; }
+  }
 }
 
 static bool prv_any_metric_selected(void) {
@@ -218,7 +253,8 @@ static bool prv_any_metric_selected(void) {
 #if defined(PBL_ROUND)
 static void prv_layout_round(Layout *l, GRect ub) {
   const TimeFontSpec (*family)[3] = &TIME_FONTS[g_settings.time_font];
-  const TimeFontSpec *spec = &(*family)[prv_size_with_ampm(family, g_settings.time_size, ub.size.w)];
+  const TimeFontSpec *spec = &(*family)[prv_plan_time(family, g_settings.time_size,
+      GRect(ub.origin.x, ub.origin.y + R_TIME_TOP, ub.size.w, 0), l)];
   l->time_font = prv_resolve_font(spec);
   l->time_font_h = spec->height;
   l->time_trim = spec->trim;
@@ -359,17 +395,7 @@ static void prv_layout_rect(Layout *l, GRect ub, int16_t extra_h) {
   l->stage = (uint8_t) stage;
   l->banner_inline = banner_inline;
 
-#if PBL_DISPLAY_WIDTH < 200
-  // Bitham has no face between 42 and 34: the 42px faces are kept for
-  // Large, stepping down one rung only while the seconds column crowds
-  // the 144px screens.
-  if ((g_settings.time_font == TIME_FONT_CLASSIC_BOLD
-       || g_settings.time_font == TIME_FONT_CLASSIC_LIGHT)
-      && g_settings.show_seconds && time_idx < 2) {
-    time_idx++;
-  }
-#endif
-  time_idx = prv_size_with_ampm(family, time_idx, ub.size.w);
+  time_idx = prv_plan_time(family, time_idx, GRect(ub.origin.x, 0, ub.size.w, 0), l);
 
   const TimeFontSpec *spec = &(*family)[time_idx];
   l->time_font = prv_resolve_font(spec);

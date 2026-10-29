@@ -170,14 +170,8 @@ static void prv_uppercase(char *p) {
   }
 }
 
-static int16_t prv_text_w(const char *s, GFont font) {
-  if (!s[0]) { return 0; }
-  return graphics_text_layout_get_content_size(
-      s, font, GRect(0, 0, 32767, 64), GTextOverflowModeFill, GTextAlignmentLeft).w;
-}
-
 static bool prv_text_fits(const char *s, GFont font, int16_t max_w) {
-  return prv_text_w(s, font) <= max_w;
+  return text_width(s, font) <= max_w;
 }
 
 #define DATE_CANDIDATES 4
@@ -341,8 +335,8 @@ static void prv_bar_span(GRect bz, int16_t *x0, int16_t *x1) {
 
 static bool prv_bar_fits(const char *date, const char *event, bool glyph, int16_t avail) {
   int16_t glyph_w = glyph ? status_icon_width(METRIC_NEXT_EVENT, BAR_GLYPH_S) - 2 + 3 : 0;
-  return prv_text_w(date, g_font_banner) + BAR_GAP + glyph_w
-      + prv_text_w(event, g_font_small) <= avail;
+  return text_width(date, g_font_banner) + BAR_GAP + glyph_w
+      + text_width(event, g_font_small) <= avail;
 }
 
 static void prv_bar_compose(BarText *out, const EventView *ev, int16_t avail) {
@@ -403,7 +397,7 @@ static void prv_bar_draw_event(GContext *ctx, GRect bz, const EventView *ev, int
     graphics_draw_text(ctx, bt.date, g_font_banner, GRect(x0, ty, x1 - x0, th),
                        GTextOverflowModeFill, GTextAlignmentLeft, NULL);
   }
-  int16_t right = x1 - stale_w, ew = prv_text_w(bt.event, g_font_small);
+  int16_t right = x1 - stale_w, ew = text_width(bt.event, g_font_small);
   graphics_context_set_text_color(ctx, event_color);
   graphics_draw_text(ctx, bt.event, g_font_small, GRect(right - ew, ty, ew + 1, th),
                      GTextOverflowModeFill, GTextAlignmentLeft, NULL);
@@ -475,7 +469,7 @@ void draw_calendar_update_proc(Layer *layer, GContext *ctx) {
                            0, GCornerNone);
       }
       int16_t stale_w = (g_settings.dots_enabled && g_dots.status != 0)
-          ? prv_text_w("!", g_font_banner) + 4 : 0;
+          ? text_width("!", g_font_banner) + 4 : 0;
       prv_bar_draw_event(ctx, bz, &ev, stale_w, filled ? theme_on_accent() : theme_accent(),
                          filled ? theme_on_accent() : fg);
       bar_event = true;

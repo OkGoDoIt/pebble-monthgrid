@@ -448,11 +448,11 @@
       DOT_SQ_W: 3, DOT_SQ_H: 3, DOT_GAP: 2, HEADER_TOP_PAD: 3, BANNER_TEXT_LIFT: 3,
       fonts: { small: 'GOTHIC_18', smallBold: 'GOTHIC_18_BOLD', header: 'GOTHIC_14',
                banner: 'GOTHIC_18_BOLD' },
-      // TIME_FONTS[family][size] = [font, zone height, trim]
+      // TIME_FONTS[family][size] = [font, zone height, trim, Silkscreen's design pixel]
       timeFonts: [
         [['ROBOTO_BOLD_SUBSET_49', 40, 13], ['GOTHIC_28_BOLD', 24, 10], ['GOTHIC_24_BOLD', 21, 8]],
         [['LECO_60_BOLD_NUMBERS_AM_PM', 48, 17], ['LECO_42_NUMBERS', 34, 12], ['LECO_36_BOLD_NUMBERS', 30, 10]],
-        [['SILKTIME_48', 34, 17], ['SILKTIME_32', 24, 11], ['SILKTIME_24', 19, 8]],
+        [['SILKTIME_48', 34, 17, 6], ['SILKTIME_32', 24, 11, 4], ['SILKTIME_24', 19, 8, 3]],
         [['BITHAM_42_BOLD', 35, 12], ['BITHAM_42_BOLD', 35, 12], ['BITHAM_34_MEDIUM_NUMBERS', 28, 9]],
         [['BITHAM_42_LIGHT', 35, 12], ['BITHAM_42_LIGHT', 35, 12], ['BITHAM_34_MEDIUM_NUMBERS', 28, 9]],
       ],
@@ -485,6 +485,60 @@
   // under the status line that travels with it through the cascade.
 
   var STAGES = [[1, 0, 1, 0], [0, 0, 1, 0], [0, 1, 1, 0], [0, 1, 1, 1], [0, 1, 0, 1], [0, 2, 0, 1], [0, 2, 0, 2]];
+
+  // The widest time of the day: 10, 11 or 12 o'clock in 12-hour mode, any
+  // hour in 24-hour mode, with the widest minute digits (layout.c).
+  function widestTime(font, h12) {
+    var w = [], widest = 0;
+    for (var i = 0; i < 10; i++) { w[i] = measureText(String(i), font).w; widest = Math.max(widest, w[i]); }
+    return (h12 ? w[1] : widest) + Math.max(w[0], w[1], w[2]) + measureText(':', font).w + 2 * widest;
+  }
+
+  // AM/PM and the seconds beside the digits (draw_time.c time_place): digits
+  // w wide (ink to ink) centered in zone, nudged left only as far as the
+  // labels need. -> {x, sideX, ampmTop, secTop, secShown, fits}
+  function placeTime(P, zone, w, ampmW, secW) {
+    var D = P.SMALL_DIGIT_H, gap = P.SIDE_GAP + 1, edge = 2;
+    var ampmTop = zone.y + 1;
+    var secTop = ampmW ? zone.y + zone.h - D - 1 : zone.y + idiv(zone.h - D, 2);
+    if (ampmW && secW && secTop < ampmTop + D + 2) { secTop = ampmTop + D + 2; }
+    var secShown = !!secW && secTop + D <= zone.y + zone.h + 6;
+    if (!secShown) { secW = 0; }
+    var x = zone.x + idiv(zone.w - w, 2);
+    var over = Math.max(ampmW ? x + w + gap + ampmW - (zone.x + zone.w - edge) : 0,
+                        secW ? x + w + gap + secW - (zone.x + zone.w - edge) : 0);
+    if (over > 0) { x -= over; }
+    return { x: x, sideX: x + w + gap, ampmTop: ampmTop, secTop: secTop, secShown: secShown,
+             fits: x >= zone.x + edge };
+  }
+
+  // Planned for the widest time so nothing changes at 10 o'clock: when the
+  // labels don't fit, Pixel's glyphs close up evenly, a pixel at a time, up to
+  // one design pixel; then AM/PM shortens to one letter; only a font that
+  // still can't fit steps down a size (layout.c prv_plan_time).
+  function planTime(P, s, family, l, h24) {
+    var bold = P.fonts.smallBold;
+    var secW = s.SHOW_SECONDS ? measureText('00', bold).w : 0;
+    // Gothic's digits share one width, and so do AM and PM.
+    var ampmW = h24 ? 0 : measureText('PM', bold).w;
+    var letterW = h24 ? 0 : measureText('P', bold).w;
+    for (;; l.timeIdx++) {
+      var spec = family[l.timeIdx], px = spec[3] || 0;
+      var widest = widestTime(spec[0], !h24);
+      l.timePad = px || 1;
+      for (var step = 0; step <= px + 1; step++) {
+        var letter = step > px;
+        if (letter && h24) { break; }
+        l.timeTight = letter ? px : step;
+        l.timeLetter = letter;
+        var zone = rect(0, 0, P.width, spec[1]);
+        if (placeTime(P, zone, widest - 4 * l.timeTight - 2 * l.timePad, letter ? letterW : ampmW, secW).fits) {
+          return;
+        }
+      }
+      if (l.timeIdx === 2) { return; }
+    }
+  }
 
   function computeLayout(P, s, now, extra, obstruction, h24) {
     var ub = rect(0, 0, P.width, P.height - (obstruction || 0));
@@ -528,14 +582,7 @@
     if (chosen < 0) { chosen = fallback >= 0 ? fallback : STAGES.length - 1; }
     apply(STAGES[chosen]);
 
-    // In 12-hour mode a size whose "12:00" leaves AM/PM no room steps down
-    // one, all day (layout.c prv_size_with_ampm).
-    if (!h24) {
-      var ampm = measureText('PM', P.fonts.smallBold).w;
-      while (l.timeIdx < 2 && measureText('12:00', family[l.timeIdx][0]).w + P.SIDE_GAP + ampm > P.width - 2) {
-        l.timeIdx++;
-      }
-    }
+    planTime(P, s, family, l, h24);
     var spec = family[l.timeIdx];
     l.timeFont = spec[0];
     l.timeFontH = spec[1];
@@ -587,37 +634,33 @@
   function use24h(s, data) { return s.TIME_FORMAT === 2 || (s.TIME_FORMAT === 0 && !!data.system24h); }
 
   function drawTime(P, sf, l, s, data, th) {
-    var now = data.now, zone = l.time;
+    var now = data.now, zone = l.time, font = l.timeFont;
     var timeBuf, ampm = '', sec = '';
     if (use24h(s, data)) {
       timeBuf = pad2(now.getHours()) + ':' + pad2(now.getMinutes());
     } else {
       timeBuf = ((now.getHours() % 12) || 12) + ':' + pad2(now.getMinutes());
-      ampm = now.getHours() < 12 ? 'AM' : 'PM';
+      ampm = (now.getHours() < 12 ? 'A' : 'P') + (l.timeLetter ? '' : 'M');
     }
     if (s.SHOW_SECONDS) { sec = pad2(now.getSeconds()); }
-    var bold = P.fonts.smallBold;
-    var tw = measureText(timeBuf, l.timeFont).w;
+    var bold = P.fonts.smallBold, tight = l.timeTight, pad = l.timePad;
+    var w = measureText(timeBuf, font).w - tight * (timeBuf.length - 1) - 2 * pad;
     var ampmW = ampm ? measureText(ampm, bold).w : 0;
     var secW = sec ? measureText(sec, bold).w : 0;
-    var sideW = Math.max(ampmW, secW);
-    var x0 = zone.x + idiv(zone.w - tw, 2);
-    if (sideW > 0) {
-      var over = (x0 + tw + P.SIDE_GAP + sideW) - (zone.x + zone.w - 2);
-      if (over > 0) { x0 -= over; }
-    }
-    x0 = Math.max(x0, zone.x);
-    drawText(sf, timeBuf, l.timeFont,
-             rect(x0, zone.y - l.timeTrim, tw + 2, zone.h + l.timeTrim + 16), th.fg, 'left');
-    var sideX = Math.min(x0 + tw + P.SIDE_GAP, zone.x + zone.w - 2 - sideW);
+    var place = placeTime(P, zone, w, ampmW, secW);
+    var y = zone.y - l.timeTrim, h = zone.h + l.timeTrim + 16, x = place.x - pad;
+    // One glyph at a time, so the gaps can narrow (draw_time.c).
+    timeBuf.split('').forEach(function (ch) {
+      var gw = measureText(ch, font).w;
+      drawText(sf, ch, font, rect(x, y, gw + 2, h), th.fg, 'left');
+      x += gw - tight;
+    });
     var D = P.SMALL_DIGIT_H, sideH = D + P.SMALL_TOP_PAD + 8;
-    var ampmTop = zone.y + 1;
-    var secTop = ampm ? zone.y + zone.h - D - 1 : zone.y + idiv(zone.h - D, 2);
-    if (ampm && sec && secTop < ampmTop + D + 2) { secTop = ampmTop + D + 2; }
-    if (sec && secTop + D > zone.y + zone.h + 6) { sec = ''; }
-    if (ampm) { drawText(sf, ampm, bold, rect(sideX, ampmTop - P.SMALL_TOP_PAD, ampmW + 2, sideH), th.fg); }
-    if (sec) { drawText(sf, sec, bold, rect(sideX, secTop - P.SMALL_TOP_PAD, secW + 2, sideH), th.fg); }
-    l.timeText = { x: x0, w: tw, text: timeBuf, ampm: ampm, seconds: sec };
+    if (ampm) { drawText(sf, ampm, bold, rect(place.sideX, place.ampmTop - P.SMALL_TOP_PAD, ampmW + 2, sideH), th.fg); }
+    if (sec && place.secShown) {
+      drawText(sf, sec, bold, rect(place.sideX, place.secTop - P.SMALL_TOP_PAD, secW + 2, sideH), th.fg);
+    }
+    l.timeText = { x: place.x, w: w, text: timeBuf, ampm: ampm, seconds: place.secShown ? sec : '' };
   }
 
   // -------------------------------------------------------------------------

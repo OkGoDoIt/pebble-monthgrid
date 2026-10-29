@@ -33,7 +33,10 @@ If you test it on any other Pebble watch models, please let me know if you find 
 - **Big time display** with five selectable font styles — Roboto (default), Digital
   (LECO), Pixel (Silkscreen), Bitham bold / light — in three sizes.
   12-hour mode doesn't show a leading zero. Optional seconds (off by default; the
-  face ticks once a minute to save battery unless enabled).
+  face ticks once a minute to save battery unless enabled). The size you pick holds
+  in every mode: where AM/PM or the seconds are tight beside the digits, the Pixel
+  font closes its gaps by a pixel, and where even that isn't enough AM/PM shortens
+  to `A`/`P`.
 - **Status line** — add items in priority order, as many as you like. As many as fit on the watch are shown. Items with nothing to report are hidden automatically. Choose from:
   - Watch battery and Phone battery, each always or only once low
   - Weather (condition icon + temperature, °F/°C), with today's high and low or the next three hours
@@ -109,8 +112,8 @@ full dates, ordered for your region and automatically shortened when space is ti
 
 ### Time display
 
-Five fonts, three sizes, optional seconds, and 12/24-hour (or follow the watch).
-12-hour mode doesn't show a leading zero.
+Five fonts, three sizes, optional seconds, and 12/24-hour (or Auto, which follows
+the watch). 12-hour mode doesn't show a leading zero.
 
 | Roboto (default) | Digital | Pixel | Bitham bold | Bitham light |
 |:---:|:---:|:---:|:---:|:---:|
