@@ -1,0 +1,10 @@
+MonthGrid 1.4.0
+
+• New visual settings with a live preview of your watchface.
+• Choose where your next event appears and how early it shows.
+• Separate watch and phone battery readings.
+• Weather range and hourly options when the Pebble app supplies them.
+• Improved Pixel font sizing, calendar previews, and round-screen layout.
+• More consistent handling of all-day events and daylight-saving time.
+
+Next events, phone battery, and readings from other apps require compatible Pebble app support. Calendar access depends on permissions; the plugin-enabled download is available separately on GitHub.

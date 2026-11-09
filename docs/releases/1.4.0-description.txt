@@ -1,0 +1,15 @@
+The watchface I've wanted ever since my old Pebble Steel: the time up top, a full month calendar below, and a status line you pick yourself. Inspired by the old Calendar Watchface by Willian Heaton, updated and extended for today's Pebble watches.
+
+• Visual settings with a live watchface preview
+• Full month grid, today highlighted, and optional neighboring days
+• Five time fonts in three sizes, 12- or 24-hour time, and optional seconds
+• Month name, full date, or numeric date in the month bar
+• Choose and order battery, weather, health, alarm, and connection readings
+• Weather from Open-Meteo, with optional high/low or hourly readings when available
+• Calendar markers from up to three iCal links, with a color for each calendar
+• Ten themes and custom colors
+• Layouts for rectangular and round watches, including Timeline Quick View
+
+On compatible Pebble apps with plugins enabled, add your next event, phone battery, and readings from other apps. Available readings depend on the app, watch, and permissions. Calendar access may require the plugin-enabled download linked from the GitHub release.
+
+Calendar links stay on your phone. Health readings appear only on watches with the needed sensors.
