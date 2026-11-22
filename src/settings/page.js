@@ -378,7 +378,7 @@
     var E = c.store.state.event, out = [];
     if (!c.ctx.served.event) {
       out.push(el('div', { class: 'callout' }, [el('h3', { text: 'Your calendar isn’t available' }),
-        el('p', { text: 'Turn on plugins in the Pebble app’s settings to show your next event.' })]));
+        el('p', { text: 'Allow MonthGrid to use your calendar in the Pebble app, or update the app to version 2.0.' })]));
     }
     var soon = MG.whenShown('event', c.store.state, c.data);
     // The pictures show a sample event even before the calendar can be read.

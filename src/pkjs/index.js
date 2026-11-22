@@ -141,6 +141,21 @@ function fetchUrl(url, cb) {
   }
 }
 
+// A calendar the user hasn't allowed yet fails until they answer the Pebble
+// app's prompt, so a failure is tried again soon, a few times, before
+// falling back to the six-hourly refresh.
+var DOTS_RETRY_MS = [2, 10, 30].map(function(m) { return m * 60 * 1000; });
+var dotsRetries = 0;
+var dotsRetryTimer = null;
+
+function scheduleDotsRetry() {
+  if (dotsRetryTimer || dotsRetries >= DOTS_RETRY_MS.length) { return; }
+  dotsRetryTimer = setTimeout(function() {
+    dotsRetryTimer = null;
+    pushDots();
+  }, DOTS_RETRY_MS[dotsRetries++]);
+}
+
 var DOTS_STATUS_KEY = 'monthgrid-dots-status';
 
 function saveDotsStatus(entries) {
@@ -202,8 +217,10 @@ function pushDots(monthkey) {
       // dots, shows a stale badge, and re-requests later.
       console.log('monthgrid: dots send skipped (a calendar failed); sending status only');
       sendWithRetry({ DOTS_STATUS: 1 }, 'dots-status');
+      scheduleDotsRetry();
       return;
     }
+    dotsRetries = 0;
     if (monthkey === currentMonthkey()) { saveMarks(monthkey, links, bytes); }
     sendWithRetry({ DOTS_MONTH: monthkey, DOTS_DATA: bytes, DOTS_STATUS: 0 }, 'dots');
   };

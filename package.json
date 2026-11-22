@@ -1,7 +1,7 @@
 {
   "name": "monthgrid",
   "author": "Roger",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "keywords": [
     "pebble-app"
   ],
@@ -29,15 +29,43 @@
       "health"
     ],
     "usesPermissions": [
-      "Calendar",
-      "Location",
+      {
+        "name": "Calendar",
+        "reason": "To show your next event",
+        "required": false
+      },
+      {
+        "name": "Location",
+        "reason": "To show the weather where you are",
+        "required": false
+      },
+      {
+        "name": "Health",
+        "reason": "To show your steps, heart rate, and other health readings",
+        "required": false
+      },
       {
         "name": "Internet",
         "parameters": {
           "domains": [
             "api.open-meteo.com"
           ]
-        }
+        },
+        "reason": "To get the weather",
+        "required": false
+      },
+      {
+        "name": "Internet",
+        "parameters": {
+          "domains": [
+            "calendar.google.com",
+            "icloud.com",
+            "outlook.office365.com",
+            "outlook.live.com"
+          ]
+        },
+        "reason": "To mark days from the calendar links you add",
+        "required": false
       }
     ],
     "messageKeys": [
