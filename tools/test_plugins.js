@@ -732,6 +732,35 @@ test('next event: a month-long all-day event never schedules past 6 hours', func
   });
 });
 
+test('next event: a multi-day all-day event has its turn on its first day only', function() {
+  setup({ plugins: CAL_PLUGIN, settings: { METRIC1: '13' } });
+  resetTake();
+  ready();
+  var t = require(path.join(PKJS, 'plugins.js'))._test;
+  var now = nowSec();
+  var today = t.localMidnight(now, 0);
+  var s = sub('calendar', 'event');
+  // Day five of a two-week trip: the trip says nothing new; a birthday that
+  // falls during it does.
+  s.data(calendarEnvelope([
+    { name: 'Lisbon trip', start: t.localMidnight(now, -4), end: t.localMidnight(now, 10), allDay: true },
+    { name: 'Dana birthday', start: t.localMidnight(now, 2), end: t.localMidnight(now, 3), allDay: true },
+  ]));
+  advance(100);
+  var got = take(EVENT_KEYS);
+  assert.strictEqual(got[got.length - 1].ALLDAY_NAME, 'Dana birthday');
+  // A trip that starts today shows today, and is gone once today is over.
+  s.data(calendarEnvelope([
+    { name: 'Lisbon trip', start: today, end: t.localMidnight(now, 14), allDay: true },
+  ]));
+  advance(100);
+  got = take(EVENT_KEYS);
+  assert.strictEqual(got[got.length - 1].ALLDAY_NAME, 'Lisbon trip');
+  advance((t.localMidnight(now, 1) - now) * 1000 + 6 * 3600 * 1000);
+  got = take(EVENT_KEYS);
+  assert.strictEqual(got[got.length - 1].ALLDAY_NAME, '');
+});
+
 test('next event: all-day dates at UTC midnight become local midnight', function() {
   setup();
   var t = require(path.join(PKJS, 'plugins.js'))._test;

@@ -158,10 +158,12 @@ function booleanOf(payloads) {
 
 // calendar/event lists upcoming events soonest first, including any under
 // way. The watch gets two: the next timed event that hasn't started (or only
-// just has), and the first all-day event that hasn't ended. It decides
+// just has), and the first all-day event that starts today or later (one
+// that began on an earlier day has had its turn). It decides
 // which to show, and when, from the settings and its own clock.
 function pickEvents(instances, nowSec) {
   var timed = null, allDay = null;
+  var today = localMidnight(nowSec, 0);
   for (var i = 0; i < (instances || []).length; i++) {
     var p = instances[i].properties || {};
     var start = timestampOf(p.starts_at);
@@ -180,12 +182,18 @@ function pickEvents(instances, nowSec) {
       allDay: isAllDay,
     };
     if (ev.allDay) {
-      if (!allDay || ev.start < allDay.start) { allDay = ev; }
+      if (ev.start >= today && (!allDay || ev.start < allDay.start)) { allDay = ev; }
     } else if (start > nowSec - EVENT_GRACE_SEC) {
       if (!timed || ev.start < timed.start) { timed = ev; }
     }
   }
   return { timed: timed, allDay: allDay };
+}
+
+// Local midnight days after the day sec falls on.
+function localMidnight(sec, days) {
+  var d = new Date(sec * 1000);
+  return Math.floor(new Date(d.getFullYear(), d.getMonth(), d.getDate() + days).getTime() / 1000);
 }
 
 // Android keeps an all-day event's dates at UTC midnight; the watch wants
@@ -702,10 +710,11 @@ Bridge.prototype.pickEvent = function() {
   var picked = pickEvents(this.events, Math.floor(nowMs() / 1000));
   this.outbox.offer('event', eventDict(picked));
   // The calendar only updates when its list changes, which an event
-  // starting (or an all-day one ending) doesn't do: move on ourselves.
+  // starting (or an all-day one's first day ending) doesn't do: move on
+  // ourselves.
   var next = [];
   if (picked.timed) { next.push((picked.timed.start + EVENT_GRACE_SEC) * 1000); }
-  if (picked.allDay && picked.allDay.end) { next.push(picked.allDay.end * 1000); }
+  if (picked.allDay) { next.push(localMidnight(picked.allDay.start, 1) * 1000); }
   this.scheduleEventPick(next.length ? Math.min.apply(null, next) : null);
 };
 
@@ -983,6 +992,7 @@ module.exports = {
     tempTenthsC: tempTenthsC,
     conditionOf: conditionOf,
     weatherDict: weatherDict,
+    localMidnight: localMidnight,
     pickEvents: pickEvents,
     localDate: localDate,
     cutName: cutName,

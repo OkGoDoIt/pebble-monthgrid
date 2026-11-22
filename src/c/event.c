@@ -19,11 +19,12 @@ int32_t day_number(time_t t) {
 }
 
 // A timed event shows from its lead time (or, with "any time today", from
-// the start of its day) until it ends; an all-day event shows on its day, and
-// the day before when that is within the lead time.
-static bool prv_visible(time_t start, time_t end, time_t now) {
+// the start of its day) until it ends; an all-day event shows on its first
+// day only (a two-week trip says nothing new on day five), and the day before
+// when that is within the lead time.
+static bool prv_visible(time_t start, time_t end, time_t now, bool all_day) {
   if (!start || (end && now >= end)) { return false; }
-  if (now >= start) { return true; }
+  if (now >= start) { return !all_day || day_number(start) == day_number(now); }
   if (g_settings.event_within == 0) { return day_number(start) == day_number(now); }
   return start - now <= (time_t) g_settings.event_within * 60;
 }
@@ -34,13 +35,14 @@ bool event_current(EventView *ev) {
   if (g_settings.event_place == EVENT_OFF) { return false; }
   time_t now = time(NULL);
   if (g_plugin.event_name[0]
-      && prv_visible(g_plugin.event_start, g_plugin.event_end, now)) {
+      && prv_visible(g_plugin.event_start, g_plugin.event_end, now,
+                     g_plugin.event_all_day != 0)) {
     *ev = (EventView) { g_plugin.event_name, g_plugin.event_start, g_plugin.event_end,
                         g_plugin.event_all_day != 0 };
     return true;
   }
   if (g_plugin.allday_name[0]
-      && prv_visible(g_plugin.allday_start, g_plugin.allday_end, now)) {
+      && prv_visible(g_plugin.allday_start, g_plugin.allday_end, now, true)) {
     *ev = (EventView) { g_plugin.allday_name, g_plugin.allday_start, g_plugin.allday_end, true };
     return true;
   }
