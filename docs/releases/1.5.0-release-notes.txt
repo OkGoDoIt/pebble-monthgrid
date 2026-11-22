@@ -1,0 +1,11 @@
+MonthGrid 1.5
+
+• Your next calendar event, with a countdown, in the month bar, on its own line, or in the status line. A multi-day event shows on its first day.
+• Phone battery and your favorite readings from the Pebble app, as status items.
+• Weather and units from your Pebble app, with high/low and hourly options.
+• New visual settings with a live preview of your watchface.
+• Separate watch and phone battery readings.
+• Improved Pixel font sizing, calendar previews, and round-screen layout.
+• More consistent handling of all-day events and daylight-saving time.
+
+Next event, phone battery, and readings from other apps need Pebble app 2.0 or later.

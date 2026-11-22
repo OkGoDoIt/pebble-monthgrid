@@ -4,30 +4,30 @@ Roger publishes every app-store update himself. Agents prepare and verify the fi
 screenshots, and instructions; they do not upload releases or publish listing changes.
 GitHub releases are separate and may be published when requested.
 
-## MonthGrid 1.4.0
+## MonthGrid 1.5.0
 
-- [GitHub release and downloads](https://github.com/OkGoDoIt/pebble-monthgrid/releases/tag/v1.4.0)
-- Standard store binary: `monthgrid.pbw`.
-- Optional sideload binary: `monthgrid-plugins.pbw`. Same UUID and watchface, with Calendar,
-  Location, and Internet permission declarations in manifest version 2.
-- Store screenshots: `screenshots/releases/1.4.0/<platform>/`, two native-resolution captures
+- [GitHub release and downloads](https://github.com/OkGoDoIt/pebble-monthgrid/releases/tag/v1.5.0)
+- Store binary: `monthgrid.pbw`, the same file for both stores. Built with SDK 4.44, so it
+  declares its permissions (`manifestVersion` 2): Calendar, Location, Health, and Internet for
+  Open-Meteo and the common calendar hosts, each optional and with a reason. There is no
+  separate plugins build any more.
+- Store screenshots: `screenshots/releases/1.5.0/<platform>/`, two native-resolution captures
   from each of the seven SDK emulators. All calendar and battery values are synthetic.
-- Suggested description and release notes: `docs/releases/1.4.0-description.txt` and
-  `docs/releases/1.4.0-release-notes.txt`.
+- Description and release notes: `docs/releases/1.5.0-description.txt` and
+  `docs/releases/1.5.0-release-notes.txt`. The stores are on 1.2.0 (1.4.0 was never
+  submitted), so the notes cover everything since then.
 - UUID stays `45829fc0-2bd8-4b99-a273-1cd63d8f5ef5`. Update the existing listing.
 
-The standard store package is the existing legacy format. Calendar access can be refused by
-some Pebble app versions/settings. The separate plugin-enabled download declares its permissions
-explicitly. Next events, phone battery, weather detail, and other-app readings depend on compatible
-Pebble app/plugin support; emulator screenshots demonstrate the display using synthetic messages,
-not a physical phone permission test. A later store update can replace a sideloaded plugins build.
+Existing users updating from 1.2.0 are asked again for what they use: the Pebble app drops a
+legacy app's old access when it moves to declared permissions. Every permission is optional, so
+the update installs without waiting and asks the first time each one is used.
 
 ## Core Devices Pebble Appstore
 
 1. Open the [developer dashboard](https://developer.repebble.com/dashboard) and sign in with
    the account that owns MonthGrid.
 2. Select the existing MonthGrid listing (ID `865c44435a054e288357979f`).
-3. Create its next release, upload `monthgrid.pbw`, and use version **1.4.0**.
+3. Create its next release, upload `monthgrid.pbw`, and use version **1.5.0**.
 4. Paste the release notes. Update the description with the supplied text if desired.
 5. In each platform's screenshot collection, upload the two PNGs from the matching platform
    folder. Keep any existing screenshots you still want, within the portal's per-platform limit.
@@ -66,5 +66,5 @@ Rebble screenshot changes take effect immediately. The two stores are separate s
 what fits. Upload the PNGs without frames or resizing. Phone settings screenshots are review
 material, not watch-store screenshots.
 
-To regenerate after building: `python3 tools/capture_release_screenshots.py screenshots/releases/1.4.0`.
+To regenerate after building: `python3 tools/capture_release_screenshots.py screenshots/releases/1.5.0`.
 This changes emulator state only and never connects to a phone.
