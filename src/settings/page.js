@@ -303,21 +303,27 @@
       var startY = e.clientY;
       function rowsNow() { return Array.prototype.filter.call(list.children, function (x) { return x.classList.contains('srow'); }); }
       // Swap past every row the finger has crossed, however fast it moved.
+      // The neighbor moves, never the dragged row: moving the element that
+      // holds the pointer capture releases it, and the lift is never seen.
       function move(ev) {
         for (;;) {
           var dy = ev.clientY - startY, all = rowsNow(), i = all.indexOf(li), prev = all[i - 1], next = all[i + 1];
           if (next && dy > next.offsetHeight / 2) {
             list.insertBefore(next, li); startY += next.offsetHeight;
           } else if (prev && dy < -prev.offsetHeight / 2) {
-            list.insertBefore(li, prev); startY -= prev.offsetHeight;
+            list.insertBefore(prev, li.nextSibling); startY -= prev.offsetHeight;
           } else { break; }
         }
         li.style.transform = 'translateY(' + (ev.clientY - startY) + 'px)';
       }
+      var done = false;
       function up() {
+        if (done) { return; }
+        done = true;
         handle.removeEventListener('pointermove', move);
         handle.removeEventListener('pointerup', up);
         handle.removeEventListener('pointercancel', up);
+        handle.removeEventListener('lostpointercapture', up);
         li.classList.remove('dragging');
         li.style.transform = '';
         var order = rowsNow().map(function (x) { return x.getAttribute('data-id'); });
@@ -326,6 +332,7 @@
       handle.addEventListener('pointermove', move);
       handle.addEventListener('pointerup', up);
       handle.addEventListener('pointercancel', up);
+      handle.addEventListener('lostpointercapture', up);
     });
   }
 

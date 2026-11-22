@@ -1,0 +1,3 @@
+MonthGrid 1.5.1
+
+• Reordering status items in the settings page now drops the item where you let go.

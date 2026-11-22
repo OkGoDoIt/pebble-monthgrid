@@ -4,6 +4,18 @@ Roger publishes every app-store update himself. Agents prepare and verify the fi
 screenshots, and instructions; they do not upload releases or publish listing changes.
 GitHub releases are separate and may be published when requested.
 
+## MonthGrid 1.5.1
+
+A settings-page fix on top of 1.5.0: dragging a status item up the list left it floating and
+the new order unsaved. Same permissions, description, and screenshots as 1.5.0 (below).
+
+- [GitHub release and downloads](https://github.com/OkGoDoIt/pebble-monthgrid/releases/tag/v1.5.1)
+- Core Devices store (already on 1.5.0): upload `monthgrid.pbw` as version **1.5.1** with
+  `docs/releases/1.5.1-release-notes.txt`.
+- Rebble (still on 1.2.0): upload the same `monthgrid.pbw` with
+  `docs/releases/1.5.1-rebble-release-notes.txt`, which covers everything since 1.2.0, and
+  update the description and screenshots from the 1.5.0 kit.
+
 ## MonthGrid 1.5.0
 
 - [GitHub release and downloads](https://github.com/OkGoDoIt/pebble-monthgrid/releases/tag/v1.5.0)
