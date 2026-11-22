@@ -5,8 +5,8 @@ MonthGrid 1.5.1
 • Weather and units from your Pebble app, with high/low and hourly options.
 • New visual settings with a live preview of your watchface.
 • Separate watch and phone battery readings.
-• Status items reorder smoothly by dragging in the settings page.
 • Improved Pixel font sizing, calendar previews, and round-screen layout.
 • More consistent handling of all-day events and daylight-saving time.
+• Fixed dragging to reorder status items in the settings page: the item now drops where you let go.
 
 Next event, phone battery, and readings from other apps need Pebble app 2.0 or later.
